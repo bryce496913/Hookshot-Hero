@@ -1,13 +1,14 @@
 import SwiftUI
 
 struct RootView: View {
+    @Environment(\.accessibilityReduceMotion) private var systemReduceMotion
     @ObservedObject var router: AppRouter
     @ObservedObject var settingsStore: SettingsStore
 
     var body: some View {
         NavigationStack(path: $router.path) {
             MainMenuView(
-                play: router.startGame,
+                play: { router.startGame(configuration: settingsStore.configuration(systemReduceMotion: systemReduceMotion)) },
                 settings: router.showSettings,
                 help: router.showHelp
             )

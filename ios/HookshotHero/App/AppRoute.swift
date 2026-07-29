@@ -1,13 +1,15 @@
 import Foundation
 
 struct GameResult: Hashable, Sendable {
+    let sessionID: UUID
+    let levelID: LevelID
+    let missionID: MissionID?
     let score: Int
-    let didWin: Bool
+    let elapsedTime: TimeInterval
+    let outcome: GameOutcome
 }
 
 enum AppRoute: Hashable, Sendable {
-    case gameplay
-    case settings
-    case help
+    case gameplay, settings, help
     case results(GameResult)
 }

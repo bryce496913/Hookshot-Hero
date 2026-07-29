@@ -13,35 +13,65 @@ struct GameplayView: View {
     }
 
     var body: some View {
-        ZStack(alignment: .top) {
+        ZStack {
             SpriteView(scene: scene, isPaused: !session.canSimulate)
                 .ignoresSafeArea()
-                .accessibilityIdentifier("gameplayScene")
-            HStack {
-                Text("Health \(session.health)")
+                .accessibilityHidden(true)
+            VStack(spacing: 12) {
+                hud
+                if session.configuration.controlHintsEnabled {
+                    Text("Use Pause to suspend this development simulation.")
+                        .font(.footnote).padding(8).background(.ultraThinMaterial, in: Capsule())
+                        .accessibilityIdentifier("controlHint")
+                }
                 Spacer()
-                Text("Score \(session.score)")
-                Button(session.isPaused ? "Resume" : "Pause") {
-                    session.isPaused ? session.resume() : session.pause()
-                }
-                .buttonStyle(.borderedProminent)
-                .accessibilityIdentifier(session.isPaused ? "resumeButton" : "pauseButton")
             }
-            .padding()
-            .background(.ultraThinMaterial)
+            .safeAreaPadding(.horizontal)
+            .safeAreaPadding(.top, 8)
         }
-        .overlay {
-            if session.isPaused {
-                VStack(spacing: 20) {
-                    Text("Paused").font(.largeTitle.bold()).accessibilityIdentifier("pauseOverlay")
-                    Button("Resume") { session.resume() }.accessibilityIdentifier("overlayResumeButton")
-                    Button("Return to Menu", role: .destructive, action: returnToMenu)
-                        .accessibilityIdentifier("returnToMenuButton")
-                }
-                .padding(32).background(.regularMaterial, in: RoundedRectangle(cornerRadius: 20))
-            }
-        }
+        .overlay { if session.isPaused { pauseOverlay } }
         .navigationBarBackButtonHidden()
-        .onDisappear { session.dispose(); scene.isPaused = true }
+    }
+
+    private var hud: some View {
+        ViewThatFits(in: .horizontal) {
+            HStack(spacing: 16) { health; score; Spacer(minLength: 8); pauseButton }
+            VStack(spacing: 10) {
+                HStack { health; Spacer(); score }
+                pauseButton.frame(maxWidth: .infinity, alignment: .trailing)
+            }
+        }
+        .padding().background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 14))
+        .accessibilityElement(children: .contain)
+        .accessibilityIdentifier("gameplayHUD")
+    }
+
+    private var health: some View {
+        Text("Health \(session.health)")
+            .accessibilityLabel("Health").accessibilityValue("\(session.health)")
+            .accessibilityIdentifier("healthValue")
+    }
+    private var score: some View {
+        Text("Score \(session.score)")
+            .accessibilityLabel("Score").accessibilityValue("\(session.score)")
+            .accessibilityIdentifier("scoreValue")
+    }
+    private var pauseButton: some View {
+        Button(session.isPaused ? "Resume" : "Pause") { session.isPaused ? session.resume() : session.pause() }
+            .buttonStyle(.borderedProminent)
+            .accessibilityLabel(session.isPaused ? "Resume game" : "Pause game")
+            .accessibilityIdentifier(session.isPaused ? "resumeButton" : "pauseButton")
+    }
+    private var pauseOverlay: some View {
+        VStack(spacing: 20) {
+            Text("Paused").font(.largeTitle.bold()).accessibilityIdentifier("pauseOverlay")
+            Button("Resume") { session.resume() }
+                .accessibilityLabel("Resume game").accessibilityIdentifier("overlayResumeButton")
+            Button("Return to Menu", role: .destructive, action: returnToMenu)
+                .accessibilityIdentifier("returnToMenuButton")
+        }
+        .accessibilityElement(children: .contain)
+        .accessibilityLabel("Game paused")
+        .padding(32).background(.regularMaterial, in: RoundedRectangle(cornerRadius: 20))
     }
 }
