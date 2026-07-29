@@ -1,0 +1,155 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {};
+	objectVersion = 60;
+	objects = {
+/* Begin PBXBuildFile section */
+		7CC64A48CD838314F1470C45 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = AA8C1A905D9395F73AD2D105 /* Assets.xcassets */; };
+		227DDD5DE539927EC3903CEA /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = 4B20CAEC9337FDECB204F28A /* PrivacyInfo.xcprivacy */; };
+		919BAF5F64EB1FE9800D63B4 /* RootView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5D623A3A9ABC28C6858CD8C9 /* RootView.swift */; };
+		23843E5D532F93E0690C1115 /* HookshotHeroApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5A040FB70BCAB9DFDC81500B /* HookshotHeroApp.swift */; };
+		C7A3FC24FF3C7C3FA2CCA6FF /* AppRouter.swift in Sources */ = {isa = PBXBuildFile; fileRef = C21A1535CB06B3875DF70FFF /* AppRouter.swift */; };
+		34504A6051B1D54C8EC823D9 /* AppRoute.swift in Sources */ = {isa = PBXBuildFile; fileRef = 920A2BA72D028937EFFB8B97 /* AppRoute.swift */; };
+		13B805E5EEBDA116776F5F09 /* GameSession.swift in Sources */ = {isa = PBXBuildFile; fileRef = A418747C281C90C315F68054 /* GameSession.swift */; };
+		42C77A80F8AE0EF94A6C9F0D /* SimulationClock.swift in Sources */ = {isa = PBXBuildFile; fileRef = E9706A13B92CED7EA5130283 /* SimulationClock.swift */; };
+		4B226FE9D410A62F141EBAC1 /* EntityStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7CA3F9CB210008183838993D /* EntityStore.swift */; };
+		3FC09B2106C011C3781D65DA /* GameScene.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA597F6154D9B754277F195F /* GameScene.swift */; };
+		12CCE77A240BB33C0499D7D4 /* MainMenuView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C2F7292AF744B63DB8FCE05B /* MainMenuView.swift */; };
+		3D5E3889E7A540996FA4CDC1 /* SettingsStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = DCCE55871E5C074286FDE5ED /* SettingsStore.swift */; };
+		79C1F8A8969B3653CF026137 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = CF6FF1D8C672A9B4A5518C97 /* SettingsView.swift */; };
+		965EDFCB6981FA75D5AE720B /* GameSettings.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3DE44C87AE40CC07FF7E62B1 /* GameSettings.swift */; };
+		505BE07E42FFB534AB4CF2A5 /* GameplayView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A54B968720453CC2F0A6FD4F /* GameplayView.swift */; };
+		6F84AECB4D79FBD2554F816C /* ResultsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3419C3273109B9E208B63302 /* ResultsView.swift */; };
+		14859C642CD5C70AE86B458E /* HelpView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 339E59C758D903642828FC74 /* HelpView.swift */; };
+		F983ED122FE6162C72FCB4C8 /* AppLog.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9A65457771A933AEE18686CE /* AppLog.swift */; };
+		388A15DB24C2B493B820177E /* Progression.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6A08FCDA5237456DD135DD20 /* Progression.swift */; };
+		12A0B74595F885094BF5AB54 /* ProgressionRepositoryTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4477749780D796EF12915832 /* ProgressionRepositoryTests.swift */; };
+		1B6FF7C8E62687CB87326931 /* EntityStoreTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D97F48F0593829C9D96B3D13 /* EntityStoreTests.swift */; };
+		8EE27EF737E30DEF75FBDA25 /* GameSessionTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C2E08E1D21C914BD01EFD67B /* GameSessionTests.swift */; };
+		13BBF1CD945A2FDADA696549 /* SettingsTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2A198A2F9B32990471C25469 /* SettingsTests.swift */; };
+		5E9B9A1A44E292ED23EF4796 /* SimulationClockTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F187F52E7F8F517ACA545F04 /* SimulationClockTests.swift */; };
+		978D2CAACE297B6553ED40AC /* HookshotHeroUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C105B70B51A56C1196B1279F /* HookshotHeroUITests.swift */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXFileReference section */
+		AA8C1A905D9395F73AD2D105 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = "HookshotHero/Assets.xcassets"; sourceTree = "<group>"; };
+		4B20CAEC9337FDECB204F28A /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; lastKnownFileType = text.xml; path = "HookshotHero/Resources/PrivacyInfo.xcprivacy"; sourceTree = "<group>"; };
+		5D623A3A9ABC28C6858CD8C9 /* RootView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "HookshotHero/App/RootView.swift"; sourceTree = "<group>"; };
+		5A040FB70BCAB9DFDC81500B /* HookshotHeroApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "HookshotHero/App/HookshotHeroApp.swift"; sourceTree = "<group>"; };
+		C21A1535CB06B3875DF70FFF /* AppRouter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "HookshotHero/App/AppRouter.swift"; sourceTree = "<group>"; };
+		920A2BA72D028937EFFB8B97 /* AppRoute.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "HookshotHero/App/AppRoute.swift"; sourceTree = "<group>"; };
+		A418747C281C90C315F68054 /* GameSession.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "HookshotHero/Game/Session/GameSession.swift"; sourceTree = "<group>"; };
+		E9706A13B92CED7EA5130283 /* SimulationClock.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "HookshotHero/Game/Simulation/SimulationClock.swift"; sourceTree = "<group>"; };
+		7CA3F9CB210008183838993D /* EntityStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "HookshotHero/Game/Entities/EntityStore.swift"; sourceTree = "<group>"; };
+		CA597F6154D9B754277F195F /* GameScene.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "HookshotHero/Game/Rendering/GameScene.swift"; sourceTree = "<group>"; };
+		C2F7292AF744B63DB8FCE05B /* MainMenuView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "HookshotHero/Features/MainMenu/MainMenuView.swift"; sourceTree = "<group>"; };
+		DCCE55871E5C074286FDE5ED /* SettingsStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "HookshotHero/Features/Settings/SettingsStore.swift"; sourceTree = "<group>"; };
+		CF6FF1D8C672A9B4A5518C97 /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "HookshotHero/Features/Settings/SettingsView.swift"; sourceTree = "<group>"; };
+		3DE44C87AE40CC07FF7E62B1 /* GameSettings.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "HookshotHero/Features/Settings/GameSettings.swift"; sourceTree = "<group>"; };
+		A54B968720453CC2F0A6FD4F /* GameplayView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "HookshotHero/Features/Gameplay/GameplayView.swift"; sourceTree = "<group>"; };
+		3419C3273109B9E208B63302 /* ResultsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "HookshotHero/Features/Results/ResultsView.swift"; sourceTree = "<group>"; };
+		339E59C758D903642828FC74 /* HelpView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "HookshotHero/Features/Help/HelpView.swift"; sourceTree = "<group>"; };
+		9A65457771A933AEE18686CE /* AppLog.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "HookshotHero/Services/Logging/AppLog.swift"; sourceTree = "<group>"; };
+		6A08FCDA5237456DD135DD20 /* Progression.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "HookshotHero/Services/Persistence/Progression.swift"; sourceTree = "<group>"; };
+		4477749780D796EF12915832 /* ProgressionRepositoryTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "HookshotHeroTests/ProgressionRepositoryTests.swift"; sourceTree = "<group>"; };
+		D97F48F0593829C9D96B3D13 /* EntityStoreTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "HookshotHeroTests/EntityStoreTests.swift"; sourceTree = "<group>"; };
+		C2E08E1D21C914BD01EFD67B /* GameSessionTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "HookshotHeroTests/GameSessionTests.swift"; sourceTree = "<group>"; };
+		2A198A2F9B32990471C25469 /* SettingsTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "HookshotHeroTests/SettingsTests.swift"; sourceTree = "<group>"; };
+		F187F52E7F8F517ACA545F04 /* SimulationClockTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "HookshotHeroTests/SimulationClockTests.swift"; sourceTree = "<group>"; };
+		C105B70B51A56C1196B1279F /* HookshotHeroUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "HookshotHeroUITests/HookshotHeroUITests.swift"; sourceTree = "<group>"; };
+		607F34C8B84318CBD7BC9FCC /* HookshotHero.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = HookshotHero.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		ECCEBD644A951ECC2CFD17DB /* HookshotHeroTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = HookshotHeroTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		CA90AE886B3734F3F888B6CC /* HookshotHeroUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = HookshotHeroUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+/* End PBXFileReference section */
+
+/* Begin PBXContainerItemProxy section */
+		BEF57DD85B194E87AB6E400C = {isa = PBXContainerItemProxy; containerPortal = 98F54143AB4E86B28C3AFEE0; proxyType = 1; remoteGlobalIDString = CDD0594F25E2D11765293A24; remoteInfo = HookshotHero; };
+		DACB3A8B784983D3CE2AA070 = {isa = PBXContainerItemProxy; containerPortal = 98F54143AB4E86B28C3AFEE0; proxyType = 1; remoteGlobalIDString = CDD0594F25E2D11765293A24; remoteInfo = HookshotHero; };
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXGroup section */
+		E50290A24C49A459B43487C5 = {isa = PBXGroup; children = (
+				AA8C1A905D9395F73AD2D105 /* Assets.xcassets */,
+				4B20CAEC9337FDECB204F28A /* PrivacyInfo.xcprivacy */,
+				5D623A3A9ABC28C6858CD8C9 /* RootView.swift */,
+				5A040FB70BCAB9DFDC81500B /* HookshotHeroApp.swift */,
+				C21A1535CB06B3875DF70FFF /* AppRouter.swift */,
+				920A2BA72D028937EFFB8B97 /* AppRoute.swift */,
+				A418747C281C90C315F68054 /* GameSession.swift */,
+				E9706A13B92CED7EA5130283 /* SimulationClock.swift */,
+				7CA3F9CB210008183838993D /* EntityStore.swift */,
+				CA597F6154D9B754277F195F /* GameScene.swift */,
+				C2F7292AF744B63DB8FCE05B /* MainMenuView.swift */,
+				DCCE55871E5C074286FDE5ED /* SettingsStore.swift */,
+				CF6FF1D8C672A9B4A5518C97 /* SettingsView.swift */,
+				3DE44C87AE40CC07FF7E62B1 /* GameSettings.swift */,
+				A54B968720453CC2F0A6FD4F /* GameplayView.swift */,
+				3419C3273109B9E208B63302 /* ResultsView.swift */,
+				339E59C758D903642828FC74 /* HelpView.swift */,
+				9A65457771A933AEE18686CE /* AppLog.swift */,
+				6A08FCDA5237456DD135DD20 /* Progression.swift */,
+				4477749780D796EF12915832 /* ProgressionRepositoryTests.swift */,
+				D97F48F0593829C9D96B3D13 /* EntityStoreTests.swift */,
+				C2E08E1D21C914BD01EFD67B /* GameSessionTests.swift */,
+				2A198A2F9B32990471C25469 /* SettingsTests.swift */,
+				F187F52E7F8F517ACA545F04 /* SimulationClockTests.swift */,
+				C105B70B51A56C1196B1279F /* HookshotHeroUITests.swift */,
+				FBDC4F23F93125BBEEAE800C /* Products */,
+			); sourceTree = "<group>"; };
+		FBDC4F23F93125BBEEAE800C /* Products */ = {isa = PBXGroup; children = (607F34C8B84318CBD7BC9FCC /* HookshotHero.app */, ECCEBD644A951ECC2CFD17DB /* HookshotHeroTests.xctest */, CA90AE886B3734F3F888B6CC /* HookshotHeroUITests.xctest */, ); name = Products; sourceTree = "<group>"; };
+/* End PBXGroup section */
+
+/* Begin PBXSourcesBuildPhase section */
+		905DB04043B7311D06A28734 = {isa = PBXSourcesBuildPhase; buildActionMask = 2147483647; files = (919BAF5F64EB1FE9800D63B4 /* RootView.swift in Sources */, 23843E5D532F93E0690C1115 /* HookshotHeroApp.swift in Sources */, C7A3FC24FF3C7C3FA2CCA6FF /* AppRouter.swift in Sources */, 34504A6051B1D54C8EC823D9 /* AppRoute.swift in Sources */, 13B805E5EEBDA116776F5F09 /* GameSession.swift in Sources */, 42C77A80F8AE0EF94A6C9F0D /* SimulationClock.swift in Sources */, 4B226FE9D410A62F141EBAC1 /* EntityStore.swift in Sources */, 3FC09B2106C011C3781D65DA /* GameScene.swift in Sources */, 12CCE77A240BB33C0499D7D4 /* MainMenuView.swift in Sources */, 3D5E3889E7A540996FA4CDC1 /* SettingsStore.swift in Sources */, 79C1F8A8969B3653CF026137 /* SettingsView.swift in Sources */, 965EDFCB6981FA75D5AE720B /* GameSettings.swift in Sources */, 505BE07E42FFB534AB4CF2A5 /* GameplayView.swift in Sources */, 6F84AECB4D79FBD2554F816C /* ResultsView.swift in Sources */, 14859C642CD5C70AE86B458E /* HelpView.swift in Sources */, F983ED122FE6162C72FCB4C8 /* AppLog.swift in Sources */, 388A15DB24C2B493B820177E /* Progression.swift in Sources */,); runOnlyForDeploymentPostprocessing = 0; };
+/* Begin PBXResourcesBuildPhase section */
+		12A78AD7BB4C0410A4A933CB = {isa = PBXResourcesBuildPhase; buildActionMask = 2147483647; files = (7CC64A48CD838314F1470C45 /* Assets.xcassets in Resources */, 227DDD5DE539927EC3903CEA /* PrivacyInfo.xcprivacy in Resources */,); runOnlyForDeploymentPostprocessing = 0; };
+/* Begin PBXFrameworksBuildPhase section */
+		6C18526817C1377C39321D31 = {isa = PBXFrameworksBuildPhase; buildActionMask = 2147483647; files = (); runOnlyForDeploymentPostprocessing = 0; };
+		F7115B032A300979DADE839B = {isa = PBXSourcesBuildPhase; buildActionMask = 2147483647; files = (12A0B74595F885094BF5AB54 /* ProgressionRepositoryTests.swift in Sources */, 1B6FF7C8E62687CB87326931 /* EntityStoreTests.swift in Sources */, 8EE27EF737E30DEF75FBDA25 /* GameSessionTests.swift in Sources */, 13BBF1CD945A2FDADA696549 /* SettingsTests.swift in Sources */, 5E9B9A1A44E292ED23EF4796 /* SimulationClockTests.swift in Sources */,); runOnlyForDeploymentPostprocessing = 0; };
+		2A960B3687BD5174B1C1D252 = {isa = PBXResourcesBuildPhase; buildActionMask = 2147483647; files = (); runOnlyForDeploymentPostprocessing = 0; };
+		3152BA25849B7B83335DDC55 = {isa = PBXFrameworksBuildPhase; buildActionMask = 2147483647; files = (); runOnlyForDeploymentPostprocessing = 0; };
+		BD2535C6F11B59001D1B25CD = {isa = PBXSourcesBuildPhase; buildActionMask = 2147483647; files = (978D2CAACE297B6553ED40AC /* HookshotHeroUITests.swift in Sources */,); runOnlyForDeploymentPostprocessing = 0; };
+/* End PBXSourcesBuildPhase section */
+
+		7DAB9708A6A6BAAFED245B9D = {isa = PBXResourcesBuildPhase; buildActionMask = 2147483647; files = (); runOnlyForDeploymentPostprocessing = 0; };
+/* End PBXResourcesBuildPhase section */
+
+		9B2A67F84CC574A14112EFA3 = {isa = PBXFrameworksBuildPhase; buildActionMask = 2147483647; files = (); runOnlyForDeploymentPostprocessing = 0; };
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		68D6C4B899C4BFE2439637E2 = {isa = PBXTargetDependency; target = CDD0594F25E2D11765293A24; targetProxy = BEF57DD85B194E87AB6E400C; };
+		B8607F2F275B4B26BFAB2D81 = {isa = PBXTargetDependency; target = CDD0594F25E2D11765293A24; targetProxy = DACB3A8B784983D3CE2AA070; };
+/* End PBXTargetDependency section */
+
+/* Begin PBXNativeTarget section */
+		CDD0594F25E2D11765293A24 /* HookshotHero */ = {isa = PBXNativeTarget; buildConfigurationList = AC1B77AA00D4FC824CDAF957; buildPhases = (905DB04043B7311D06A28734, 6C18526817C1377C39321D31, 12A78AD7BB4C0410A4A933CB,); buildRules = (); dependencies = (); name = HookshotHero; productName = HookshotHero; productReference = 607F34C8B84318CBD7BC9FCC; productType = "com.apple.product-type.application"; };
+		A1C04B2873E4BE2D5A687B4E /* HookshotHeroTests */ = {isa = PBXNativeTarget; buildConfigurationList = 1F178E4C2E23AF652AB3A850; buildPhases = (F7115B032A300979DADE839B, 3152BA25849B7B83335DDC55, 2A960B3687BD5174B1C1D252,); buildRules = (); dependencies = (68D6C4B899C4BFE2439637E2,); name = HookshotHeroTests; productName = HookshotHeroTests; productReference = ECCEBD644A951ECC2CFD17DB; productType = "com.apple.product-type.bundle.unit-test"; };
+		8493EEB794ACAA68CA911775 /* HookshotHeroUITests */ = {isa = PBXNativeTarget; buildConfigurationList = 2F64A4FD5D6EACC41A1D003E; buildPhases = (BD2535C6F11B59001D1B25CD, 9B2A67F84CC574A14112EFA3, 7DAB9708A6A6BAAFED245B9D,); buildRules = (); dependencies = (B8607F2F275B4B26BFAB2D81,); name = HookshotHeroUITests; productName = HookshotHeroUITests; productReference = CA90AE886B3734F3F888B6CC; productType = "com.apple.product-type.bundle.ui-testing"; };
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		98F54143AB4E86B28C3AFEE0 /* Project object */ = {isa = PBXProject; attributes = {BuildIndependentTargetsInParallel = 1; LastSwiftUpdateCheck = 1600; LastUpgradeCheck = 1600; TargetAttributes = {CDD0594F25E2D11765293A24 = {CreatedOnToolsVersion = 16.0;}; A1C04B2873E4BE2D5A687B4E = {CreatedOnToolsVersion = 16.0; TestTargetID = CDD0594F25E2D11765293A24;}; 8493EEB794ACAA68CA911775 = {CreatedOnToolsVersion = 16.0; TestTargetID = CDD0594F25E2D11765293A24;}; }; }; buildConfigurationList = F081215BB71916C081E9FF1C; compatibilityVersion = "Xcode 15.0"; developmentRegion = en; hasScannedForEncodings = 0; knownRegions = (en, Base); mainGroup = E50290A24C49A459B43487C5; productRefGroup = FBDC4F23F93125BBEEAE800C; projectDirPath = ""; projectRoot = ""; targets = (CDD0594F25E2D11765293A24, A1C04B2873E4BE2D5A687B4E, 8493EEB794ACAA68CA911775); };
+/* End PBXProject section */
+
+/* Begin XCBuildConfiguration section */
+		89E1FD6268CC0F221A2BE178 = {isa = XCBuildConfiguration; buildSettings = {ALWAYS_SEARCH_USER_PATHS = NO; CLANG_ENABLE_MODULES = YES; CLANG_ENABLE_OBJC_ARC = YES; ENABLE_STRICT_OBJC_MSGSEND = YES; GCC_C_LANGUAGE_STANDARD = gnu17; IPHONEOS_DEPLOYMENT_TARGET = 18.0; SDKROOT = iphoneos; SWIFT_STRICT_CONCURRENCY = complete; SWIFT_VERSION = 5.0; DEBUG_INFORMATION_FORMAT = dwarf; GCC_OPTIMIZATION_LEVEL = 0; SWIFT_OPTIMIZATION_LEVEL = "-Onone";}; name = Debug; };
+		E9B2E96ABC5F6856F2BE79CF = {isa = XCBuildConfiguration; buildSettings = {CURRENT_PROJECT_VERSION = 1; MARKETING_VERSION = 0.1.0; PRODUCT_MODULE_NAME = HookshotHero; PRODUCT_BUNDLE_IDENTIFIER = com.hookshothero.game; ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon; ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor; CODE_SIGN_STYLE = Automatic; GENERATE_INFOPLIST_FILE = NO; INFOPLIST_FILE = HookshotHero/Resources/Info.plist; PRODUCT_NAME = "Hookshot Hero"; TARGETED_DEVICE_FAMILY = 1; SUPPORTS_MACCATALYST = NO;}; name = Debug; };
+		0F3D67935A4F199E058A017A = {isa = XCBuildConfiguration; buildSettings = {CURRENT_PROJECT_VERSION = 1; MARKETING_VERSION = 0.1.0; PRODUCT_BUNDLE_IDENTIFIER = com.hookshothero.game.tests; CODE_SIGN_STYLE = Automatic; GENERATE_INFOPLIST_FILE = YES; PRODUCT_NAME = "$(TARGET_NAME)"; TEST_HOST = "$(BUILT_PRODUCTS_DIR)/Hookshot Hero.app/Hookshot Hero"; BUNDLE_LOADER = "$(TEST_HOST)";}; name = Debug; };
+		94C1D7A82E2F92E70C5BA5D8 = {isa = XCBuildConfiguration; buildSettings = {CURRENT_PROJECT_VERSION = 1; MARKETING_VERSION = 0.1.0; PRODUCT_BUNDLE_IDENTIFIER = com.hookshothero.game.uitests; CODE_SIGN_STYLE = Automatic; GENERATE_INFOPLIST_FILE = YES; PRODUCT_NAME = "$(TARGET_NAME)"; TEST_TARGET_NAME = HookshotHero;}; name = Debug; };
+		E6DE6C99132752C914FEF632 = {isa = XCBuildConfiguration; buildSettings = {ALWAYS_SEARCH_USER_PATHS = NO; CLANG_ENABLE_MODULES = YES; CLANG_ENABLE_OBJC_ARC = YES; ENABLE_STRICT_OBJC_MSGSEND = YES; GCC_C_LANGUAGE_STANDARD = gnu17; IPHONEOS_DEPLOYMENT_TARGET = 18.0; SDKROOT = iphoneos; SWIFT_STRICT_CONCURRENCY = complete; SWIFT_VERSION = 5.0; DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym"; SWIFT_COMPILATION_MODE = wholemodule; SWIFT_OPTIMIZATION_LEVEL = "-O";}; name = Release; };
+		5A8C91857F674E16E2724F47 = {isa = XCBuildConfiguration; buildSettings = {CURRENT_PROJECT_VERSION = 1; MARKETING_VERSION = 0.1.0; PRODUCT_MODULE_NAME = HookshotHero; PRODUCT_BUNDLE_IDENTIFIER = com.hookshothero.game; ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon; ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor; CODE_SIGN_STYLE = Automatic; GENERATE_INFOPLIST_FILE = NO; INFOPLIST_FILE = HookshotHero/Resources/Info.plist; PRODUCT_NAME = "Hookshot Hero"; TARGETED_DEVICE_FAMILY = 1; SUPPORTS_MACCATALYST = NO;}; name = Release; };
+		20B70E15FDC36C625E57F658 = {isa = XCBuildConfiguration; buildSettings = {CURRENT_PROJECT_VERSION = 1; MARKETING_VERSION = 0.1.0; PRODUCT_BUNDLE_IDENTIFIER = com.hookshothero.game.tests; CODE_SIGN_STYLE = Automatic; GENERATE_INFOPLIST_FILE = YES; PRODUCT_NAME = "$(TARGET_NAME)"; TEST_HOST = "$(BUILT_PRODUCTS_DIR)/Hookshot Hero.app/Hookshot Hero"; BUNDLE_LOADER = "$(TEST_HOST)";}; name = Release; };
+		9609A256A79253DD705A918E = {isa = XCBuildConfiguration; buildSettings = {CURRENT_PROJECT_VERSION = 1; MARKETING_VERSION = 0.1.0; PRODUCT_BUNDLE_IDENTIFIER = com.hookshothero.game.uitests; CODE_SIGN_STYLE = Automatic; GENERATE_INFOPLIST_FILE = YES; PRODUCT_NAME = "$(TARGET_NAME)"; TEST_TARGET_NAME = HookshotHero;}; name = Release; };
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		F081215BB71916C081E9FF1C /* Build configuration list for Project object */ = {isa = XCConfigurationList; buildConfigurations = (89E1FD6268CC0F221A2BE178, E6DE6C99132752C914FEF632); defaultConfigurationIsVisible = 0; defaultConfigurationName = Release; };
+		AC1B77AA00D4FC824CDAF957 /* Build configuration list for HookshotHero */ = {isa = XCConfigurationList; buildConfigurations = (E9B2E96ABC5F6856F2BE79CF, 5A8C91857F674E16E2724F47); defaultConfigurationIsVisible = 0; defaultConfigurationName = Release; };
+		1F178E4C2E23AF652AB3A850 /* Build configuration list for HookshotHeroTests */ = {isa = XCConfigurationList; buildConfigurations = (0F3D67935A4F199E058A017A, 20B70E15FDC36C625E57F658); defaultConfigurationIsVisible = 0; defaultConfigurationName = Release; };
+		2F64A4FD5D6EACC41A1D003E /* Build configuration list for HookshotHeroUITests */ = {isa = XCConfigurationList; buildConfigurations = (94C1D7A82E2F92E70C5BA5D8, 9609A256A79253DD705A918E); defaultConfigurationIsVisible = 0; defaultConfigurationName = Release; };
+/* End XCConfigurationList section */
+	};
+	rootObject = 98F54143AB4E86B28C3AFEE0 /* Project object */;
+}
