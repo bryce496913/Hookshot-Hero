@@ -77,7 +77,20 @@ final class GameSession: ObservableObject {
     func applicationDidBecomeInactive() {
         guard !isTerminal else { return }
         applicationIsActive = false
-        if state == .running { _ = pause(reason: .applicationLifecycle) }
+        switch state {
+        case .initialized:
+            // Initialization is a simulation boundary too. Converting it to an
+            // explicit lifecycle pause prevents a later scene attachment from
+            // silently starting the session after the app returns active.
+            pauseReason = .applicationLifecycle
+            state = .paused
+        case .running:
+            _ = pause(reason: .applicationLifecycle)
+        case .loading, .paused:
+            break
+        case .won, .lost, .disposed:
+            break
+        }
     }
 
     func applicationDidBecomeActive() {

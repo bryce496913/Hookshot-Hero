@@ -15,6 +15,21 @@ import SpriteKit
         XCTAssertEqual(session.state, .paused); XCTAssertFalse(session.resume())
         session.applicationDidBecomeActive(); XCTAssertEqual(session.state, .paused); XCTAssertTrue(session.resume())
     }
+    func testInitializedSessionBecomesExplicitLifecyclePause() {
+        let session = GameSession()
+        XCTAssertTrue(session.initializeWorld())
+        XCTAssertEqual(session.state, .initialized)
+
+        session.applicationDidBecomeInactive()
+        XCTAssertEqual(session.state, .paused)
+        XCTAssertEqual(session.pauseReason, .applicationLifecycle)
+        XCTAssertFalse(session.resume())
+
+        session.applicationDidBecomeActive()
+        XCTAssertEqual(session.state, .paused)
+        XCTAssertTrue(session.resume())
+        XCTAssertEqual(session.state, .running)
+    }
     func testUserPauseAndTerminalStatesRejectTransitions() {
         let session = running(); XCTAssertTrue(session.pause()); XCTAssertEqual(session.pauseReason, .user); XCTAssertTrue(session.resume())
         session.win(); XCTAssertFalse(session.pause()); XCTAssertFalse(session.resume())
