@@ -1,7 +1,7 @@
 import Foundation
 
 struct GridSize: Equatable, Sendable { let rows: Int; let columns: Int }
-struct GridPosition: Hashable, Sendable { var row: Int; var column: Int
+struct GridPosition: Hashable, Codable, Sendable { var row: Int; var column: Int
     func moved(_ direction: GridDirection) -> Self { .init(row: row + direction.delta.row, column: column + direction.delta.column) }
 }
 struct GridRegion: Equatable, Sendable {
@@ -15,7 +15,8 @@ enum GridDirection: String, CaseIterable, Equatable, Sendable {
 }
 enum GameCommand: Equatable, Sendable { case move(GridDirection), beginMove(GridDirection), endMove(GridDirection), fireHook }
 enum EntityKind: Equatable, Sendable { case coin, cabbage, mine }
-struct WorldEntity: Identifiable, Equatable, Sendable { let id: UUID; let kind: EntityKind; let position: GridPosition }
+struct EntityID: Hashable, Codable, Sendable { let rawValue: UUID; init(_ rawValue: UUID = UUID()) { self.rawValue = rawValue } }
+struct WorldEntity: Identifiable, Equatable, Sendable { let id: EntityID; let kind: EntityKind; let position: GridPosition }
 enum HookshotPhase: String, Equatable, Sendable { case idle, extending, latched, pulling, retracting }
 struct HookshotState: Equatable, Sendable {
     var phase: HookshotPhase = .idle; var origin: GridPosition?; var head: GridPosition?
@@ -23,7 +24,7 @@ struct HookshotState: Equatable, Sendable {
     static let maximumRange = 19
 }
 struct PlayerState: Equatable, Sendable {
-    let id: UUID; var position: GridPosition; var lastSafePosition: GridPosition
+    let id: EntityID; var position: GridPosition; var lastSafePosition: GridPosition
     var facing: GridDirection = .right; var health = 3; let maximumHealth = 5; var score = 0
     var movementDirection: GridDirection?; var hookshot = HookshotState(); var damageCooldown = 0.0; var animationTime = 0.0
 }
@@ -70,7 +71,7 @@ enum SpawnService {
         guard candidates.count >= 15 else { throw SpawnError.insufficientCapacity }
         candidates.shuffle(using: &rng)
         let kinds = Array(repeating: EntityKind.mine, count: 3) + Array(repeating: .cabbage, count: 2) + Array(repeating: .coin, count: 10)
-        return zip(kinds, candidates).map { WorldEntity(id: UUID(), kind: $0, position: $1) }
+        return zip(kinds, candidates).map { WorldEntity(id: EntityID(), kind: $0, position: $1) }
     }
 }
 
@@ -92,8 +93,9 @@ enum SpawnService {
     private(set) var outcome: GameOutcome?
     var onStatusChange: ((Int, Int) -> Void)?; var onOutcome: ((GameOutcome) -> Void)?
 
-    init(seed: UInt64 = UInt64.random(in: 1...UInt64.max)) throws {
-        level = LevelOneDefinition.make(); player = .init(id: UUID(), position: level.start, lastSafePosition: level.start)
+    init(seed: UInt64 = UInt64.random(in: 1...UInt64.max), startOverride: GridPosition? = nil) throws {
+        level = LevelOneDefinition.make(); let initialPosition = startOverride ?? level.start
+        player = .init(id: EntityID(), position: initialPosition, lastSafePosition: initialPosition)
         var random = SeededRandomNumberGenerator(seed: seed); entities = try SpawnService.spawn(in: level, using: &random)
     }
     func update(deltaTime raw: TimeInterval) {
@@ -136,7 +138,7 @@ enum SpawnService {
         case .mine: if hooked { player.score += 10; show("Mine explosion +10") } else { player.health -= 1; show("-1 Health"); checkLoss() } }
     }
     private func checkChestAndExit() { if !chestOpen && abs(player.position.row-level.chestAnchor.row) <= 2 && abs(player.position.column-level.chestAnchor.column) <= 2 { chestOpen = true; player.score += 100; let old = player.health; player.health = min(5, player.health+2); show(player.health-old == 2 ? "+100, +2 Health" : "+100, +1 Health"); dialogue = Self.chestMessage }
-        if level.exitRegion.contains(player.position), outcome == nil { outcome = .won; onOutcome?(.won) }
+        if level.exitRegion.contains(player.position), outcome == nil { player.score += 100; show("Level complete +100"); outcome = .won; onStatusChange?(player.health, player.score); onOutcome?(.won) }
     }
     private func checkLoss() { if player.health <= 0, outcome == nil { outcome = .lost; onOutcome?(.lost) } }
     private func show(_ text: String) { feedback = text; feedbackRemaining = 1.2 }

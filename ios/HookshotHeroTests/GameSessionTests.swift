@@ -80,4 +80,12 @@ import SpriteKit
         XCTAssertEqual(HookshotState.maximumRange,19)
         XCTAssertEqual(SpriteSheet.normalizedRect(x:0,y:64,width:64,height:64,sheetWidth:576,sheetHeight:256),CGRect(x:0,y:0.5,width:1.0/9.0,height:0.25))
     }
+    func testVictoryAwardsJavaCompletionScoreExactlyOnce() throws {
+        let sim = try LevelOneSimulation(seed: 7, startOverride: GridPosition(row: 2, column: 27))
+        sim.input.send(.move(.up)); sim.update(deltaTime: 0.01)
+        XCTAssertEqual(sim.outcome, .won)
+        XCTAssertEqual(sim.player.score, 100)
+        sim.update(deltaTime: 1)
+        XCTAssertEqual(sim.player.score, 100)
+    }
 }
