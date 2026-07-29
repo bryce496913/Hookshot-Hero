@@ -11,7 +11,7 @@ enum SpriteSheet { static func normalizedRect(x:CGFloat,y:CGFloat,width:CGFloat,
 
 @MainActor final class GameScene: SKScene {
     private let session: GameSession; private let loader=LegacyTextureLoader(); private(set) var clock=SimulationClock()
-    private let world=SKNode(), chain=SKShapeNode(), hook=SKShapeNode(circleOfRadius: 3); private var playerNode=SKSpriteNode(); private var entityNodes:[UUID:SKNode]=[:]
+    private let world=SKNode(), chain=SKShapeNode(), hook=SKShapeNode(circleOfRadius: 3); private var playerNode=SKSpriteNode(); private var entityNodes:[EntityID:SKNode]=[:]
     private var stateObservation:AnyCancellable?; private var cellSize:CGFloat=1; private var boardOrigin=CGPoint.zero
     init(size:CGSize = .init(width:600,height:600),session:GameSession){self.session=session;super.init(size:size);scaleMode = .resizeFill;backgroundColor = .black}
     required init?(coder:NSCoder){nil}
@@ -34,9 +34,10 @@ enum SpriteSheet { static func normalizedRect(x:CGFloat,y:CGFloat,width:CGFloat,
     }
     private func addTile(_ r:GridRegion,texture:SKTexture,z:CGFloat){let n=SKSpriteNode(texture:texture);n.anchorPoint=.zero;n.position=.init(x:CGFloat(r.columns.lowerBound),y:CGFloat(60-r.rows.upperBound));n.size=.init(width:r.columns.count,height:r.rows.count);n.zPosition=z;world.addChild(n)}
     private func node(_ e:WorldEntity)throws->SKNode{let texture:SKTexture;switch e.kind{case .coin:texture=try loader.texture("goldCoin1.png");case .mine:texture=try loader.slice("bomb.png",x:0,y:0,width:20,height:26,sheetWidth:80,sheetHeight:26);case .cabbage:texture=try loader.slice("barrels.png",x:64,y:32,width:32,height:32,sheetWidth:256,sheetHeight:256)};let n=SKSpriteNode(texture:texture);n.position=point(e.position);n.size=.init(width:2.2,height:2.2);n.zPosition=6;return n}
-    private func lidiaTexture(_ d:GridDirection)throws->SKTexture{let row:[GridDirection:CGFloat]=[.up:0,.left:1,.down:2,.right:3][d] ?? 3;return try loader.slice("lidia.png",x:0,y:row*64,width:64,height:64,sheetWidth:576,sheetHeight:256)}
+    private func lidiaTexture(_ d:GridDirection, frame:Int = 0)throws->SKTexture{let row:[GridDirection:CGFloat]=[.up:0,.left:1,.down:2,.right:3][d] ?? 3;return try loader.slice("lidia.png",x:CGFloat(frame % 9)*64,y:row*64,width:64,height:64,sheetWidth:576,sheetHeight:256)}
     private func point(_ p:GridPosition)->CGPoint{.init(x:CGFloat(p.column)+0.5,y:CGFloat(60-p.row)-0.5)}
-    private func renderDynamic(){guard let sim=session.simulation else{return};playerNode.position=point(sim.player.position);if let t=try? lidiaTexture(sim.player.facing){playerNode.texture=t};let ids=Set(sim.entities.map(\.id));for(id,n)in entityNodes where !ids.contains(id){n.removeFromParent();entityNodes[id]=nil}
+    private func renderDynamic(){guard let sim=session.simulation else{return};playerNode.position=point(sim.player.position);let walking = sim.player.movementDirection != nil && sim.player.hookshot.phase == .idle;let frame = session.configuration.reducedMotion || !walking ? 0 : Int(sim.player.animationTime / 0.09) % 9;if let t=try? lidiaTexture(sim.player.facing,frame:frame){playerNode.texture=t};let ids=Set(sim.entities.map(\.id));for(id,n)in entityNodes where !ids.contains(id){n.removeFromParent();entityNodes[id]=nil}
+        if !session.configuration.reducedMotion { let coinFrame = Int(sim.player.animationTime / 0.08) % 9; for entity in sim.entities where entity.kind == .coin { if let sprite = entityNodes[entity.id] as? SKSpriteNode { sprite.texture = try? loader.texture("goldCoin\(coinFrame + 1).png") } } }
         if sim.chestOpen,let chest=world.childNode(withName:"chest"),let t=try? loader.slice("chests.png",x:291,y:95,width:25,height:29,sheetWidth:512,sheetHeight:512){(chest as? SKSpriteNode)?.texture=t}
         let h=sim.player.hookshot;if h.phase != .idle,let hp=h.head{hook.isHidden=false;chain.isHidden=false;hook.position=point(hp);let path=CGMutablePath();path.move(to:playerNode.position);path.addLine(to:hook.position);chain.path=path}else{hook.isHidden=true;chain.isHidden=true}
     }

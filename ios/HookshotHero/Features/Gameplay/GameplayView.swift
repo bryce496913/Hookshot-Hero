@@ -9,7 +9,7 @@ struct GameplayView: View {
         VStack(spacing:8) { hud
             if let error=session.initializationError { ContentUnavailableView("Level 1 unavailable",systemImage:"exclamationmark.triangle",description:Text(error)) }
             else { SpriteView(scene:scene).aspectRatio(1,contentMode:.fit).background(.black).accessibilityHidden(true).accessibilityIdentifier("levelOneBoard") }
-            if session.configuration.controlHintsEnabled { Text("Move with the direction pad. Face a direction and tap Hook to grapple.").font(.caption).multilineTextAlignment(.center).accessibilityIdentifier("controlHint") }
+            if session.configuration.controlHintsEnabled { Text("Move with the direction pad. Face a direction and tap Grapple.").font(.caption).multilineTextAlignment(.center).accessibilityIdentifier("controlHint") }
             if let sim=session.simulation { GameControlsView(simulation:sim, disabled:!session.canSimulate) }
         }.padding(.horizontal,8).padding(.bottom,4).navigationBarBackButtonHidden().overlay { if session.isPaused { pauseOverlay }; if let sim=session.simulation { DialogueOverlay(simulation:sim) } }
     }
@@ -21,10 +21,10 @@ struct GameplayView: View {
 struct GameControlsView: View {
     @ObservedObject var simulation: LevelOneSimulation; let disabled:Bool
     var body:some View { HStack(spacing:24){ VStack(spacing:2){ DirectionButton(direction:.up,input:simulation.input);HStack(spacing:2){DirectionButton(direction:.left,input:simulation.input);DirectionButton(direction:.down,input:simulation.input);DirectionButton(direction:.right,input:simulation.input)}}
-        Button("Hook"){simulation.input.send(.fireHook)}.font(.title3.bold()).frame(minWidth:88,minHeight:60).buttonStyle(.borderedProminent).tint(.orange).disabled(disabled || simulation.player.hookshot.phase != .idle).accessibilityLabel("Fire hook").accessibilityValue(simulation.player.hookshot.phase.rawValue).accessibilityIdentifier("hookButton")
+        Button("Grapple"){simulation.input.send(.fireHook)}.font(.title3.bold()).frame(minWidth:96,minHeight:60).buttonStyle(.borderedProminent).tint(.orange).disabled(disabled || simulation.player.hookshot.phase != .idle).accessibilityLabel("Fire grapple").accessibilityValue(simulation.player.hookshot.phase.rawValue).accessibilityIdentifier("grappleButton")
     }.frame(maxWidth:.infinity).disabled(disabled).accessibilityElement(children:.contain)
     #if DEBUG
-    .accessibilityValue("Player row \(simulation.player.position.row) column \(simulation.player.position.column); hook \(simulation.player.hookshot.phase.rawValue)")
+    .overlay { Text("Player row \(simulation.player.position.row) column \(simulation.player.position.column)").font(.caption2).opacity(0.01).accessibilityIdentifier("playerPosition") }
     #endif
     }
 }

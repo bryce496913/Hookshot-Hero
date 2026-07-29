@@ -10,7 +10,7 @@ final class HookshotHeroUITests: XCTestCase {
     func testLaunchPlayPauseResumeAndReturnAccessibility() {
         launch(); XCTAssertTrue(app.staticTexts["Hookshot Hero"].waitForExistence(timeout: 5)); app.buttons["playButton"].tap()
         XCTAssertTrue(app.otherElements["gameplayHUD"].waitForExistence(timeout: 5)); XCTAssertTrue(app.staticTexts["healthValue"].exists); XCTAssertTrue(app.staticTexts["scoreValue"].exists)
-        XCTAssertTrue(app.buttons["moveUpButton"].exists); XCTAssertTrue(app.buttons["hookButton"].exists); app.buttons["moveUpButton"].tap()
+        XCTAssertTrue(app.buttons["moveUpButton"].exists); XCTAssertTrue(app.buttons["grappleButton"].exists); app.buttons["moveUpButton"].tap()
         app.buttons["pauseButton"].tap(); XCTAssertTrue(app.staticTexts["pauseOverlay"].exists); XCTAssertTrue(app.buttons["overlayResumeButton"].exists)
         app.buttons["overlayResumeButton"].tap(); app.buttons["pauseButton"].tap(); app.buttons["returnToMenuButton"].tap()
         XCTAssertTrue(app.buttons["playButton"].waitForExistence(timeout: 5))
