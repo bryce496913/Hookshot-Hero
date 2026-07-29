@@ -26,7 +26,7 @@ GitHub repository (private): https://github.com/JerryCBH/159261-project
 - [About Game Design](#about-game-design)
 - [Game Architecture](#game-architecture)
 - [Game AI](#game-ai)
-- [ChatGPT and NPC Reactions](#chatgpt-and-npc-reactions)
+- [Character Reactions](#character-reactions)
 - [NPC Character Generation](#npc-character-generation)
 - [Game Extensibility](#game-extensibility)
 - [How to play](#how-to-play)
@@ -88,7 +88,7 @@ To add to the difficulty of some of the rooms, additional treasure chest are pla
 ## About Game Design
 - Non-linear game progression. Example: In level 4 we have two doors that lead to different levels. This makes the game more non-linear. This can be made more complex by adding multiple doors in each level, for instance hidden Easter egg levels.
 - NPC AI has patrol, seek, wait states. More states in state machines can be added and more variety of state machines can be added. We have 3 state machines: NPC enemy, NPC follower, BGC (background character) follower / wonderer. There are parameters in state machine classes that tunes the behaviour via reaction time: how long to make a decision during each state. Increasing the reaction time makes the character slower and less agile. Possible improvements outside scope of this project: Introduce cruising state for flying terror that goes around in path of large circle, mimic flying behaviours. Add routing algorithms, currently the NPC calculates the shortest Euclidean distance and not considering path blocked by obstacle, so npc can get stuck from time to time.
-- Friendly NPC can make random comments and reactions. Comments are from chat GPT. Each ChatGPT request runs on a different thread, no penalty on performance. The comments are made when the NPC state machine state changes or if the NPC health / score increase or decrease. There is also an idle timer, so NPC will say something every couple of seconds. This is made more random by adding random number generator to decide to speak or not when comment timer is up. We can make it more realistic by introducing more comment types. We have about 5 comment types to make remarks on different situations. If ChatGPT fails, there is a backup comment dictionary in the code.
+- Friendly NPCs make local, predefined comments and reactions when their state changes or their health or score changes. An idle timer and random selection determine when a comment appears.
 - Comment speech bubble and score notifications are displayed beside characters on the screen in descending order. They follow characters.
 - The use of Linked List / Array List / Queues as a means of communication for in-game events. There are Audio Queue, Animation Queue, Elimination Queue, Spawn queue. In-game object raises requests to these queues to be processed by game engine to play audio / animation at certain location and time, due to in-game events. These queues decouples the classes.
 - World builder class: we can easily control addition of different types of objects in each level.
@@ -169,7 +169,7 @@ The AI enemies attack the players by collision with player's location until play
 
 The enemy AI can be made more efficient by reducing the reaction times at each state and also increasing the sight range parameter. For example the Flying Terror has a sight radius of 39 grid rows. The Minotaur boss has a fast seek time.
 
-```FollowerStateMachine``` is used by AI NPC and BGC players. Apart from Patrol and Seek state, it has an extra wait state where if the character is within the Wait range, it will wait around the player. There is a reaction time for NPC comments as well. When the time is up, the random number generator will decide if the NPC should say some comments or not. The comments are retrieved from ChatGPT, and is based on the current state of the NPC.
+```FollowerStateMachine``` is used by AI NPC and BGC players. Apart from Patrol and Seek state, it has an extra wait state where if the character is within the Wait range, it will wait around the player. There is a reaction time for NPC comments as well. When the time is up, the random number generator decides whether the NPC should display a predefined comment based on its current state.
 
 ![State diagram.png](Images%2FState%20diagram.png)
 
@@ -177,14 +177,10 @@ The below diagram shows all the state machines. Most state machines are variants
 
 ![StateMachines.png](Images%2FStateMachines.png)
 
-## ChatGPT and NPC Reactions
-ChatGPT API is used to get more realistic NPC and player reactions. When the player or NPC or their grapples collided with another game world object, the ```SpeechService``` is invoked. The ```SpeechService``` takes an enumeration of comment type and calls the ```ChatGPTConnector``` to retrieve response. If the response fails to be received, a hardcoded comment dictionary inside the ```SpeechService``` will be used as a backup.
+## Character Reactions
+Player and NPC interactions invoke the ```SpeechService```, which selects a predefined local comment for the event type and sends an ```AnimationRequest``` to the animation queue to draw a speech bubble. No network connection is required for character reactions.
 
-The ```SpeechService``` will send an ```AnimationRequest``` to animation queue to draw the speech bubbles.
-
-The animation request objects are sorted based on created time stamp in descending order. So the speech bubbles will appear in descending order with the latest comment or score notifications on the top.
-
-We can add more comment types as reaction to different game events to make the AI players more realistic. This can be done by extending the ```SpeechService```.
+Animation request objects are sorted by creation timestamp in descending order, so the latest comments and score notifications appear at the top.
 
 ![img.png](Images/bgccomments.png)
 
@@ -335,7 +331,7 @@ Lidia's quest for glory unfolds as she unravels the depths of the dungeons, leav
 ### Jerry Hsiung
 - Game architecture design, core classes and base game functionalities. 
 - Animations / Audio effects / Game object interaction and collision. 
-- NPC players generation / NPC dialogue / ChatGPT / Score notification.
+- NPC player generation, local NPC dialogue, and score notification.
 - Game AI / End-game levels layout design.
 - GitHub repository setup / Code integration. 
 - Documentation and presentation. 
