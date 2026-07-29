@@ -31,6 +31,8 @@ final class HookshotHeroUITests: XCTestCase {
     }
     private func assertForcedResult(_ argument: String, title: String) {
         launch(argument); app.buttons["playButton"].tap(); XCTAssertTrue(app.staticTexts["resultsTitle"].waitForExistence(timeout: 5)); XCTAssertEqual(app.staticTexts["resultsTitle"].label, title)
+        XCTAssertEqual(app.staticTexts["resultsScore"].label, "Final score")
+        XCTAssertEqual(app.buttons["resultsReturnToMenuButton"].label, "Return to Main Menu")
         XCTAssertTrue(app.buttons["resultsReturnToMenuButton"].isHittable); app.buttons["resultsReturnToMenuButton"].tap(); XCTAssertTrue(app.buttons["playButton"].waitForExistence(timeout: 5))
     }
 }

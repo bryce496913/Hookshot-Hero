@@ -38,4 +38,6 @@ The Linux cleanup environment did not contain `xcodebuild`; therefore local buil
 
 No approved 1024×1024 Hookshot Hero icon was found. The catalog slot deliberately remains empty and is a release/App Store blocker; no generic artwork was invented. Distribution signing is also outside this cleanup. Final controls, physics, levels, missions, enemies, audio, haptics, and Java assets remain future slices.
 
+**Release blocker: Add an approved 1024×1024 Hookshot Hero app icon manually through Xcode or the asset pipeline.** All source changes and CI logs are text-based. DerivedData, `.xcresult`, `.xcarchive`, app bundles, and test bundles are temporary validation products and must never be committed.
+
 See [Conversion decisions](Documentation/ConversionDecisions.md), [Responsibility map](Documentation/ResponsibilityMap.md), and [Temporary assets](Resources/TemporaryAssets.md).
