@@ -11,3 +11,7 @@
 * **Placeholders:** System symbols, catalog colors, the empty icon slot, and cyan circle remain development-only. No Java gameplay, generative/network dialogue, or unaudited asset library is copied.
 
 Follow-up decisions remain for touch controls, orientation/iPad policy, controller support, Java-save migration, licensed asset migration, audio design, and level scaling. A final approved app icon and distribution signing are release blockers.
+
+## Level 1 gameplay corrections
+
+The native Level 1 simulation deliberately uses elapsed-time movement and hookshot steps rather than rendered frames. Lava contact removes exactly one health point, restores Lidia's last safe cell, and applies a 0.75-second cooldown; a latched hook pull is immune to lava. This corrects the Java update-loop behavior that could repeatedly damage the player at different display refresh rates. Spawning enumerates safe cells before shuffling, so it cannot retry forever, and all collection/removal uses stable UUIDs. `AppRouter` now constructs, validates, initializes, and starts the world before navigation; SpriteKit only presents that existing simulation.
