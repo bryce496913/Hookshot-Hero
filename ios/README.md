@@ -1,40 +1,41 @@
 # Hookshot Hero for iOS (V2 foundation)
 
-`ios/` contains the incremental native successor to the offline Java/Swing V1 in `Java/`. V1 remains the behavioral/content reference and must not be deleted before verified parity. This foundation does not migrate full gameplay or assets and must not receive network-based dialogue or generative-service code.
+`ios/` is the incremental native successor to the offline Java/Swing V1. The Java implementation remains an untouched behavioral reference; this foundation does not convert gameplay.
 
-## Requirements and opening
+## Toolchain and validation
 
-* Xcode 16.x (project format and Swift toolchain), iOS 18 SDK
-* Minimum target: iOS 18.0; iPhone portrait is the deliberate initial device family
+Development and release validation require a **stable Xcode 26 or later** and an **iOS 26 SDK or later**. The minimum deployment target remains **iOS 18.0**. Strict Swift concurrency checking is enabled. Open `ios/HookshotHero.xcodeproj` and use the committed `HookshotHero` scheme.
 
-Open `ios/HookshotHero.xcodeproj` and select the shared **HookshotHero** scheme. On a Mac, discover destinations with:
+Discover an installed iPhone simulator, then run:
 
 ```bash
+xcodebuild -version
 xcodebuild -project ios/HookshotHero.xcodeproj -scheme HookshotHero -showdestinations
-```
-
-Then substitute an installed simulator identifier:
-
-```bash
-xcodebuild -project ios/HookshotHero.xcodeproj -scheme HookshotHero \
-  -destination 'platform=iOS Simulator,id=<SIMULATOR-UDID>' build
+xcodebuild -project ios/HookshotHero.xcodeproj -scheme HookshotHero -configuration Debug \
+  -destination 'platform=iOS Simulator,id=<AVAILABLE-SIMULATOR-UDID>' clean build
+xcodebuild -project ios/HookshotHero.xcodeproj -scheme HookshotHero -configuration Debug \
+  -destination 'platform=iOS Simulator,id=<AVAILABLE-SIMULATOR-UDID>' test
+xcodebuild -project ios/HookshotHero.xcodeproj -scheme HookshotHero -configuration Debug \
+  -destination 'platform=iOS Simulator,id=<AVAILABLE-SIMULATOR-UDID>' analyze
 xcodebuild -project ios/HookshotHero.xcodeproj -scheme HookshotHero -configuration Release \
-  -destination 'generic/platform=iOS Simulator' build
-xcodebuild -project ios/HookshotHero.xcodeproj -scheme HookshotHero \
-  -destination 'platform=iOS Simulator,id=<SIMULATOR-UDID>' test
+  -destination 'generic/platform=iOS Simulator' clean build
+xcodebuild -project ios/HookshotHero.xcodeproj -scheme HookshotHero -configuration Release \
+  -destination 'generic/platform=iOS' -archivePath /tmp/HookshotHero.xcarchive \
+  CODE_SIGNING_ALLOWED=NO archive
 ```
 
-## Implemented
+The Linux cleanup environment did not contain `xcodebuild`; therefore local build, test, analysis, SDK, simulator, warning-count, and archive results remain unverified until the Xcode 26 CI job succeeds. `.github/workflows/ios-ci.yml` repeats plist lint, simulator discovery, Debug/Release builds, unit/UI tests, Analyze, and unsigned archive validation, and uploads a failed test result bundle.
 
-Typed SwiftUI routing launches at an accessible main menu and creates one disposable session. A development-only SpriteKit scene demonstrates delta-time movement, pause/resume, lifecycle pause, and cleanup. Injected settings and versioned atomic progression persistence have unit coverage, alongside safe entity mutation and timing. XCUITests cover the essential menu/gameplay/settings flows.
+## Foundation behavior
 
-## Limitations
+* `AppRouter` exclusively creates, observes, and disposes the one active `GameSession`. Views and SpriteKit scenes never dispose domain state. Terminal state observation snapshots an immutable result, records progression once, disposes the session, and replaces gameplay with the results route.
+* Scene attachment installs presentation idempotently, initializes the world once, binds one scene-local subscription, and resets timing. Detachment cancels local work and timing only. Pause, resume, app inactivity, terminal state, detach, and reattach all invalidate the previous timestamp. Foregrounding never automatically resumes gameplay.
+* Progression schema 1 loads directly. The controlled schema-0 fixture migrates sequentially to schema 1. Corrupt data and unsupported future schemas are reported and preserved rather than overwritten. `ProgressionStore` is part of app composition and records higher scores and win completion.
+* Each new session receives an immutable configuration snapshot. Effective Reduce Motion is the stored app preference OR the system Reduce Motion preference. It stops placeholder marker movement. Control Hints shows or hides the implemented pause hint. Audio and haptic settings remain deferred and are not displayed as no-op controls.
+* Debug UI tests launch with `--ui-testing --reset-persistent-state`, an isolated UserDefaults suite, and an isolated temporary progression document. Debug-only forced outcome arguments are `--force-game-outcome=win` and `--force-game-outcome=loss`; Release builds ignore the UI-test configuration.
 
-The player circle, system symbols, colors, and empty app-icon slot are placeholders. There are no final controls, physics, levels, missions, migrated saves, audio, iPad layout, controller support, or Java assets. Foregrounding intentionally requires explicit resume. Command-line Xcode validation requires macOS and is unavailable in Linux environments.
+## Release limitations
 
-## Documentation
+No approved 1024×1024 Hookshot Hero icon was found. The catalog slot deliberately remains empty and is a release/App Store blocker; no generic artwork was invented. Distribution signing is also outside this cleanup. Final controls, physics, levels, missions, enemies, audio, haptics, and Java assets remain future slices.
 
-* [Java-to-Swift inventory](Documentation/JavaToSwiftInventory.md)
-* [Responsibility map](Documentation/ResponsibilityMap.md)
-* [Conversion decisions](Documentation/ConversionDecisions.md)
-* [Temporary asset register](Resources/TemporaryAssets.md)
+See [Conversion decisions](Documentation/ConversionDecisions.md), [Responsibility map](Documentation/ResponsibilityMap.md), and [Temporary assets](Resources/TemporaryAssets.md).

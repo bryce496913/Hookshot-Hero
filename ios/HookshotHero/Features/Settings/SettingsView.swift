@@ -5,11 +5,10 @@ struct SettingsView: View {
     let dismiss: () -> Void
     var body: some View {
         Form {
-            Toggle("Music", isOn: $store.settings.musicEnabled)
-            Toggle("Sound Effects", isOn: $store.settings.soundEffectsEnabled)
-            Toggle("Haptics", isOn: $store.settings.hapticsEnabled)
             Toggle("Reduced Motion", isOn: $store.settings.reducedMotion)
+                .accessibilityIdentifier("reducedMotionToggle")
             Toggle("Control Hints", isOn: $store.settings.controlHintsEnabled)
+                .accessibilityIdentifier("controlHintsToggle")
             Button("Done", action: dismiss).accessibilityIdentifier("settingsDoneButton")
         }
         .navigationTitle("Settings")

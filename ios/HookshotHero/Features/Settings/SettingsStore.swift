@@ -8,4 +8,9 @@ final class SettingsStore: ObservableObject {
         self.repository = repository
         settings = repository.load()
     }
+
+    func configuration(systemReduceMotion: Bool) -> GameConfiguration {
+        GameConfiguration(reducedMotion: settings.reducedMotion || systemReduceMotion,
+                          controlHintsEnabled: settings.controlHintsEnabled)
+    }
 }
