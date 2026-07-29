@@ -17,7 +17,13 @@ final class AppRouter: ObservableObject {
 
     func startGame(configuration: GameConfiguration = .init(reducedMotion: false, controlHintsEnabled: true)) {
         endActiveSession(expectedID: activeSession?.identifier)
-        let session = GameSession(configuration: configuration)
+        let seed = ProcessInfo.processInfo.environment["HOOKSHOT_LEVEL_SEED"].flatMap(UInt64.init)
+        let session = GameSession(configuration: configuration, seed: seed)
+        guard session.initializeWorld(), session.start() else {
+            activeSession = session
+            path = [.gameplay]
+            return
+        }
         activeSession = session
         observe(session)
         path = [.gameplay]
