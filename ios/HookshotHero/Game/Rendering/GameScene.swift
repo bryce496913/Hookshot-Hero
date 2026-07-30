@@ -2,8 +2,6 @@ import Combine
 import SpriteKit
 
 private enum LegacyAssetMetrics {
-    static let logicalPixelsPerCell: CGFloat = 10
-
     static let lidiaSheet = CGSize(width: 576, height: 256)
     static let bombSheet = CGSize(width: 120, height: 26)
     static let barrelsSheet = CGSize(width: 128, height: 64)
@@ -29,11 +27,9 @@ final class LegacyTextureLoader {
 
     func texture(_ name: String) throws -> SKTexture {
         if let cached = cache[name] { return cached }
-
         guard let url = Bundle.main.url(forResource: name, withExtension: nil) else {
             throw TextureError.missing(name)
         }
-
         let texture = SKTexture(imageNamed: url.lastPathComponent)
         texture.filteringMode = .nearest
         cache[name] = texture
@@ -132,7 +128,6 @@ final class GameScene: SKScene {
             clock.reset()
             return
         }
-
         session.advance(by: clock.delta(at: currentTime))
         renderDynamic()
     }
@@ -152,7 +147,6 @@ final class GameScene: SKScene {
 
     private func build() {
         guard world.parent == nil else { return }
-
         removeAllChildren()
         addChild(world)
 
@@ -166,7 +160,7 @@ final class GameScene: SKScene {
             try buildLava(simulation.level.lava)
             try buildBoundaryWalls()
             try buildInternalWalls(simulation.level.internalWallAnchors)
-            try buildDoors(level: simulation.level)
+            try buildDoors()
             try buildChest(at: simulation.level.chestAnchor)
             try buildPlayer(simulation.player)
             buildGrapplePresentation()
@@ -179,13 +173,13 @@ final class GameScene: SKScene {
     }
 
     private func buildFloor() throws {
-        let floorTexture = try loader.texture("floor.png")
+        let texture = try loader.texture("floor.png")
         for row in stride(from: 0, to: 60, by: 10) {
             for column in stride(from: 0, to: 60, by: 10) {
                 addTile(
                     rows: row..<min(row + 10, 60),
                     columns: column..<min(column + 10, 60),
-                    texture: floorTexture,
+                    texture: texture,
                     zPosition: 0
                 )
             }
@@ -193,9 +187,9 @@ final class GameScene: SKScene {
     }
 
     private func buildLava(_ lavaRegions: [GridRegion]) throws {
-        let lavaTexture = try loader.texture("lava.png")
+        let texture = try loader.texture("lava.png")
         for region in lavaRegions {
-            addTile(region, texture: lavaTexture, zPosition: 1)
+            addTile(region, texture: texture, zPosition: 1)
         }
     }
 
@@ -204,13 +198,23 @@ final class GameScene: SKScene {
         let leftTexture = try loader.texture("wallGreyLeftSide.png")
         let rightTexture = try loader.texture("wallGreyRightSide.png")
 
-        // Java places 40×40 wall tiles every 40 pixels. The open top door occupies
-        // the center tile; the closed bottom door is rendered over a solid boundary.
+        // Java places 40×40 tiles every 40 pixels. Keep the center top tile open
+        // for the exit while retaining the solid closed lower boundary.
         for column in stride(from: 0, to: 60, by: 4) {
             if column != 28 {
-                addTile(rows: 0..<4, columns: column..<column + 4, texture: frontTexture, zPosition: 2)
+                addTile(
+                    rows: 0..<4,
+                    columns: column..<column + 4,
+                    texture: frontTexture,
+                    zPosition: 2
+                )
             }
-            addTile(rows: 56..<60, columns: column..<column + 4, texture: frontTexture, zPosition: 2)
+            addTile(
+                rows: 56..<60,
+                columns: column..<column + 4,
+                texture: frontTexture,
+                zPosition: 2
+            )
         }
 
         for row in stride(from: 4, to: 56, by: 4) {
@@ -220,18 +224,18 @@ final class GameScene: SKScene {
     }
 
     private func buildInternalWalls(_ anchors: [GridPosition]) throws {
-        let wallTexture = try loader.texture("wallGreyFront.png")
+        let texture = try loader.texture("wallGreyFront.png")
         for anchor in anchors {
             addTile(
                 rows: anchor.row..<anchor.row + 4,
                 columns: anchor.column..<anchor.column + 4,
-                texture: wallTexture,
+                texture: texture,
                 zPosition: 2
             )
         }
     }
 
-    private func buildDoors(level: LevelDefinition) throws {
+    private func buildDoors() throws {
         let openDoor = SKSpriteNode(texture: try loader.texture("DoorGreyOpen.png"))
         openDoor.anchorPoint = .zero
         openDoor.position = topLeftPoint(row: 0, column: 28, height: 4)
@@ -279,12 +283,10 @@ final class GameScene: SKScene {
         chain.strokeColor = .white
         chain.lineWidth = 0.35
         chain.zPosition = 7
-
         hook.fillColor = .systemYellow
         hook.strokeColor = .white
         hook.setScale(0.15)
         hook.zPosition = 8
-
         world.addChild(chain)
         world.addChild(hook)
     }
@@ -319,7 +321,7 @@ final class GameScene: SKScene {
             column: columns.lowerBound,
             height: rows.count
         )
-        node.size = .init(width: columns.count, height: rows.count)
+        node.size = .init(width: CGFloat(columns.count), height: CGFloat(rows.count))
         node.zPosition = zPosition
         world.addChild(node)
     }
@@ -365,13 +367,7 @@ final class GameScene: SKScene {
     }
 
     private func lidiaTexture(_ direction: GridDirection, frame: Int = 0) throws -> SKTexture {
-        let row: CGFloat = [
-            .up: 0,
-            .left: 1,
-            .down: 2,
-            .right: 3
-        ][direction] ?? 3
-
+        let row: CGFloat = [.up: 0, .left: 1, .down: 2, .right: 3][direction] ?? 3
         return try loader.slice(
             "lidia.png",
             x: CGFloat(frame % 9) * 64,
@@ -403,7 +399,6 @@ final class GameScene: SKScene {
         let frame = session.configuration.reducedMotion || !walking
             ? 0
             : Int(simulation.player.animationTime / 0.09) % 9
-
         if let texture = try? lidiaTexture(simulation.player.facing, frame: frame) {
             playerNode.texture = texture
         }
@@ -443,7 +438,6 @@ final class GameScene: SKScene {
             hook.isHidden = false
             chain.isHidden = false
             hook.position = point(head)
-
             let path = CGMutablePath()
             path.move(to: playerNode.position)
             path.addLine(to: hook.position)
@@ -468,7 +462,6 @@ final class GameScene: SKScene {
 
     private func showError(_ message: String) {
         removeAllChildren()
-
         let box = SKShapeNode(
             rectOf: .init(width: max(size.width - 30, 100), height: 100),
             cornerRadius: 12
