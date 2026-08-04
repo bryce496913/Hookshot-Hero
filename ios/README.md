@@ -1,43 +1,50 @@
-# Hookshot Hero for iOS (V2 foundation)
+# Hookshot Hero for iOS — playable Level 1
 
-`ios/` is the incremental native successor to the offline Java/Swing V1. The Java implementation remains an untouched behavioral reference; this foundation does not convert gameplay.
+The native SwiftUI/SpriteKit conversion now provides a complete, playable **Level 1 vertical slice** while the Java game remains the behavioral reference. Level 2 is explicitly deferred.
+
+## Current gameplay
+
+Lidia starts on the original 60×60 board at row 50, column 27. Native direction-pad controls support tap and hold movement, and Grapple fires in her facing direction with the original 19-cell range. Walls, the six-cell top exit, the closed lower door, lava damage and safe-position restoration all participate in collision. Coins, cabbages, mines, and the talking chest are interactive. Victory, defeat, automatic results navigation, high scores, and Level 1 completion persistence are implemented.
+
+Shared boundary geometry drives simulation and SpriteKit presentation. Device-independent collision footprints cover Lidia and every item; deterministic spawning validates the entire footprint against walls, lava, doors, the chest, start safety region, and other entities. Typed, elapsed-time feedback presents score and health changes, uses the bundled `heart.png` in the HUD, announces important events through VoiceOver, and supplies a programmatic mine explosion. Chest dialogue suspends simulation and elapsed time until Continue.
+
+The existing Java sprite resources are bundled directly in the target. Do not duplicate, edit, or replace those binaries during conversion work. Repository patches remain text-only; DerivedData, screenshots, recordings, `.xcresult`, `.xcarchive`, apps, and test bundles must not be committed.
+
+## Controls and accessibility
+
+* **Move up/down/left/right:** tap a semantic SwiftUI button for one command; press and hold for time-based repetition. Release, cancellation, pause, dialogue, backgrounding, terminal state, and view disappearance clear held input.
+* **Grapple:** fires in Lidia's current facing direction.
+* **Pause:** suspends play and offers Resume or Return to Menu.
+* Direction controls appear as buttons with stable identifiers (`moveUpButton`, `moveDownButton`, `moveLeftButton`, `moveRightButton`); Grapple is `grappleButton`. They expose descriptive VoiceOver labels and disabled state. Health remains readable as text even though the legacy heart is also shown. Important collection, health, chest, mine, and completion events generate one accessibility announcement per event. Reduce Motion replaces travel-heavy feedback with a fade.
 
 ## Toolchain and validation
 
-Development and release validation require a **stable Xcode 26 or later** and an **iOS 26 SDK or later**. The minimum deployment target remains **iOS 18.0**. Strict Swift concurrency checking is enabled. Open `ios/HookshotHero.xcodeproj` and use the committed `HookshotHero` scheme.
-
-Discover an installed iPhone simulator, then run:
+Use a stable **Xcode 26 or later** with an **iOS 26 SDK or later**. The minimum deployment target is **iOS 18.0**. Strict Swift concurrency checking is enabled. Open `ios/HookshotHero.xcodeproj` and use the shared `HookshotHero` scheme.
 
 ```bash
 xcodebuild -version
 xcodebuild -project ios/HookshotHero.xcodeproj -scheme HookshotHero -showdestinations
-xcodebuild -project ios/HookshotHero.xcodeproj -scheme HookshotHero -configuration Debug \
-  -destination 'platform=iOS Simulator,id=<AVAILABLE-SIMULATOR-UDID>' clean build
-xcodebuild -project ios/HookshotHero.xcodeproj -scheme HookshotHero -configuration Debug \
-  -destination 'platform=iOS Simulator,id=<AVAILABLE-SIMULATOR-UDID>' test
-xcodebuild -project ios/HookshotHero.xcodeproj -scheme HookshotHero -configuration Debug \
-  -destination 'platform=iOS Simulator,id=<AVAILABLE-SIMULATOR-UDID>' analyze
-xcodebuild -project ios/HookshotHero.xcodeproj -scheme HookshotHero -configuration Release \
-  -destination 'generic/platform=iOS Simulator' clean build
-xcodebuild -project ios/HookshotHero.xcodeproj -scheme HookshotHero -configuration Release \
-  -destination 'generic/platform=iOS' -archivePath /tmp/HookshotHero.xcarchive \
-  CODE_SIGNING_ALLOWED=NO archive
+xcodebuild -project ios/HookshotHero.xcodeproj -scheme HookshotHero -configuration Debug -destination 'platform=iOS Simulator,id=<UDID>' -derivedDataPath /tmp/HookshotHero-LevelOne-Stabilization clean build
+xcodebuild -project ios/HookshotHero.xcodeproj -scheme HookshotHero -configuration Debug -destination 'platform=iOS Simulator,id=<UDID>' -derivedDataPath /tmp/HookshotHero-LevelOne-Stabilization test
+xcodebuild -project ios/HookshotHero.xcodeproj -scheme HookshotHero -configuration Debug -destination 'platform=iOS Simulator,id=<UDID>' -derivedDataPath /tmp/HookshotHero-LevelOne-Stabilization analyze
+xcodebuild -project ios/HookshotHero.xcodeproj -scheme HookshotHero -configuration Release -destination 'generic/platform=iOS Simulator' -derivedDataPath /tmp/HookshotHero-LevelOne-Stabilization-Release clean build
+xcodebuild -project ios/HookshotHero.xcodeproj -scheme HookshotHero -configuration Release -destination 'generic/platform=iOS' -archivePath /tmp/HookshotHero-LevelOne-Stabilization.xcarchive -derivedDataPath /tmp/HookshotHero-LevelOne-Stabilization-Archive CODE_SIGNING_ALLOWED=NO archive
+plutil -lint ios/HookshotHero/Resources/Info.plist ios/HookshotHero/Resources/PrivacyInfo.xcprivacy
 ```
 
-The Linux cleanup environment did not contain `xcodebuild`; therefore local build, test, analysis, SDK, simulator, warning-count, and archive results remain unverified until the Xcode 26 CI job succeeds. `.github/workflows/ios-ci.yml` repeats plist lint, simulator discovery, Debug/Release builds, unit/UI tests, Analyze, and unsigned archive validation, and uploads a failed test result bundle.
+The `.github/workflows/ios-ci.yml` workflow exposes the stable **ios-validation** job on relevant pull requests and pushes to `main`. It selects stable Xcode 26, discovers an available iPhone simulator, and runs plist validation, Debug build, unit and UI tests, Analyze, Release simulator build, and an unsigned device archive with pipeline exit-code preservation and failed-log upload. To make it a merge requirement, a repository administrator must open **Settings → Branches or Rulesets** and require `ios-validation` before merging to `main`.
 
-## Foundation behavior
+Unit coverage protects shared geometry, render/collision agreement, collision footprints and spawn safety, time-based movement/grapple behavior, feedback lifetime, dialogue lifecycle, node synchronization, scoring, and deterministic spawn behavior. UI coverage queries semantic controls as buttons and covers play/pause/results flows.
 
-* `AppRouter` exclusively creates, observes, and disposes the one active `GameSession`. Views and SpriteKit scenes never dispose domain state. Terminal state observation snapshots an immutable result, records progression once, disposes the session, and replaces gameplay with the results route.
-* Scene attachment installs presentation idempotently, initializes the world once, binds one scene-local subscription, and resets timing. Detachment cancels local work and timing only. Pause, resume, app inactivity, terminal state, detach, and reattach all invalidate the previous timestamp. Foregrounding never automatically resumes gameplay.
-* Progression schema 1 loads directly. The controlled schema-0 fixture migrates sequentially to schema 1. Corrupt data and unsupported future schemas are reported and preserved rather than overwritten. `ProgressionStore` is part of app composition and records higher scores and win completion.
-* Each new session receives an immutable configuration snapshot. Effective Reduce Motion is the stored app preference OR the system Reduce Motion preference. It stops placeholder marker movement. Control Hints shows or hides the implemented pause hint. Audio and haptic settings remain deferred and are not displayed as no-op controls.
-* Debug UI tests launch with `--ui-testing --reset-persistent-state`, an isolated UserDefaults suite, and an isolated temporary progression document. Debug-only forced outcome arguments are `--force-game-outcome=win` and `--force-game-outcome=loss`; Release builds ignore the UI-test configuration.
+## Intentionally deferred Level 1 parity
 
-## Release limitations
+* Atmosphere music and walking, grapple, coin, healing, and explosion sounds.
+* Java-parity fire and smoke emitters (the stabilization includes only basic programmatic explosion feedback).
+* Optional bouncing balls.
+* Mission-mode guide.
+* Transition into Level 2.
+* Approved final app icon (the empty catalog slot remains a distribution blocker).
 
-No approved 1024×1024 Hookshot Hero icon was found. The catalog slot deliberately remains empty and is a release/App Store blocker; no generic artwork was invented. Distribution signing is also outside this cleanup. Final controls, physics, levels, missions, enemies, audio, haptics, and Java assets remain future slices.
-
-**Release blocker: Add an approved 1024×1024 Hookshot Hero app icon manually through Xcode or the asset pipeline.** All source changes and CI logs are text-based. DerivedData, `.xcresult`, `.xcarchive`, app bundles, and test bundles are temporary validation products and must never be committed.
+No Level 2 enemies, missions, or transition are part of this stabilization pass.
 
 See [Conversion decisions](Documentation/ConversionDecisions.md), [Responsibility map](Documentation/ResponsibilityMap.md), and [Temporary assets](Resources/TemporaryAssets.md).

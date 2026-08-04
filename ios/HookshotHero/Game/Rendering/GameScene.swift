@@ -1,5 +1,6 @@
 import Combine
 import SpriteKit
+import UIKit
 
 private enum LegacyAssetMetrics {
     static let lidiaSheet = CGSize(width: 576, height: 256)
@@ -98,6 +99,7 @@ final class GameScene: SKScene {
     private let hook = SKShapeNode(circleOfRadius: 3)
     private var playerNode = SKSpriteNode()
     private var entityNodes: [EntityID: SKNode] = [:]
+    private var feedbackNodes: [UUID: SKNode] = [:]
     private var stateObservation: AnyCancellable?
 
     private var cellSize: CGFloat = 1
@@ -158,9 +160,9 @@ final class GameScene: SKScene {
         do {
             try buildFloor()
             try buildLava(simulation.level.lava)
-            try buildBoundaryWalls()
+            try buildBoundaryWalls(simulation.level.boundary)
             try buildInternalWalls(simulation.level.internalWallAnchors)
-            try buildDoors()
+            try buildDoors(simulation.level.boundary)
             try buildChest(at: simulation.level.chestAnchor)
             try buildPlayer(simulation.player)
             buildGrapplePresentation()
@@ -193,34 +195,15 @@ final class GameScene: SKScene {
         }
     }
 
-    private func buildBoundaryWalls() throws {
+    private func buildBoundaryWalls(_ geometry: LevelBoundaryGeometry) throws {
         let frontTexture = try loader.texture("wallGreyFront.png")
         let leftTexture = try loader.texture("wallGreyLeftSide.png")
         let rightTexture = try loader.texture("wallGreyRightSide.png")
 
-        // Java places 40×40 tiles every 40 pixels. Keep the center top tile open
-        // for the exit while retaining the solid closed lower boundary.
-        for column in stride(from: 0, to: 60, by: 4) {
-            if column != 28 {
-                addTile(
-                    rows: 0..<4,
-                    columns: column..<column + 4,
-                    texture: frontTexture,
-                    zPosition: 2
-                )
-            }
-            addTile(
-                rows: 56..<60,
-                columns: column..<column + 4,
-                texture: frontTexture,
-                zPosition: 2
-            )
-        }
-
-        for row in stride(from: 4, to: 56, by: 4) {
-            addTile(rows: row..<row + 4, columns: 0..<4, texture: leftTexture, zPosition: 2)
-            addTile(rows: row..<row + 4, columns: 56..<60, texture: rightTexture, zPosition: 2)
-        }
+        geometry.topWallRegions.forEach { addTile($0, texture: frontTexture, zPosition: 2) }
+        geometry.bottomWallRegions.forEach { addTile($0, texture: frontTexture, zPosition: 2) }
+        geometry.leftWallRegions.forEach { addTile($0, texture: leftTexture, zPosition: 2) }
+        geometry.rightWallRegions.forEach { addTile($0, texture: rightTexture, zPosition: 2) }
     }
 
     private func buildInternalWalls(_ anchors: [GridPosition]) throws {
@@ -235,19 +218,19 @@ final class GameScene: SKScene {
         }
     }
 
-    private func buildDoors() throws {
+    private func buildDoors(_ geometry: LevelBoundaryGeometry) throws {
         let openDoor = SKSpriteNode(texture: try loader.texture("DoorGreyOpen.png"))
         openDoor.anchorPoint = .zero
-        openDoor.position = topLeftPoint(row: 0, column: 28, height: 4)
-        openDoor.size = .init(width: 4, height: 4)
+        openDoor.position = topLeftPoint(row: geometry.topExitRegion.rows.lowerBound, column: geometry.topExitRegion.columns.lowerBound, height: geometry.topExitRegion.rows.count)
+        openDoor.size = .init(width: CGFloat(geometry.topExitRegion.columns.count), height: CGFloat(geometry.topExitRegion.rows.count))
         openDoor.zPosition = 3
         openDoor.name = "levelOneExitDoor"
         world.addChild(openDoor)
 
         let closedDoor = SKSpriteNode(texture: try loader.texture("DoorGreyClosed.png"))
         closedDoor.anchorPoint = .zero
-        closedDoor.position = topLeftPoint(row: 56, column: 28, height: 4)
-        closedDoor.size = .init(width: 4, height: 4)
+        closedDoor.position = topLeftPoint(row: geometry.bottomDoorRegion.rows.lowerBound, column: geometry.bottomDoorRegion.columns.lowerBound, height: geometry.bottomDoorRegion.rows.count)
+        closedDoor.size = .init(width: CGFloat(geometry.bottomDoorRegion.columns.count), height: CGFloat(geometry.bottomDoorRegion.rows.count))
         closedDoor.zPosition = 3
         closedDoor.name = "levelOneEntryDoor"
         world.addChild(closedDoor)
@@ -404,10 +387,13 @@ final class GameScene: SKScene {
         }
 
         let activeIDs = Set(simulation.entities.map(\.id))
-        for (id, node) in entityNodes where !activeIDs.contains(id) {
-            node.removeFromParent()
-            entityNodes[id] = nil
+        let staleIDs = entityNodes.keys.filter { !activeIDs.contains($0) }
+        for id in staleIDs {
+            entityNodes[id]?.removeFromParent()
+            entityNodes.removeValue(forKey: id)
         }
+
+        synchronizeFeedback(simulation.feedbackEvents)
 
         if !session.configuration.reducedMotion {
             let coinFrame = Int(simulation.player.animationTime / 0.08) % 9
@@ -446,6 +432,24 @@ final class GameScene: SKScene {
             hook.isHidden = true
             chain.isHidden = true
             chain.path = nil
+        }
+    }
+
+    private func synchronizeFeedback(_ feedback: [GameplayFeedback]) {
+        let activeIDs = Set(feedback.map(\.id))
+        let staleIDs = feedbackNodes.keys.filter { !activeIDs.contains($0) }
+        for id in staleIDs { feedbackNodes[id]?.removeFromParent(); feedbackNodes.removeValue(forKey: id) }
+        for event in feedback where feedbackNodes[event.id] == nil {
+            let container = SKNode(); container.name = "feedback-\(event.id.uuidString)"; container.position = point(event.coordinate ?? session.simulation?.player.position ?? .init(row: 30, column: 30)); container.zPosition = 20
+            if event.kind == .explosion {
+                let burst = SKShapeNode(circleOfRadius: 1.8); burst.strokeColor = .systemOrange; burst.lineWidth = 0.5; burst.fillColor = .systemRed.withAlphaComponent(0.35); container.addChild(burst)
+                burst.run(.group([.scale(to: 1.8, duration: event.duration), .fadeOut(withDuration: event.duration)]))
+            }
+            let label = SKLabelNode(text: event.message); label.fontName = "AvenirNext-Bold"; label.fontSize = 1.5; label.fontColor = event.kind == .healthLoss ? .systemRed : .white; label.verticalAlignmentMode = .bottom; container.addChild(label)
+            if session.configuration.reducedMotion { container.run(.fadeOut(withDuration: event.duration)) }
+            else { container.run(.group([.moveBy(x: 0, y: 3, duration: event.duration), .fadeOut(withDuration: event.duration)])) }
+            feedbackNodes[event.id] = container; world.addChild(container)
+            UIAccessibility.post(notification: .announcement, argument: event.accessibilityAnnouncement)
         }
     }
 

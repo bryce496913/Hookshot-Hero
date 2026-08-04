@@ -15,3 +15,13 @@ Follow-up decisions remain for touch controls, orientation/iPad policy, controll
 ## Level 1 gameplay corrections
 
 The native Level 1 simulation deliberately uses elapsed-time movement and hookshot steps rather than rendered frames. Lava contact removes exactly one health point, restores Lidia's last safe cell, and applies a 0.75-second cooldown; a latched hook pull is immune to lava. This corrects the Java update-loop behavior that could repeatedly damage the player at different display refresh rates. Spawning enumerates safe cells before shuffling, so it cannot retry forever, and all collection/removal uses stable UUIDs. `AppRouter` now constructs, validates, initializes, and starts the world before navigation; SpriteKit only presents that existing simulation.
+
+## Level 1 stabilization
+
+* `LevelBoundaryGeometry` is the single authority for boundary collision and SpriteKit wall/door layout; the top opening remains six cells wide (columns 27 through 32) and the lower door remains blocked.
+* Center-anchored, device-independent collision footprints define player, item, chest, exit, and grapple contact. Deterministic spawning rejects complete footprints that touch blocked, hazardous, protected, or occupied regions.
+* Typed gameplay feedback is rendered, expires by simulation elapsed time, respects Reduce Motion, and produces event-level accessibility announcements. Mine destruction uses a programmatic burst and the existing heart resource supports the textual health HUD.
+* Chest dialogue is a `GameSessionState` interruption. It cancels input and freezes simulation/time; lifecycle inactivity preserves the dialogue and Continue resumes only while active.
+* Direction-pad elements are semantic SwiftUI buttons with accessible tap activation plus owned press/release state for time-based repetition.
+* Scene dictionaries use a two-phase stale-ID calculation before removal, including entity and feedback nodes, so synchronization is idempotent and never mutates an active iteration.
+* Deterministic geometry, footprint, spawn, feedback, dialogue, movement, grapple, scoring, and victory tests protect shared Level 1 systems before Level 2 work begins.
