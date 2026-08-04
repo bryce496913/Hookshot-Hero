@@ -15,11 +15,11 @@ import XCTest
         XCTAssertEqual(session.state, .disposed); XCTAssertNil(router.activeSession); XCTAssertTrue(router.path.isEmpty)
     }
     func testWinCreatesSingleImmutableResultAndUpdatesProgression() {
-        router.startGame(); let session = router.activeSession!; _ = session.initializeWorld(); _ = session.start(); session.addScore(25); session.advance(by: 2); session.win(); session.win()
+        let coin = WorldEntity(id: EntityID(), kind: .coin, position: .init(row: 49, column: 27)); let simulation = try! LevelOneSimulation(entities: [coin]); let session = GameSession(simulation: simulation); router.startGame(session: session); session.simulation.inputController.send(.move(.up)); session.advance(by: 2); session.win(); session.win()
         guard case .results(let result) = router.path.first else { return XCTFail("Missing results") }
         XCTAssertEqual(router.path.count, 1); XCTAssertNil(router.activeSession); XCTAssertEqual(result.sessionID, session.identifier)
-        XCTAssertEqual(result.levelID, session.levelID); XCTAssertEqual(result.score, 25); XCTAssertEqual(result.elapsedTime, 2); XCTAssertEqual(result.outcome, .won)
-        XCTAssertEqual(progression.progression.highScore, 25); XCTAssertTrue(progression.progression.completedLevelIDs.contains(session.levelID))
+        XCTAssertEqual(result.levelID, session.levelID); XCTAssertEqual(result.score, 10); XCTAssertEqual(result.elapsedTime, 2); XCTAssertEqual(result.outcome, .won)
+        XCTAssertEqual(progression.progression.highScore, 10); XCTAssertTrue(progression.progression.completedLevelIDs.contains(session.levelID))
     }
     func testLossCreatesOneResultWithoutCompletion() {
         router.startGame(); let session = router.activeSession!; _ = session.initializeWorld(); _ = session.start(); session.lose()

@@ -1,4 +1,5 @@
 import SpriteKit
+import Combine
 import XCTest
 @testable import HookshotHero
 
@@ -101,12 +102,109 @@ final class GameSessionTests: XCTestCase {
         XCTAssertEqual(scene.clock.delta(at: 100), 0)
     }
 
+    func testIdleFramesAndEmptyMovementDoNotInvalidateSwiftUI() throws {
+        let session = GameSession(seed: 496_913)
+        _ = session.initializeWorld(); _ = session.start()
+        let simulation = try XCTUnwrap(session.simulation as? LevelOneSimulation)
+        var publications = 0
+        let observation = session.objectWillChange.sink { publications += 1 }
+
+        for _ in 0..<120 { session.advance(by: 1.0 / 120.0) }
+        XCTAssertEqual(publications, 0, "120 idle frames publish no UI changes")
+
+        simulation.input.send(.move(.up)); session.advance(by: 0.01)
+        for _ in 0..<30 { session.advance(by: 1.0 / 120.0) }
+        XCTAssertEqual(simulation.renderSnapshot.player.position, .init(row: 49, column: 27))
+        XCTAssertEqual(publications, 0, "safe movement changes render state, not UI state")
+        withExtendedLifetime(observation) {}
+    }
+
+    func testElapsedTimeIsAccurateAndNeverPublishedAtCommonFrameRates() {
+        for rate in [30.0, 60.0, 120.0] {
+            let session = running()
+            var publications = 0
+            let observation = session.objectWillChange.sink { publications += 1 }
+            for _ in 0..<Int(rate * 2) { session.advance(by: 1 / rate) }
+            XCTAssertEqual(session.elapsedTime, 2, accuracy: 0.000_001)
+            XCTAssertEqual(publications, 0, "elapsed time at \(Int(rate)) Hz is nonobservable")
+            withExtendedLifetime(observation) {}
+        }
+    }
+
+    func testUIVisibleSimulationChangesPublishOnceAndFeedbackRemovalPublishesOnce() throws {
+        let coin = WorldEntity(id: EntityID(), kind: .coin, position: .init(row: 49, column: 27))
+        let simulation = try LevelOneSimulation(entities: [coin])
+        var snapshots: [GameplayUISnapshot] = []
+        simulation.onUISnapshotChange = { snapshots.append($0) }
+        simulation.input.send(.move(.up)); simulation.update(deltaTime: 0.01)
+        XCTAssertEqual(snapshots.count, 1, "coin score and feedback form one coherent UI snapshot")
+        XCTAssertEqual(snapshots.last?.score, 10); XCTAssertEqual(snapshots.last?.feedback.count, 1)
+        for _ in 0..<24 { simulation.update(deltaTime: 0.1) }
+        XCTAssertEqual(snapshots.count, 2, "feedback expiration is the only subsequent publication")
+        XCTAssertTrue(snapshots.last?.feedback.isEmpty == true)
+    }
+
+    func testGrappleAvailabilityPublishesOnlyOnPhaseChanges() throws {
+        let simulation = try LevelOneSimulation(entities: [])
+        var snapshots: [GameplayUISnapshot] = []
+        simulation.onUISnapshotChange = { snapshots.append($0) }
+        simulation.input.send(.fireHook); simulation.update(deltaTime: 0.01)
+        XCTAssertEqual(snapshots.count, 1); XCTAssertFalse(snapshots[0].canGrapple)
+        simulation.update(deltaTime: 0.01)
+        XCTAssertEqual(snapshots.count, 1, "unchanged extending frames do not republish")
+    }
+
+    func testFactoryCreatesConfiguredSeededLevelOneAndRejectsUnsupportedLevel() throws {
+        let factory = DefaultGameSimulationFactory()
+        let configuration = GameConfiguration(reducedMotion: true, controlHintsEnabled: false)
+        let made = try factory.makeSimulation(levelID: .init(rawValue: "level-1"), configuration: configuration, seed: 496_913)
+        let levelOne = try XCTUnwrap(made as? LevelOneSimulation)
+        XCTAssertEqual(levelOne.seed, 496_913); XCTAssertEqual(levelOne.configuration, configuration)
+        XCTAssertThrowsError(try factory.makeSimulation(levelID: .init(rawValue: "unknown"), configuration: configuration, seed: nil)) {
+            XCTAssertEqual($0 as? GameLoadingError, .unsupportedLevel(.init(rawValue: "unknown")))
+        }
+    }
+
+    func testSessionUsesSharedSimulationLifecycle() {
+        let simulation = TestGameSimulation()
+        let session = GameSession(simulation: simulation)
+        _ = session.initializeWorld(); _ = session.start()
+        XCTAssertTrue(session.pause()); XCTAssertEqual(simulation.pauses, [false, true])
+        XCTAssertTrue(session.resume()); XCTAssertEqual(simulation.pauses, [false, true, false])
+        session.openDialogue("hello"); XCTAssertTrue(session.continueDialogue()); XCTAssertEqual(simulation.dialogueContinuations, 1)
+        session.dispose(); session.dispose(); XCTAssertEqual(simulation.disposeCount, 1)
+    }
+
     private func running() -> GameSession {
         let session = GameSession()
         _ = session.initializeWorld()
         _ = session.start()
         return session
     }
+}
+
+@MainActor private final class TestGameSimulation: GameSimulation {
+    let levelID = LevelID(rawValue: "test")
+    let levelName = "Test"
+    var outcome: GameOutcome?
+    var finalStatus = PlayerStatusSnapshot(health: 3, score: 0)
+    let inputController = GameInputController()
+    var onUISnapshotChange: ((GameplayUISnapshot) -> Void)?
+    var onOutcome: ((GameOutcome) -> Void)?
+    var onDialogue: ((String) -> Void)?
+    var pauses: [Bool] = []
+    var dialogueContinuations = 0
+    var disposeCount = 0
+    var uiSnapshot: GameplayUISnapshot { .init(levelID: levelID, levelName: levelName, health: 3, maximumHealth: 5, score: 0, canMove: true, canGrapple: true, isPaused: false, dialogue: nil, feedback: [], diagnosticPlayerPosition: nil) }
+    var renderSnapshot: GameRenderSnapshot {
+        let level = LevelOneDefinition.make(); let player = PlayerState(id: EntityID(), position: level.start, lastSafePosition: level.start)
+        return .init(level: level, player: player, entities: [], chestOpen: false, feedback: [])
+    }
+    func update(deltaTime: TimeInterval) {}
+    func continueDialogue() { dialogueContinuations += 1 }
+    func setPaused(_ paused: Bool) { pauses.append(paused) }
+    func cancelAllInput() { inputController.cancelAllInput() }
+    func dispose() { disposeCount += 1 }
 }
 
 @MainActor
@@ -275,7 +373,7 @@ final class LevelOneConversionTests: XCTestCase {
 
     func testDialogueSuspendsTimeAndCancelsHeldInput() throws {
         let session = GameSession(seed: 1); _ = session.initializeWorld(); _ = session.start()
-        guard let simulation = session.simulation else { return XCTFail("missing simulation") }
+        guard let simulation = session.simulation as? LevelOneSimulation else { return XCTFail("missing simulation") }
         simulation.input.send(.beginMove(.up)); session.openDialogue("Chest")
         let position = simulation.player.position; let elapsed = session.elapsedTime
         session.advance(by: 2)

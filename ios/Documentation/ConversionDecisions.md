@@ -29,3 +29,7 @@ The native Level 1 simulation deliberately uses elapsed-time movement and hooksh
 ## Level 1 stabilization
 
 Gameplay feedback uses event-specific associated-value cases. SwiftUI presents readable, stacked screen-space text while SpriteKit owns only world effects; chest score and health are one event and one announcement. Direction controls observe the authoritative input controller's cancellation generation, so dialogue, pause, lifecycle suspension, terminal state, and disappearance clear local press presentation as well as held simulation input. Entity-array order is the deterministic same-frame interaction order. A lethal contact synchronizes health and score, marks the world terminal, emits one outcome, and stops later contacts. Seed `496913` supplies the documented full-map regression fixture (coin at row 42/column 27 and mine at row 53/column 27), exercised from the production start with normal commands.
+
+## Multi-level dependency boundary
+
+Gameplay construction now follows `AppRouter → GameSimulationFactory → GameSimulation → GameSession → GameplayView and GameScene`. SwiftUI consumes only equatable UI snapshots, while SpriteKit pulls nonobservable render snapshots. The concrete simulation remains authoritative, including every score mutation; level-specific rules stay in `LevelOneSimulation`. The factory has an explicit typed unsupported-level error and is the future extension point for Level 2, which is intentionally not part of this pass.
