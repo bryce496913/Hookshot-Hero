@@ -4,6 +4,7 @@ struct AppEnvironment {
     let settingsRepository: UserDefaultsSettingsRepository
     let progressionRepository: ProgressionRepository
     let forcedOutcome: GameOutcome?
+    let levelSeed: UInt64?
 
     @MainActor
     static func current(arguments: [String] = ProcessInfo.processInfo.arguments) -> AppEnvironment {
@@ -23,18 +24,21 @@ struct AppEnvironment {
             return AppEnvironment(
                 settingsRepository: UserDefaultsSettingsRepository(defaults: defaults),
                 progressionRepository: ProgressionRepository(fileURL: root.appending(path: "progression.json")),
-                forcedOutcome: outcome
+                forcedOutcome: outcome,
+                levelSeed: ProcessInfo.processInfo.environment["HOOKSHOT_LEVEL_SEED"].flatMap(UInt64.init)
             )
         }
         #endif
         do {
             return AppEnvironment(settingsRepository: UserDefaultsSettingsRepository(),
-                                  progressionRepository: try .applicationRepository(), forcedOutcome: nil)
+                                  progressionRepository: try .applicationRepository(), forcedOutcome: nil,
+                                  levelSeed: ProcessInfo.processInfo.environment["HOOKSHOT_LEVEL_SEED"].flatMap(UInt64.init))
         } catch {
             AppLog.persistence.error("Application Support unavailable: \(error.localizedDescription, privacy: .public)")
             let fallback = FileManager.default.temporaryDirectory.appending(path: "HookshotHero-progression.json")
             return AppEnvironment(settingsRepository: UserDefaultsSettingsRepository(),
-                                  progressionRepository: ProgressionRepository(fileURL: fallback), forcedOutcome: nil)
+                                  progressionRepository: ProgressionRepository(fileURL: fallback), forcedOutcome: nil,
+                                  levelSeed: ProcessInfo.processInfo.environment["HOOKSHOT_LEVEL_SEED"].flatMap(UInt64.init))
         }
     }
 }

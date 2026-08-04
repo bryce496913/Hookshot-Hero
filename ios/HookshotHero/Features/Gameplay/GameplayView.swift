@@ -7,25 +7,44 @@ struct GameplayView: View {
     init(session: GameSession, returnToMenu: @escaping () -> Void) { self.session=session;self.returnToMenu=returnToMenu;_scene=State(initialValue:GameScene(session:session)) }
     var body: some View {
         VStack(spacing:8) { hud
-            if let error=session.initializationError { ContentUnavailableView("Level 1 unavailable",systemImage:"exclamationmark.triangle",description:Text(error)) }
-            else { ZStack { SpriteView(scene:scene).aspectRatio(1,contentMode:.fit).background(.black).accessibilityHidden(true).accessibilityIdentifier("levelOneBoard"); if let simulation = session.simulation { GameplayFeedbackOverlay(feedback: simulation.feedbackEvents, reducedMotion: session.configuration.reducedMotion) } } }
+            ZStack { SpriteView(scene:scene).aspectRatio(1,contentMode:.fit).background(.black).accessibilityHidden(true).accessibilityIdentifier("gameBoard"); GameplayFeedbackOverlay(feedback: session.uiSnapshot.feedback, reducedMotion: session.configuration.reducedMotion) }
             if session.configuration.controlHintsEnabled { Text("Move with the direction pad. Face a direction and tap Grapple.").font(.caption).multilineTextAlignment(.center).accessibilityIdentifier("controlHint") }
-            if let sim=session.simulation { GameControlsView(simulation:sim, disabled:!session.canSimulate) }
-        }.padding(.horizontal,8).padding(.bottom,4).navigationBarBackButtonHidden().onDisappear { session.simulation?.cancelAllInput() }.overlay { if session.isPaused { pauseOverlay }; if let text=session.dialogue { DialogueOverlay(text:text, continueAction:session.continueDialogue) } }
+            GameControlsView(canMove: session.uiSnapshot.canMove, canGrapple: session.uiSnapshot.canGrapple, inputController: session.simulation.inputController, diagnosticPosition: session.uiSnapshot.diagnosticPlayerPosition)
+        }.padding(.horizontal,8).padding(.bottom,4).navigationBarBackButtonHidden().onDisappear { session.simulation.cancelAllInput() }.overlay { if session.isPaused { pauseOverlay }; if let text=session.dialogue { DialogueOverlay(text:text, continueAction:session.continueDialogue) } }
     }
-    private var hud:some View { HStack { Text("Level 1").bold().accessibilityIdentifier("levelTitle");Image("heart.png").resizable().scaledToFit().frame(width:20,height:20).accessibilityHidden(true);Text("Health \(session.health)").accessibilityLabel("Health").accessibilityValue("\(session.health)").accessibilityIdentifier("healthValue");Text("Score \(session.score)").accessibilityLabel("Score").accessibilityValue("\(session.score)").accessibilityIdentifier("scoreValue");Spacer();pauseButton }.padding(10).background(.ultraThinMaterial,in:RoundedRectangle(cornerRadius:12)).accessibilityIdentifier("gameplayHUD") }
+    private var hud:some View { HStack { Text(session.uiSnapshot.levelName).bold().accessibilityIdentifier("levelTitle");Image("heart.png").resizable().scaledToFit().frame(width:20,height:20).accessibilityHidden(true);Text("Health \(session.uiSnapshot.health)").accessibilityLabel("Health").accessibilityValue("\(session.uiSnapshot.health)").accessibilityIdentifier("healthValue");Text("Score \(session.uiSnapshot.score)").accessibilityLabel("Score").accessibilityValue("\(session.uiSnapshot.score)").accessibilityIdentifier("scoreValue");Spacer();pauseButton }.padding(10).background(.ultraThinMaterial,in:RoundedRectangle(cornerRadius:12)).accessibilityIdentifier("gameplayHUD") }
     private var pauseButton:some View { Button(session.isPaused ? "Resume":"Pause") { if session.isPaused { _ = session.resume() } else { _ = session.pause() } }.buttonStyle(.borderedProminent).accessibilityLabel(session.isPaused ? "Resume game":"Pause game").accessibilityIdentifier(session.isPaused ? "resumeButton":"pauseButton") }
     private var pauseOverlay:some View { VStack(spacing:18){Text("Paused").font(.largeTitle.bold()).accessibilityIdentifier("pauseOverlay");Button("Resume"){session.resume()}.accessibilityIdentifier("overlayResumeButton");Button("Return to Menu",role:.destructive,action:returnToMenu).accessibilityIdentifier("returnToMenuButton")}.padding(30).background(.regularMaterial,in:RoundedRectangle(cornerRadius:20)).zIndex(5) }
 }
 
 struct GameControlsView: View {
-    @ObservedObject var simulation: LevelOneSimulation; let disabled:Bool
-    var body:some View { HStack(spacing:24){ VStack(spacing:2){ DirectionButton(direction:.up,input:simulation.input,isEnabled:!disabled);HStack(spacing:2){DirectionButton(direction:.left,input:simulation.input,isEnabled:!disabled);DirectionButton(direction:.down,input:simulation.input,isEnabled:!disabled);DirectionButton(direction:.right,input:simulation.input,isEnabled:!disabled)}}
-        Button("Grapple"){simulation.input.send(.fireHook)}.font(.title3.bold()).frame(minWidth:96,minHeight:60).buttonStyle(.borderedProminent).tint(.orange).disabled(disabled || simulation.player.hookshot.phase != .idle).accessibilityLabel("Fire grapple").accessibilityValue(simulation.player.hookshot.phase.rawValue).accessibilityIdentifier("grappleButton")
-    }.frame(maxWidth:.infinity).disabled(disabled).accessibilityElement(children:.contain)
-    #if DEBUG
-    .overlay { Text("Player row \(simulation.player.position.row) column \(simulation.player.position.column)").font(.caption2).opacity(0.01).accessibilityIdentifier("playerPosition") }
-    #endif
+    let canMove: Bool
+    let canGrapple: Bool
+    let inputController: GameInputController
+    let diagnosticPosition: GridPosition?
+    var body: some View {
+        HStack(spacing:24) {
+            VStack(spacing:2) {
+                DirectionButton(direction:.up,input:inputController,isEnabled:canMove)
+                HStack(spacing:2) {
+                    DirectionButton(direction:.left,input:inputController,isEnabled:canMove)
+                    DirectionButton(direction:.down,input:inputController,isEnabled:canMove)
+                    DirectionButton(direction:.right,input:inputController,isEnabled:canMove)
+                }
+            }
+            Button("Grapple") { inputController.send(.fireHook) }
+                .font(.title3.bold()).frame(minWidth:96,minHeight:60)
+                .buttonStyle(.borderedProminent).tint(.orange).disabled(!canGrapple)
+                .accessibilityLabel("Fire grapple").accessibilityIdentifier("grappleButton")
+        }
+        .frame(maxWidth:.infinity).accessibilityElement(children:.contain)
+        #if DEBUG
+        .overlay {
+            if let position = diagnosticPosition {
+                Text("Player row \(position.row) column \(position.column)").font(.caption2).opacity(0.01).accessibilityIdentifier("playerPosition")
+            }
+        }
+        #endif
     }
 }
 struct DirectionButton: View {

@@ -163,21 +163,18 @@ final class GameScene: SKScene {
         removeAllChildren()
         addChild(world)
 
-        guard let simulation = session.simulation else {
-            showError(session.initializationError ?? "Level 1 could not be initialized.")
-            return
-        }
+        let snapshot = session.simulation.renderSnapshot
 
         do {
             try buildFloor()
-            try buildLava(simulation.level.lava)
-            try buildBoundaryWalls(simulation.level.boundary)
-            try buildInternalWalls(simulation.level.internalWallAnchors)
-            try buildDoors(simulation.level.boundary)
-            try buildChest(at: simulation.level.chestAnchor)
-            try buildPlayer(simulation.player)
+            try buildLava(snapshot.level.lava)
+            try buildBoundaryWalls(snapshot.level.boundary)
+            try buildInternalWalls(snapshot.level.internalWallAnchors)
+            try buildDoors(snapshot.level.boundary)
+            try buildChest(at: snapshot.level.chestAnchor)
+            try buildPlayer(snapshot.player)
             buildGrapplePresentation()
-            try buildEntities(simulation.entities)
+            try buildEntities(snapshot.entities)
             layoutWorld()
             renderDynamic()
         } catch {
@@ -187,11 +184,12 @@ final class GameScene: SKScene {
 
     private func buildFloor() throws {
         let texture = try loader.texture("floor.png")
-        for row in stride(from: 0, to: 60, by: 10) {
-            for column in stride(from: 0, to: 60, by: 10) {
+        let grid = session.simulation.renderSnapshot.level.grid
+        for row in stride(from: 0, to: grid.rows, by: 10) {
+            for column in stride(from: 0, to: grid.columns, by: 10) {
                 addTile(
-                    rows: row..<min(row + 10, 60),
-                    columns: column..<min(column + 10, 60),
+                    rows: row..<min(row + 10, grid.rows),
+                    columns: column..<min(column + 10, grid.columns),
                     texture: texture,
                     zPosition: 0
                 )
@@ -235,7 +233,7 @@ final class GameScene: SKScene {
         openDoor.position = topLeftPoint(row: geometry.topExitRegion.rows.lowerBound, column: geometry.topExitRegion.columns.lowerBound, height: geometry.topExitRegion.rows.count)
         openDoor.size = .init(width: CGFloat(geometry.topExitRegion.columns.count), height: CGFloat(geometry.topExitRegion.rows.count))
         openDoor.zPosition = 3
-        openDoor.name = "levelOneExitDoor"
+        openDoor.name = "levelExitDoor"
         world.addChild(openDoor)
 
         let closedDoor = SKSpriteNode(texture: try loader.texture("DoorGreyClosed.png"))
@@ -243,7 +241,7 @@ final class GameScene: SKScene {
         closedDoor.position = topLeftPoint(row: geometry.bottomDoorRegion.rows.lowerBound, column: geometry.bottomDoorRegion.columns.lowerBound, height: geometry.bottomDoorRegion.rows.count)
         closedDoor.size = .init(width: CGFloat(geometry.bottomDoorRegion.columns.count), height: CGFloat(geometry.bottomDoorRegion.rows.count))
         closedDoor.zPosition = 3
-        closedDoor.name = "levelOneEntryDoor"
+        closedDoor.name = "levelEntryDoor"
         world.addChild(closedDoor)
     }
 
@@ -376,46 +374,46 @@ final class GameScene: SKScene {
     private func point(_ position: GridPosition) -> CGPoint {
         .init(
             x: CGFloat(position.column) + 0.5,
-            y: CGFloat(60 - position.row) - 0.5
+            y: CGFloat(session.simulation.renderSnapshot.level.grid.rows - position.row) - 0.5
         )
     }
 
     private func topLeftPoint(row: Int, column: Int, height: Int) -> CGPoint {
-        .init(x: CGFloat(column), y: CGFloat(60 - row - height))
+        .init(x: CGFloat(column), y: CGFloat(session.simulation.renderSnapshot.level.grid.rows - row - height))
     }
 
     private func renderDynamic() {
-        guard let simulation = session.simulation else { return }
+        let snapshot = session.simulation.renderSnapshot
 
-        playerNode.position = point(simulation.player.position)
-        let walking = simulation.player.movementDirection != nil
-            && simulation.player.hookshot.phase == .idle
+        playerNode.position = point(snapshot.player.position)
+        let walking = snapshot.player.movementDirection != nil
+            && snapshot.player.hookshot.phase == .idle
         let frame = session.configuration.reducedMotion || !walking
             ? 0
-            : Int(simulation.player.animationTime / 0.09) % 9
-        if let texture = try? lidiaTexture(simulation.player.facing, frame: frame) {
+            : Int(snapshot.player.animationTime / 0.09) % 9
+        if let texture = try? lidiaTexture(snapshot.player.facing, frame: frame) {
             playerNode.texture = texture
         }
 
-        let activeIDs = Set(simulation.entities.map(\.id))
+        let activeIDs = Set(snapshot.entities.map(\.id))
         let staleIDs = entityNodes.keys.filter { !activeIDs.contains($0) }
         for id in staleIDs {
             entityNodes[id]?.removeFromParent()
             entityNodes.removeValue(forKey: id)
         }
 
-        synchronizeFeedback(simulation.feedbackEvents)
+        synchronizeFeedback(snapshot.feedback)
 
         if !session.configuration.reducedMotion {
-            let coinFrame = Int(simulation.player.animationTime / 0.08) % 9
-            for entity in simulation.entities where entity.kind == .coin {
+            let coinFrame = Int(snapshot.player.animationTime / 0.08) % 9
+            for entity in snapshot.entities where entity.kind == .coin {
                 if let sprite = entityNodes[entity.id] as? SKSpriteNode {
                     sprite.texture = try? loader.texture("goldCoin\(coinFrame + 1).png")
                 }
             }
         }
 
-        if simulation.chestOpen,
+        if snapshot.chestOpen,
            let chest = world.childNode(withName: "chest") as? SKSpriteNode,
            let openTexture = try? loader.slice(
                "chests.png",
@@ -430,7 +428,7 @@ final class GameScene: SKScene {
             chest.size = .init(width: 2.5, height: 2.9)
         }
 
-        let hookshot = simulation.player.hookshot
+        let hookshot = snapshot.player.hookshot
         if hookshot.phase != .idle, let head = hookshot.head {
             hook.isHidden = false
             chain.isHidden = false
@@ -451,7 +449,7 @@ final class GameScene: SKScene {
         let staleIDs = feedbackNodes.keys.filter { !activeIDs.contains($0) }
         for id in staleIDs { feedbackNodes[id]?.removeFromParent(); feedbackNodes.removeValue(forKey: id) }
         for event in feedback where feedbackNodes[event.id] == nil {
-            let container = SKNode(); container.name = "feedback-\(event.id.uuidString)"; container.position = point(event.coordinate ?? session.simulation?.player.position ?? .init(row: 30, column: 30)); container.zPosition = 20
+            let container = SKNode(); container.name = "feedback-\(event.id.uuidString)"; container.position = point(event.coordinate ?? session.simulation.renderSnapshot.player.position); container.zPosition = 20
             if case .mineDestroyed = event.kind {
                 let descriptor = MineDestructionEffectDescriptor.make(reducedMotion: session.configuration.reducedMotion, duration: event.duration)
                 let burst = SKShapeNode(circleOfRadius: descriptor.initialRadius); burst.strokeColor = .systemOrange; burst.lineWidth = 0.5; burst.fillColor = .systemRed.withAlphaComponent(0.35); container.addChild(burst)
@@ -465,7 +463,8 @@ final class GameScene: SKScene {
 
     private func layoutWorld() {
         let side = min(size.width, size.height)
-        cellSize = side / 60
+        let grid = session.simulation.renderSnapshot.level.grid
+        cellSize = side / CGFloat(max(grid.rows, grid.columns))
         boardOrigin = .init(
             x: (size.width - side) / 2,
             y: (size.height - side) / 2

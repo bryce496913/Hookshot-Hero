@@ -11,7 +11,8 @@ struct HookshotHeroApp: App {
         let environment = AppEnvironment.current()
         let progressionStore = ProgressionStore(repository: environment.progressionRepository)
         _router = StateObject(wrappedValue: AppRouter(progressionStore: progressionStore,
-                                                       forcedOutcome: environment.forcedOutcome))
+                                                       forcedOutcome: environment.forcedOutcome,
+                                                       levelSeed: environment.levelSeed))
         _settingsStore = StateObject(wrappedValue: SettingsStore(repository: environment.settingsRepository))
     }
 

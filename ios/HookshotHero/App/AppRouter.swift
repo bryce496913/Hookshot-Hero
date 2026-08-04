@@ -9,16 +9,23 @@ final class AppRouter: ObservableObject {
     private var sessionObservation: AnyCancellable?
     private var completedSessionIDs: Set<UUID> = []
     private let forcedOutcome: GameOutcome?
+    private let simulationFactory: any GameSimulationFactory
+    private let levelSeed: UInt64?
 
-    init(progressionStore: ProgressionStore, forcedOutcome: GameOutcome? = nil) {
+    init(progressionStore: ProgressionStore, forcedOutcome: GameOutcome? = nil,
+         simulationFactory: any GameSimulationFactory = DefaultGameSimulationFactory(), levelSeed: UInt64? = nil) {
         self.progressionStore = progressionStore
         self.forcedOutcome = forcedOutcome
+        self.simulationFactory = simulationFactory
+        self.levelSeed = levelSeed
     }
 
     func startGame(configuration: GameConfiguration = .init(reducedMotion: false, controlHintsEnabled: true)) {
         endActiveSession(expectedID: activeSession?.identifier)
-        let seed = ProcessInfo.processInfo.environment["HOOKSHOT_LEVEL_SEED"].flatMap(UInt64.init)
-        let session = GameSession(configuration: configuration, seed: seed)
+        let levelID = LevelID(rawValue: "level-1")
+        guard let simulation = try? simulationFactory.makeSimulation(levelID: levelID, configuration: configuration, seed: levelSeed) else { return }
+        let session = GameSession(configuration: configuration, simulation: simulation,
+                                  publishesDiagnosticPosition: levelSeed != nil)
         guard session.initializeWorld(), session.start() else {
             activeSession = session
             path = [.gameplay]

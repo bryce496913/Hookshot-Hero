@@ -49,3 +49,17 @@ The repository intentionally has no CI workflow. The commands above are the requ
 No Level 2 enemies, missions, or transition are part of this stabilization pass.
 
 See [Conversion decisions](Documentation/ConversionDecisions.md), [Responsibility map](Documentation/ResponsibilityMap.md), and [Temporary assets](Resources/TemporaryAssets.md).
+
+## Shared simulation and UI publication boundary
+
+The gameplay dependency direction is `AppRouter → GameSimulationFactory → GameSimulation → GameSession → GameplayView / GameScene`. `DefaultGameSimulationFactory` currently creates only `LevelOneSimulation`; unsupported identifiers fail with `GameLoadingError.unsupportedLevel`. Level 2 is not implemented.
+
+The simulation is authoritative for health, score, entities, timing, and outcomes. Every Level 1 score source—coins, grapple-destroyed mines, the chest, and level completion—mutates the simulation player. `GameSession` has no score-award API and reads the final authoritative status for routing and immutable results.
+
+SwiftUI observes the small, equatable `GameplayUISnapshot`: level identity, health, maximum health, score, movement/grapple availability, pause/dialogue presentation, and stable feedback events. Equivalent snapshots are not assigned. Feedback publishes when it is added or removed, not as its duration advances. Elapsed gameplay time is a nonpublished session value, and paused, dialogue, and background intervals remain excluded.
+
+SpriteKit synchronously pulls `GameRenderSnapshot`, which contains level geometry, player render state, stable-ID entities, grapple state, chest state, and feedback presentation. Player animation time, interpolation, entity animation, frame timestamps, and accumulators remain nonobservable. Unit observation tests verify that idle frames and safe empty-cell movement produce zero `GameSession.objectWillChange` events in production mode.
+
+UI tests inject the deterministic Level 1 seed `496913` in their shared setup. A DEBUG-only coordinate diagnostic is enabled only for seeded test composition; Release gameplay does not publish coordinates.
+
+This repository intentionally has no CI workflows or required automated checks. The complete local Xcode 26-or-later build, unit test, UI test, analyze, Release build, unsigned archive, and plist validation sequence is mandatory before release.

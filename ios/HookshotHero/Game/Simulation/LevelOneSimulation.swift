@@ -159,6 +159,66 @@ struct GameplayFeedback: Identifiable, Equatable, Sendable {
 }
 struct PlayerStatusSnapshot: Equatable, Sendable { let health: Int; let score: Int }
 
+/// The complete set of values SwiftUI is allowed to observe during gameplay.
+/// Render positions and animation clocks intentionally do not belong here.
+struct GameplayUISnapshot: Equatable, Sendable {
+    let levelID: LevelID
+    let levelName: String
+    let health: Int
+    let maximumHealth: Int
+    let score: Int
+    let canMove: Bool
+    let canGrapple: Bool
+    let isPaused: Bool
+    let dialogue: String?
+    let feedback: [GameplayFeedback]
+    let diagnosticPlayerPosition: GridPosition?
+}
+
+struct GameRenderSnapshot: Sendable {
+    let level: LevelDefinition
+    let player: PlayerState
+    let entities: [WorldEntity]
+    let chestOpen: Bool
+    let feedback: [GameplayFeedback]
+}
+
+@MainActor protocol GameSimulation: AnyObject {
+    var levelID: LevelID { get }
+    var levelName: String { get }
+    var outcome: GameOutcome? { get }
+    var finalStatus: PlayerStatusSnapshot { get }
+    var uiSnapshot: GameplayUISnapshot { get }
+    var renderSnapshot: GameRenderSnapshot { get }
+    var inputController: GameInputController { get }
+    var onUISnapshotChange: ((GameplayUISnapshot) -> Void)? { get set }
+    var onOutcome: ((GameOutcome) -> Void)? { get set }
+    var onDialogue: ((String) -> Void)? { get set }
+    func update(deltaTime: TimeInterval)
+    func continueDialogue()
+    func setPaused(_ paused: Bool)
+    func cancelAllInput()
+    func dispose()
+}
+
+enum GameLoadingError: LocalizedError, Equatable {
+    case unsupportedLevel(LevelID)
+    var errorDescription: String? {
+        switch self { case .unsupportedLevel(let id): "Unsupported level: \(id.rawValue)." }
+    }
+}
+
+@MainActor protocol GameSimulationFactory {
+    func makeSimulation(levelID: LevelID, configuration: GameConfiguration, seed: UInt64?) throws -> any GameSimulation
+}
+
+struct DefaultGameSimulationFactory: GameSimulationFactory {
+    func makeSimulation(levelID: LevelID, configuration: GameConfiguration, seed: UInt64?) throws -> any GameSimulation {
+        guard levelID == LevelID(rawValue: "level-1") else { throw GameLoadingError.unsupportedLevel(levelID) }
+        return try LevelOneSimulation(configuration: configuration, seed: seed ?? UInt64.random(in: 1...UInt64.max))
+    }
+}
+
 @MainActor final class GameInputController: ObservableObject {
     private var queue:[GameCommand]=[]; @Published private(set) var heldDirection:GridDirection?
     @Published private(set) var cancellationGeneration = 0
@@ -167,18 +227,27 @@ struct PlayerStatusSnapshot: Equatable, Sendable { let health: Int; let score: I
     func cancelAllInput(){ queue.removeAll(); heldDirection=nil; cancellationGeneration &+= 1 }
 }
 
-@MainActor final class LevelOneSimulation: ObservableObject {
+@MainActor final class LevelOneSimulation: GameSimulation {
     static let chestMessage="Welcome Heroine!! Tap Grapple to launch in the direction you are facing. Use it to cross lava, attack mines, and collect items. Chests and food barrels can restore health or add score. Beware of bombs."
-    let level:LevelDefinition; let input=GameInputController()
-    @Published private(set) var player:PlayerState; @Published private(set) var entities:[WorldEntity]
-    @Published private(set) var chestOpen=false; @Published private(set) var feedbackEvents:[GameplayFeedback]=[]
+    let level:LevelDefinition; let input=GameInputController(); let configuration: GameConfiguration; let seed: UInt64
+    private(set) var player:PlayerState; private(set) var entities:[WorldEntity]
+    private(set) var chestOpen=false; private(set) var feedbackEvents:[GameplayFeedback]=[]
     private var movementAccumulator=0.0; private var simulationTime=0.0; private(set) var outcome:GameOutcome?
     private var lastPublishedStatus: PlayerStatusSnapshot
-    var onStatusChange:((PlayerStatusSnapshot)->Void)?; var onOutcome:((GameOutcome)->Void)?; var onDialogue:((String)->Void)?
-    init(seed:UInt64=UInt64.random(in:1...UInt64.max),startOverride:GridPosition?=nil,entities fixture:[WorldEntity]?=nil)throws{
+    private var lastPublishedUISnapshot: GameplayUISnapshot
+    var onStatusChange:((PlayerStatusSnapshot)->Void)?; var onUISnapshotChange:((GameplayUISnapshot)->Void)?; var onOutcome:((GameOutcome)->Void)?; var onDialogue:((String)->Void)?
+    init(configuration: GameConfiguration = .init(reducedMotion: false, controlHintsEnabled: true), seed:UInt64=UInt64.random(in:1...UInt64.max),startOverride:GridPosition?=nil,entities fixture:[WorldEntity]?=nil)throws{
+        self.configuration = configuration; self.seed = seed
         level=LevelOneDefinition.make();let initial=startOverride ?? level.start;player = .init(id:EntityID(),position:initial,lastSafePosition:initial); lastPublishedStatus = .init(health: 3, score: 0)
+        lastPublishedUISnapshot = .init(levelID: .init(rawValue: "level-1"), levelName: "Level 1", health: 3, maximumHealth: 5, score: 0, canMove: true, canGrapple: true, isPaused: false, dialogue: nil, feedback: [], diagnosticPlayerPosition: nil)
         var rng=SeededRandomNumberGenerator(seed:seed);entities=try fixture ?? SpawnService.spawn(in:level,using:&rng)
     }
+    var levelID: LevelID { .init(rawValue: "level-1") }
+    var levelName: String { level.displayName }
+    var finalStatus: PlayerStatusSnapshot { .init(health: player.health, score: player.score) }
+    var inputController: GameInputController { input }
+    var uiSnapshot: GameplayUISnapshot { .init(levelID: levelID, levelName: levelName, health: player.health, maximumHealth: player.maximumHealth, score: player.score, canMove: outcome == nil, canGrapple: outcome == nil && player.hookshot.phase == .idle, isPaused: false, dialogue: nil, feedback: feedbackEvents, diagnosticPlayerPosition: nil) }
+    var renderSnapshot: GameRenderSnapshot { .init(level: level, player: player, entities: entities, chestOpen: chestOpen, feedback: feedbackEvents) }
     func update(deltaTime raw:TimeInterval){
         guard outcome == nil else { return }
         let dt=min(max(raw,0),0.1); simulationTime += dt; player.damageCooldown=max(0,player.damageCooldown-dt); player.animationTime += dt
@@ -187,8 +256,11 @@ struct PlayerStatusSnapshot: Equatable, Sendable { let health: Int; let score: I
         updateHeldMovement(dt); guard outcome == nil else { return }
         updateHook(dt); guard outcome == nil else { return }
         checkChestAndExit(); guard outcome == nil else { return }
-        publishStatusIfChanged()
+        publishStatusIfChanged(); publishUISnapshotIfChanged()
     }
+    func continueDialogue() { publishUISnapshotIfChanged() }
+    func setPaused(_ paused: Bool) { if paused { cancelAllInput() } }
+    func dispose() { cancelAllInput(); onUISnapshotChange = nil; onOutcome = nil; onDialogue = nil }
     func cancelAllInput(){input.cancelAllInput();player.movementDirection=nil;movementAccumulator=0}
     private func consumeCommands(){for command in input.drain(){guard outcome == nil else { break }; process(command)}}
     private func process(_ command: GameCommand){guard outcome == nil else{return};switch command{case .move(let d):player.facing=d;attemptMove(d);case .beginMove(let d):player.facing=d;player.movementDirection=d;movementAccumulator=0;attemptMove(d);case .endMove(let d):if player.movementDirection==d{player.movementDirection=nil};case .fireHook:fireHook()}}
@@ -225,7 +297,8 @@ struct PlayerStatusSnapshot: Equatable, Sendable { let health: Int; let score: I
     func activateChestAndExit(){checkChestAndExit()}
     private func checkChestAndExit(){guard outcome == nil else{return};let playerRegion=CollisionProfile.player.region(at:player.position);if !chestOpen,playerRegion.intersects(CollisionProfile.chest.region(at:level.chestAnchor)){guard outcome == nil else{return};chestOpen=true;player.score+=100;let gain=min(2,player.maximumHealth-player.health);player.health+=gain;emit(.chestReward(score: 100, health: gain),at:level.chestAnchor);publishStatusIfChanged();cancelAllInput();onDialogue?(Self.chestMessage)};guard outcome == nil else{return};if playerRegion.intersects(level.exitRegion){player.score+=100;emit(.levelCompleted(points: 100),at:player.position);publishStatusIfChanged();setOutcome(.won)}}
     private func checkLoss(){if player.health<=0{publishStatusIfChanged();setOutcome(.lost)}}
-    private func setOutcome(_ value:GameOutcome){guard outcome == nil else{return};outcome=value;cancelAllInput();player.hookshot=HookshotState();onOutcome?(value)}
+    private func setOutcome(_ value:GameOutcome){guard outcome == nil else{return};outcome=value;cancelAllInput();player.hookshot=HookshotState();publishUISnapshotIfChanged();onOutcome?(value)}
     private func publishStatusIfChanged(){guard outcome == nil else{return};let status=PlayerStatusSnapshot(health:player.health,score:player.score);guard status != lastPublishedStatus else{return};lastPublishedStatus=status;onStatusChange?(status)}
-    private func emit(_ kind:GameplayFeedbackKind,at coordinate:GridPosition?){guard outcome == nil else{return};feedbackEvents.append(.init(id:UUID(),kind:kind,coordinate:coordinate,createdAt:simulationTime,duration:2.4))}
+    private func publishUISnapshotIfChanged(){let snapshot=uiSnapshot;guard snapshot != lastPublishedUISnapshot else{return};lastPublishedUISnapshot=snapshot;onUISnapshotChange?(snapshot)}
+    private func emit(_ kind:GameplayFeedbackKind,at coordinate:GridPosition?){guard outcome == nil else{return};feedbackEvents.append(.init(id:UUID(),kind:kind,coordinate:coordinate,createdAt:simulationTime,duration:2.4));publishUISnapshotIfChanged()}
 }

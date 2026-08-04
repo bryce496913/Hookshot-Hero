@@ -5,6 +5,7 @@ final class HookshotHeroUITests: XCTestCase {
     override func setUpWithError() throws {
         continueAfterFailure = false
         app = XCUIApplication(); app.launchArguments = ["--ui-testing", "--reset-persistent-state"]
+        app.launchEnvironment["HOOKSHOT_LEVEL_SEED"] = "496913"
     }
     private func launch(_ extra: String? = nil) { if let extra { app.launchArguments.append(extra) }; app.launch() }
     func testLaunchPlayPauseResumeAndReturnAccessibility() {

@@ -52,13 +52,13 @@ final class LevelOneStabilizationTests: XCTestCase {
     func testDeterministicLevelOneMapPlaythroughReachesVictory() throws {
         let coin = WorldEntity(id: EntityID(), kind: .coin, position: .init(row: 42, column: 27))
         let mine = WorldEntity(id: EntityID(), kind: .mine, position: .init(row: 53, column: 27))
-        let session = GameSession(entities: [coin, mine])
+        let session = GameSession(simulation: try LevelOneSimulation(entities: [coin, mine]))
         let directory = FileManager.default.temporaryDirectory.appending(path: UUID().uuidString)
         defer { try? FileManager.default.removeItem(at: directory) }
         let progression = ProgressionStore(repository: .init(fileURL: directory.appending(path: "progression.json")))
         let router = AppRouter(progressionStore: progression); router.startGame(session: session)
         XCTAssertEqual(session.state, .running); XCTAssertEqual(router.path, [.gameplay])
-        let simulation = try XCTUnwrap(session.simulation)
+        let simulation = try XCTUnwrap(session.simulation as? LevelOneSimulation)
         XCTAssertEqual(simulation.player.position, .init(row: 50, column: 27)); XCTAssertEqual(session.health, 3); XCTAssertEqual(session.score, 0)
 
         func move(_ direction: GridDirection, _ count: Int) { for _ in 0..<count { simulation.input.send(.move(direction)); session.advance(by: 0.01) } }
