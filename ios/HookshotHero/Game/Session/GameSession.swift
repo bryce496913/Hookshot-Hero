@@ -20,7 +20,8 @@ enum PauseReason: Equatable, Sendable { case user, applicationLifecycle }
 @MainActor final class GameSession: ObservableObject {
   let identifier: UUID
   let configuration: GameConfiguration
-  let simulation: any GameSimulation
+  let runtime: GameLevelRuntime
+  var simulation: any GameSimulation { runtime.simulation }
   let levelID: LevelID
   let missionID: MissionID?
 
@@ -37,17 +38,29 @@ enum PauseReason: Equatable, Sendable { case user, applicationLifecycle }
   init(
     identifier: UUID = UUID(), missionID: MissionID? = nil,
     configuration: GameConfiguration = .init(reducedMotion: false, controlHintsEnabled: true),
-    simulation: any GameSimulation, publishesDiagnosticPosition: Bool = false
+    simulation: any GameSimulation, runtime suppliedRuntime: GameLevelRuntime? = nil, publishesDiagnosticPosition: Bool = false
   ) {
     self.identifier = identifier
     self.missionID = missionID
     self.configuration = configuration
-    self.simulation = simulation
+    if let suppliedRuntime {
+      self.runtime = suppliedRuntime
+    } else {
+      let textureCatalog = TextureCatalog(entries: LevelOneTextureCatalog.entries)
+      self.runtime = .init(simulation: simulation, presentation: simulation.presentationDefinition, textureCatalog: textureCatalog, animationCatalog: LevelOneAnimationCatalog(textureCatalog: textureCatalog), assetManifest: .levelOne)
+    }
     self.levelID = simulation.levelID
     self.publishesDiagnosticPosition = publishesDiagnosticPosition
     self.uiSnapshot = simulation.uiSnapshot
     bindSimulation()
     refreshUISnapshot()
+  }
+  convenience init(
+    identifier: UUID = UUID(), missionID: MissionID? = nil,
+    configuration: GameConfiguration = .init(reducedMotion: false, controlHintsEnabled: true),
+    runtime: GameLevelRuntime, publishesDiagnosticPosition: Bool = false
+  ) {
+    self.init(identifier: identifier, missionID: missionID, configuration: configuration, simulation: runtime.simulation, runtime: runtime, publishesDiagnosticPosition: publishesDiagnosticPosition)
   }
 
   var score: Int { simulation.finalStatus.score }

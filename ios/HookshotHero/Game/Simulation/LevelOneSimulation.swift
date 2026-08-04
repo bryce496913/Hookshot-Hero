@@ -350,10 +350,21 @@ struct GrappleRenderSnapshot: Sendable {
   let origin: GridPosition
   let head: GridPosition
 }
-struct RenderEffectSnapshot: Identifiable, Sendable {
+struct RenderEffectDescriptor: Equatable, Sendable {
+  let duration: TimeInterval
+  let initialRadius: Double
+  let finalScale: Double
+  let zPosition: Double
+  var scales: Bool { finalScale != 1 }
+  static func mineDestruction(reducedMotion: Bool) -> Self {
+    .init(duration: 0.35, initialRadius: 1.8, finalScale: reducedMotion ? 1 : 1.8, zPosition: 9)
+  }
+}
+struct RenderEffectSnapshot: Identifiable, Equatable, Sendable {
   let id: UUID
   let coordinate: GridPosition
-  let asset: RenderAssetID?
+  let descriptor: RenderEffectDescriptor
+  let createdAt: TimeInterval
 }
 struct GameRenderSnapshot: Sendable {
   let player: RenderEntitySnapshot
@@ -485,6 +496,62 @@ enum GameLoadingError: LocalizedError, Equatable, Sendable {
     }
   }
 }
+struct LevelAssetManifest: Equatable, Sendable {
+  let textureAssetIDs: Set<RenderAssetID>
+  let animationIDs: Set<RenderAnimationID>
+}
+@MainActor struct GameLevelRuntime {
+  let simulation: any GameSimulation
+  let presentation: LevelPresentationDefinition
+  let textureCatalog: any TextureCatalogProviding
+  let animationCatalog: any AnimationCatalogProviding
+  let assetManifest: LevelAssetManifest
+}
+@MainActor protocol AssetPreflighting {
+  func validate(manifest: LevelAssetManifest, textureCatalog: any TextureCatalogProviding, animationCatalog: any AnimationCatalogProviding) throws
+}
+@MainActor struct DefaultAssetPreflight: AssetPreflighting {
+  func validate(manifest: LevelAssetManifest, textureCatalog: any TextureCatalogProviding, animationCatalog: any AnimationCatalogProviding) throws {
+    for assetID in manifest.textureAssetIDs { _ = try textureCatalog.texture(for: assetID) }
+    for animationID in manifest.animationIDs {
+      let frames = try animationCatalog.frames(for: animationID)
+      if frames.isEmpty { throw GameLoadingError.missingRequiredAsset(animationID.rawValue) }
+    }
+  }
+}
+@MainActor protocol GameLevelRuntimeFactory {
+  func makeRuntime(levelID: LevelID, configuration: GameConfiguration, seed: UInt64?) throws -> GameLevelRuntime
+}
+@MainActor struct DefaultGameLevelRuntimeFactory: GameLevelRuntimeFactory {
+  let simulationFactory: any GameSimulationFactory
+  let preflight: any AssetPreflighting
+  init(simulationFactory: any GameSimulationFactory = DefaultGameSimulationFactory(), preflight: any AssetPreflighting = DefaultAssetPreflight()) { self.simulationFactory = simulationFactory; self.preflight = preflight }
+  func makeRuntime(levelID: LevelID, configuration: GameConfiguration, seed: UInt64?) throws -> GameLevelRuntime {
+    let simulation = try simulationFactory.makeSimulation(levelID: levelID, configuration: configuration, seed: seed)
+    let textureCatalog = TextureCatalog(entries: LevelOneTextureCatalog.entries)
+    let animationCatalog = LevelOneAnimationCatalog(textureCatalog: textureCatalog)
+    let manifest = LevelAssetManifest.levelOne
+    do { try preflight.validate(manifest: manifest, textureCatalog: textureCatalog, animationCatalog: animationCatalog) }
+    catch let e as TextureCatalogError { simulation.dispose(); throw e.gameLoadingError }
+    catch let e as GameLoadingError { simulation.dispose(); throw e }
+    catch { simulation.dispose(); throw GameLoadingError.invalidLevelDefinition(levelID) }
+    return .init(simulation: simulation, presentation: simulation.presentationDefinition, textureCatalog: textureCatalog, animationCatalog: animationCatalog, assetManifest: manifest)
+  }
+}
+extension TextureCatalogError {
+  var gameLoadingError: GameLoadingError {
+    switch self {
+    case .missingAsset(let id): .missingRequiredAsset(id.rawValue)
+    case .invalidRegion(let id): .invalidTextureRegion(id.rawValue)
+    }
+  }
+}
+extension LevelAssetManifest {
+  static let levelOne = LevelAssetManifest(
+    textureAssetIDs: Set(LevelOneTextureCatalog.entries.keys),
+    animationIDs: Set([LevelOneRenderAnimations.coinSpin, LevelOneRenderAnimations.lidiaWalk(.up), LevelOneRenderAnimations.lidiaWalk(.down), LevelOneRenderAnimations.lidiaWalk(.left), LevelOneRenderAnimations.lidiaWalk(.right)])
+  )
+}
 @MainActor protocol GameSimulationFactory {
   func makeSimulation(levelID: LevelID, configuration: GameConfiguration, seed: UInt64?) throws
     -> any GameSimulation
@@ -533,6 +600,7 @@ struct DefaultGameSimulationFactory: GameSimulationFactory {
   private(set) var entities: [WorldEntity]
   private(set) var chestOpen = false
   private(set) var feedbackEvents: [GameplayFeedback] = []
+  private var effectEvents: [RenderEffectSnapshot] = []
   private var movementAccumulator = 0.0
   private var simulationTime = 0.0
   private(set) var outcome: GameOutcome?
@@ -609,7 +677,7 @@ struct DefaultGameSimulationFactory: GameSimulationFactory {
     let grapple =
       player.hookshot.phase != .idle && player.hookshot.head != nil
       ? GrappleRenderSnapshot(origin: player.position, head: player.hookshot.head!) : nil
-    return .init(player: playerRender, entities: world + [chest], grapple: grapple, effects: [])
+    return .init(player: playerRender, entities: world + [chest], grapple: grapple, effects: effectEvents)
   }
   func update(deltaTime raw: TimeInterval) {
     guard outcome == nil else { return }
@@ -618,6 +686,7 @@ struct DefaultGameSimulationFactory: GameSimulationFactory {
     player.damageCooldown = max(0, player.damageCooldown - dt)
     player.animationTime += dt
     feedbackEvents.removeAll { $0.createdAt + $0.duration <= simulationTime }
+    effectEvents.removeAll { $0.createdAt + $0.descriptor.duration <= simulationTime }
     consumeCommands()
     guard outcome == nil else { return }
     updateHeldMovement(dt)
@@ -773,7 +842,8 @@ struct DefaultGameSimulationFactory: GameSimulationFactory {
       case .mine:
         if hooked {
           player.score += 10
-          emit(.mineDestroyed(points: 10), at: entity.position)
+          let effectID = emit(.mineDestroyed(points: 10), at: entity.position)
+          effectEvents.append(.init(id: effectID, coordinate: entity.position, descriptor: .mineDestruction(reducedMotion: configuration.reducedMotion), createdAt: simulationTime))
         } else {
           player.health -= 1
           emit(.healthLost(amount: 1, source: .mine), at: entity.position)
@@ -834,11 +904,13 @@ struct DefaultGameSimulationFactory: GameSimulationFactory {
     lastPublishedUISnapshot = snapshot
     onUISnapshotChange?(snapshot)
   }
-  private func emit(_ kind: GameplayFeedbackKind, at coordinate: GridPosition?) {
-    guard outcome == nil else { return }
+  @discardableResult private func emit(_ kind: GameplayFeedbackKind, at coordinate: GridPosition?) -> UUID {
+    guard outcome == nil else { return UUID() }
+    let id = UUID()
     feedbackEvents.append(
       .init(
-        id: UUID(), kind: kind, coordinate: coordinate, createdAt: simulationTime, duration: 2.4))
+        id: id, kind: kind, coordinate: coordinate, createdAt: simulationTime, duration: 2.4))
     publishUISnapshotIfChanged()
+    return id
   }
 }

@@ -33,7 +33,7 @@ struct AppGameLoadingLogger: GameLoadingLogging {
   private var sessionObservation: AnyCancellable?
   private var completedSessionIDs: Set<UUID> = []
   private let forcedOutcome: GameOutcome?
-  private let simulationFactory: any GameSimulationFactory
+  private let runtimeFactory: any GameLevelRuntimeFactory
   private let levelSeed: UInt64?
   private let startConfiguration: GameStartConfiguration
   private let logger: any GameLoadingLogging
@@ -41,13 +41,13 @@ struct AppGameLoadingLogger: GameLoadingLogging {
   private var loadingRequestID: GameLoadingRequestID?
   init(
     progressionStore: ProgressionStore, forcedOutcome: GameOutcome? = nil,
-    simulationFactory: any GameSimulationFactory = DefaultGameSimulationFactory(),
+    simulationFactory: any GameSimulationFactory = DefaultGameSimulationFactory(), runtimeFactory: (any GameLevelRuntimeFactory)? = nil,
     levelSeed: UInt64? = nil, startConfiguration: GameStartConfiguration = .current,
     logger: any GameLoadingLogging = AppGameLoadingLogger()
   ) {
     self.progressionStore = progressionStore
     self.forcedOutcome = forcedOutcome
-    self.simulationFactory = simulationFactory
+    self.runtimeFactory = runtimeFactory ?? DefaultGameLevelRuntimeFactory(simulationFactory: simulationFactory)
     self.levelSeed = levelSeed
     self.startConfiguration = startConfiguration
     self.logger = logger
@@ -66,24 +66,23 @@ struct AppGameLoadingLogger: GameLoadingLogging {
     loadingRequestID = requestID
     path.removeAll()
     do {
-      let simulation = try simulationFactory.makeSimulation(
+      let runtime = try runtimeFactory.makeRuntime(
         levelID: levelID, configuration: gameConfiguration, seed: levelSeed)
       guard loadingRequestID == requestID else {
-        simulation.dispose()
+        runtime.simulation.dispose()
         return
       }
       let session = GameSession(
-        configuration: gameConfiguration, simulation: simulation,
+        configuration: gameConfiguration, runtime: runtime,
         publishesDiagnosticPosition: levelSeed != nil)
-      activeSession = session
-      observe(session)
       guard session.initializeWorld(), session.start() else {
-        simulation.dispose()
-        activeSession = nil
+        session.dispose()
         handle(
           .invalidInitialState(levelID), levelID: levelID, isRetry: isRetry, requestID: requestID)
         return
       }
+      activeSession = session
+      observe(session)
       loadingRequestID = nil
       path = [.gameplay]
     } catch {
@@ -103,6 +102,8 @@ struct AppGameLoadingLogger: GameLoadingLogging {
   private func handle(
     _ error: GameLoadingError, levelID: LevelID, isRetry: Bool, requestID: GameLoadingRequestID
   ) {
+    sessionObservation?.cancel()
+    sessionObservation = nil
     activeSession = nil
     logger.loadingFailed(levelID: levelID, error: error, isRetry: isRetry)
     let p = GameLoadingFailurePresentation(
@@ -163,9 +164,9 @@ struct AppGameLoadingLogger: GameLoadingLogging {
     }
   }
   private func endActiveSession(expectedID: UUID?) {
-    guard let session = activeSession, session.identifier == expectedID else { return }
     sessionObservation?.cancel()
     sessionObservation = nil
+    guard let session = activeSession, session.identifier == expectedID else { return }
     session.dispose()
     activeSession = nil
   }

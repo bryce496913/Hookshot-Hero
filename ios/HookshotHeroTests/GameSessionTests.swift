@@ -110,7 +110,7 @@ final class GameSessionTests: XCTestCase {
     XCTAssertTrue(session.initializeWorld())
     XCTAssertTrue(session.start())
 
-    let scene = GameScene(size: CGSize(width: 100, height: 100), session: session)
+    let scene = GameScene(size: CGSize(width: 100, height: 100), session: session, catalog: session.runtime.textureCatalog, animationCatalog: session.runtime.animationCatalog)
     let view = SKView()
     scene.didMove(to: view)
     XCTAssertEqual(session.state, .running)
@@ -232,7 +232,7 @@ final class GameSessionTests: XCTestCase {
     let session = GameSession(simulation: simulation)
     _ = session.initializeWorld()
     _ = session.start()
-    let scene = GameScene(size: .init(width: 100, height: 100), session: session)
+    let scene = GameScene(size: .init(width: 100, height: 100), session: session, catalog: session.runtime.textureCatalog, animationCatalog: session.runtime.animationCatalog)
     XCTAssertEqual(simulation.presentationRequests, 1)
     scene.update(1)
     XCTAssertEqual(simulation.renderRequests, 1)
@@ -280,7 +280,7 @@ final class GameSessionTests: XCTestCase {
   }
   var renderSnapshot: GameRenderSnapshot {
     renderRequests += 1
-      .init(
+    return .init(
         player: .init(
           id: EntityID(), asset: LevelOneRenderAssets.lidia, coordinate: .init(row: 50, column: 27),
           renderSize: .init(width: 5.4, height: 4.4), anchor: .center, zPosition: 8,

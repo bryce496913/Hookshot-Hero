@@ -1,16 +1,31 @@
 import SpriteKit
 import SwiftUI
+import UIKit
+
+@MainActor protocol AccessibilityAnnouncing { func announce(_ message: String) }
+@MainActor struct UIKitAccessibilityAnnouncer: AccessibilityAnnouncing { func announce(_ message: String) { UIAccessibility.post(notification: .announcement, argument: message) } }
+@MainActor final class FeedbackAnnouncementCoordinator: ObservableObject {
+    private var announced: Set<UUID> = []
+    private let announcer: any AccessibilityAnnouncing
+    init(announcer: any AccessibilityAnnouncing = UIKitAccessibilityAnnouncer()) { self.announcer = announcer }
+    func update(feedback: [GameplayFeedback]) {
+        for event in feedback.sorted(by: { $0.createdAt == $1.createdAt ? $0.id.uuidString < $1.id.uuidString : $0.createdAt < $1.createdAt }) where !announced.contains(event.id) {
+            announced.insert(event.id); announcer.announce(event.kind.accessibilityAnnouncement)
+        }
+    }
+}
 
 struct GameplayView: View {
     @ObservedObject var session: GameSession; let returnToMenu: () -> Void
     @State private var scene: GameScene
-    init(session: GameSession, returnToMenu: @escaping () -> Void) { self.session=session;self.returnToMenu=returnToMenu;_scene=State(initialValue:GameScene(session:session)) }
+    @StateObject private var announcementCoordinator = FeedbackAnnouncementCoordinator()
+    init(session: GameSession, returnToMenu: @escaping () -> Void) { self.session=session;self.returnToMenu=returnToMenu;_scene=State(initialValue:GameScene(session:session,catalog:session.runtime.textureCatalog,animationCatalog:session.runtime.animationCatalog)) }
     var body: some View {
         VStack(spacing:8) { hud
             ZStack { SpriteView(scene:scene).aspectRatio(1,contentMode:.fit).background(.black).accessibilityHidden(true).accessibilityIdentifier("gameBoard"); GameplayFeedbackOverlay(feedback: session.uiSnapshot.feedback, reducedMotion: session.configuration.reducedMotion) }
             if session.configuration.controlHintsEnabled { Text("Move with the direction pad. Face a direction and tap Grapple.").font(.caption).multilineTextAlignment(.center).accessibilityIdentifier("controlHint") }
             GameControlsView(canMove: session.uiSnapshot.canMove, canGrapple: session.uiSnapshot.canGrapple, inputController: session.simulation.inputController, diagnosticPosition: session.uiSnapshot.diagnosticPlayerPosition)
-        }.padding(.horizontal,8).padding(.bottom,4).navigationBarBackButtonHidden().onDisappear { session.simulation.cancelAllInput() }.overlay { if session.isPaused { pauseOverlay }; if let text=session.dialogue { DialogueOverlay(text:text, continueAction:session.continueDialogue) } }
+        }.padding(.horizontal,8).padding(.bottom,4).navigationBarBackButtonHidden().onAppear { announcementCoordinator.update(feedback: session.uiSnapshot.feedback) }.onChange(of: session.uiSnapshot.feedback) { _, feedback in announcementCoordinator.update(feedback: feedback) }.onDisappear { session.simulation.cancelAllInput() }.overlay { if session.isPaused { pauseOverlay }; if let text=session.dialogue { DialogueOverlay(text:text, continueAction:session.continueDialogue) } }
     }
     private var hud:some View { HStack { Text(session.uiSnapshot.levelName).bold().accessibilityIdentifier("levelTitle");Image("heart.png").resizable().scaledToFit().frame(width:20,height:20).accessibilityHidden(true);Text("Health \(session.uiSnapshot.health)").accessibilityLabel("Health").accessibilityValue("\(session.uiSnapshot.health)").accessibilityIdentifier("healthValue");Text("Score \(session.uiSnapshot.score)").accessibilityLabel("Score").accessibilityValue("\(session.uiSnapshot.score)").accessibilityIdentifier("scoreValue");Spacer();pauseButton }.padding(10).background(.ultraThinMaterial,in:RoundedRectangle(cornerRadius:12)).accessibilityIdentifier("gameplayHUD") }
     private var pauseButton:some View { Button(session.isPaused ? "Resume":"Pause") { if session.isPaused { _ = session.resume() } else { _ = session.pause() } }.buttonStyle(.borderedProminent).accessibilityLabel(session.isPaused ? "Resume game":"Pause game").accessibilityIdentifier(session.isPaused ? "resumeButton":"pauseButton") }
