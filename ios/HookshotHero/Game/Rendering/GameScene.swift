@@ -45,7 +45,9 @@ struct TextureCatalogEntry {
 }
 protocol TextureCatalogProviding: AnyObject {
   func texture(for assetID: RenderAssetID) throws -> SKTexture
-  func animationFrame(for animationID: RenderAnimationID, frameIndex: Int) throws -> SKTexture
+}
+protocol AnimationCatalogProviding: AnyObject {
+  func frames(for animationID: RenderAnimationID) throws -> [SKTexture]
 }
 
 final class TextureCatalog: TextureCatalogProviding {
@@ -60,19 +62,6 @@ final class TextureCatalog: TextureCatalogProviding {
     let texture = try load(entry, assetID: assetID)
     cache[assetID.rawValue] = texture
     return texture
-  }
-  func animationFrame(for animationID: RenderAnimationID, frameIndex: Int) throws -> SKTexture {
-    let asset: RenderAssetID
-    if animationID == LevelOneRenderAnimations.coinSpin {
-      asset = RenderAssetID(rawValue: "level-one.coin.\((frameIndex % 9)+1)")
-    } else if animationID.rawValue.hasPrefix("character.lidia.walk.") {
-      let direction = String(animationID.rawValue.split(separator: ".").last ?? "right")
-      let row = ["up": 0, "left": 1, "down": 2, "right": 3][direction] ?? 3
-      asset = RenderAssetID(rawValue: "character.lidia.\(row)-\(frameIndex % 9)")
-    } else {
-      throw TextureCatalogError.missingAsset(.init(rawValue: animationID.rawValue))
-    }
-    return try texture(for: asset)
   }
   private func load(_ entry: TextureCatalogEntry, assetID: RenderAssetID) throws -> SKTexture {
     guard let url = Bundle.main.url(forResource: entry.filename, withExtension: nil) else {
@@ -90,6 +79,25 @@ final class TextureCatalog: TextureCatalogProviding {
     let slice = SKTexture(rect: rect, in: base)
     slice.filteringMode = .nearest
     return slice
+  }
+}
+
+
+final class LevelOneAnimationCatalog: AnimationCatalogProviding {
+  private let textureCatalog: any TextureCatalogProviding
+  init(textureCatalog: any TextureCatalogProviding) { self.textureCatalog = textureCatalog }
+  func frames(for animationID: RenderAnimationID) throws -> [SKTexture] {
+    let assets: [RenderAssetID]
+    if animationID == LevelOneRenderAnimations.coinSpin {
+      assets = (1...9).map { RenderAssetID(rawValue: "level-one.coin.\($0)") }
+    } else if animationID.rawValue.hasPrefix("character.lidia.walk.") {
+      let direction = String(animationID.rawValue.split(separator: ".").last ?? "right")
+      let row = ["up": 0, "left": 1, "down": 2, "right": 3][direction] ?? 3
+      assets = (0..<9).map { RenderAssetID(rawValue: "character.lidia.\(row)-\($0)") }
+    } else {
+      throw TextureCatalogError.missingAsset(.init(rawValue: animationID.rawValue))
+    }
+    return try assets.map { try textureCatalog.texture(for: $0) }
   }
 }
 
@@ -151,6 +159,9 @@ struct RenderLayoutContext {
   private let session: GameSession
   private let presentation: LevelPresentationDefinition
   private let catalog: any TextureCatalogProviding
+  private let animationCatalog: any AnimationCatalogProviding
+  private var effectNodes: [UUID: SKNode] = [:]
+  private var completedEffectIDs: Set<UUID> = []
   private(set) var clock = SimulationClock()
   private let world = SKNode()
   private var nodes: [EntityID: SKSpriteNode] = [:]
@@ -160,11 +171,12 @@ struct RenderLayoutContext {
   private var layout: RenderLayoutContext
   init(
     size: CGSize = .init(width: 600, height: 600), session: GameSession,
-    catalog: any TextureCatalogProviding = TextureCatalog()
+    catalog: any TextureCatalogProviding, animationCatalog: any AnimationCatalogProviding
   ) {
     self.session = session
-    presentation = session.simulation.presentationDefinition
+    presentation = session.runtime.presentation
     self.catalog = catalog
+    self.animationCatalog = animationCatalog
     layout = .init(gridSize: presentation.logicalGridSize)
     super.init(size: size)
     scaleMode = .resizeFill
@@ -238,6 +250,7 @@ struct RenderLayoutContext {
   }
   private func synchronize(using snapshot: GameRenderSnapshot) {
     sync([snapshot.player] + snapshot.entities)
+    syncEffects(snapshot.effects)
     if let g = snapshot.grapple {
       hook.isHidden = false
       chain.isHidden = false
@@ -254,10 +267,7 @@ struct RenderLayoutContext {
   }
   private func sync(_ entities: [RenderEntitySnapshot]) {
     let active = Set(entities.map(\.id))
-    for id in nodes.keys where !active.contains(id) {
-      nodes[id]?.removeFromParent()
-      nodes[id] = nil
-    }
+    removeStaleNodes(from: &nodes, keeping: active)
     for entity in entities {
       do {
         let node = nodes[entity.id] ?? SKSpriteNode()
@@ -266,11 +276,13 @@ struct RenderLayoutContext {
           nodes[entity.id] = node
         }
         node.texture =
-          try entity.animation.map {
-            try catalog.animationFrame(for: $0.animationID, frameIndex: $0.frameIndex)
+          try entity.animation.map { animation in
+            let frames = try animationCatalog.frames(for: animation.animationID)
+            guard !frames.isEmpty else { throw TextureCatalogError.missingAsset(.init(rawValue: animation.animationID.rawValue)) }
+            return frames[animation.frameIndex % frames.count]
           } ?? catalog.texture(for: entity.asset)
         node.position = layout.point(entity.coordinate)
-        node.size = .init(width: entity.renderSize.width, height: entity.renderSize.height)
+        node.size = CGSize(width: CGFloat(entity.renderSize.width), height: CGFloat(entity.renderSize.height))
         node.anchorPoint = .init(x: CGFloat(entity.anchor.x), y: CGFloat(entity.anchor.y))
         node.zPosition = CGFloat(entity.zPosition)
         node.alpha = CGFloat(entity.opacity)
@@ -280,6 +292,32 @@ struct RenderLayoutContext {
           "Dynamic asset failed: \(error.localizedDescription,privacy:.public)")
       }
     }
+  }
+
+  private func syncEffects(_ effects: [RenderEffectSnapshot]) {
+    let incoming = Set(effects.map(\.id))
+    let active = incoming.union(effectNodes.keys.filter { !completedEffectIDs.contains($0) })
+    removeStaleNodes(from: &effectNodes, keeping: active)
+    for effect in effects where effectNodes[effect.id] == nil && !completedEffectIDs.contains(effect.id) {
+      let node = SKShapeNode(circleOfRadius: CGFloat(effect.descriptor.initialRadius))
+      node.position = layout.point(effect.coordinate)
+      node.zPosition = CGFloat(effect.descriptor.zPosition)
+      node.fillColor = .systemOrange
+      node.strokeColor = .systemYellow
+      node.alpha = 0.9
+      world.addChild(node)
+      effectNodes[effect.id] = node
+      var actions: [SKAction] = []
+      if effect.descriptor.scales { actions.append(.scale(to: CGFloat(effect.descriptor.finalScale), duration: effect.descriptor.duration)) }
+      actions.append(.fadeOut(withDuration: effect.descriptor.duration))
+      node.run(.sequence([.group(actions), .run { [weak self, weak node] in
+        node?.removeFromParent(); self?.effectNodes.removeValue(forKey: effect.id); self?.completedEffectIDs.insert(effect.id)
+      }]))
+    }
+  }
+  private func removeStaleNodes<ID: Hashable, Node: SKNode>(from nodes: inout [ID: Node], keeping activeIDs: Set<ID>) {
+    let staleIDs = nodes.keys.filter { !activeIDs.contains($0) }
+    for id in staleIDs { nodes[id]?.removeFromParent(); nodes.removeValue(forKey: id) }
   }
   private func layoutWorld() {
     let side = min(size.width, size.height)

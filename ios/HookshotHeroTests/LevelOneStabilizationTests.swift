@@ -146,3 +146,29 @@ final class LevelOneStabilizationTests: XCTestCase {
     }
 
 }
+
+@MainActor final class AccessibilityAnnouncementTests: XCTestCase {
+  func testFeedbackAnnouncementsAreExplicitAndOneTime() {
+    let announcer = RecordingAccessibilityAnnouncer()
+    let coordinator = FeedbackAnnouncementCoordinator(announcer: announcer)
+    let firstID = UUID()
+    let secondID = UUID()
+    let events = [
+      GameplayFeedback(id: firstID, kind: .chestReward(score: 100, health: 2), coordinate: nil, createdAt: 0, duration: 2.4),
+      GameplayFeedback(id: secondID, kind: .mineDestroyed(points: 10), coordinate: nil, createdAt: 1, duration: 2.4),
+    ]
+
+    coordinator.update(feedback: events)
+    coordinator.update(feedback: events)
+
+    XCTAssertEqual(announcer.messages, [
+      "Chest opened. Plus 100 score and 2 health.",
+      "Mine destroyed. Plus 10 score.",
+    ])
+  }
+}
+
+@MainActor private final class RecordingAccessibilityAnnouncer: AccessibilityAnnouncing {
+  var messages: [String] = []
+  func announce(_ message: String) { messages.append(message) }
+}

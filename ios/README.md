@@ -79,3 +79,55 @@ Gameplay now has three distinct channels:
 Level One builds floor, lava, walls, and doors as static descriptors. Its player, chest (open or closed), coins, cabbages, mines, grapple, and future effects cross the shared boundary as stable-ID generic descriptors with extensible `RenderAssetID` and animation identifiers. `TextureCatalog` caches full textures and sheet slices, preserves nearest-neighbor filtering, and reports typed missing/invalid resources. `GameScene` caches grid/layout data, never reads static geometry from a dynamic snapshot, and passes the frame's single captured snapshot through synchronization helpers. Direction buttons use SwiftUI's semantic `.disabled` state as well as cancelling physical hold state, so VoiceOver and Switch Control receive the same availability as gameplay.
 
 A future Level 2 should add `LevelTwoSimulation`, `LevelTwoDefinition`, `LevelTwoPresentationDefinition`, Level Two catalog mappings, and explicit factory support. It must not add Level Two gameplay branches to the generic scene or rewrite Level One. This boundary remains pending complete Xcode 26 validation before Level 2 work begins.
+
+## Runtime loading and renderer correction pass
+
+This correction pass fixes the PR #14 native iOS regressions before Level 2 work begins. Logical gameplay and Codable values continue to use `Double`, while SpriteKit and Core Graphics presentation APIs receive explicit `CGFloat` conversions at the renderer boundary for node positions, sprite sizes, z positions, alpha values, anchors, and action parameters. Test simulations with side effects in computed `renderSnapshot` properties now use explicit `return` statements so render-request counting remains type-correct.
+
+Dynamic renderer cleanup is restored to a two-phase process: active identifiers are collected, stale identifiers are filtered into a separate array, and nodes are removed from their parents before dictionary entries are removed. The generic scene applies that rule to entity and effect node dictionaries so coin, cabbage, mine, chest, and future entity disappearance remains deterministic and idempotent.
+
+Effects are now part of the generic render snapshot flow. Level 1 mine destruction emits a stable generic `RenderEffectSnapshot` alongside the mine-specific score feedback; `GameScene` consumes `snapshot.effects` without Level 1 gameplay branches. Standard motion uses a brief scale-and-fade burst, while Reduced Motion uses the same finite lifetime with no scale animation.
+
+Gameplay feedback uses an explicit VoiceOver announcement service. `GameplayFeedbackKind` owns event-specific wording for coins, chests, health restoration, full-health pickups, damage, mine destruction, and level completion. `FeedbackAnnouncementCoordinator` tracks feedback IDs so newly visible feedback is announced once, stable feedback is not reannounced on redraw, and view reconstruction can avoid stale duplicate announcements when the coordinator is preserved by SwiftUI state.
+
+Level startup now goes through a `GameLevelRuntimeFactory` boundary: `AppRouter.startGame(levelID:)` asks the runtime factory to construct the simulation, static presentation, level-specific texture catalog, level-specific animation catalog, asset manifest, and asset preflight before a `GameSession` is published or gameplay navigation is pushed. Missing textures, missing animations, empty animations, and invalid texture regions are converted to typed `GameLoadingError` diagnostics and routed to the existing loading-failure recovery screen. Retry rebuilds and revalidates the complete runtime; Return to Menu clears the failure route.
+
+Final dependency flow:
+
+```text
+Main Menu
+→ AppRouter.startGame(levelID:)
+→ GameLevelRuntimeFactory
+    → GameSimulationFactory
+    → Level presentation builder
+    → Texture catalog factory
+    → Animation catalog factory
+    → Asset preflight
+→ validated GameLevelRuntime
+→ GameSession
+→ GameplayView
+→ generic GameScene
+```
+
+Failure flow:
+
+```text
+runtime construction or preflight failure
+→ typed GameLoadingError
+→ router logging
+→ loading-failure route
+→ Retry or Return to Menu
+```
+
+Render flow:
+
+```text
+simulation update
+→ one GameRenderSnapshot
+→ generic entity/effect synchronization
+→ safe two-phase cleanup
+```
+
+Session observation now starts only after runtime construction, preflight, session initialization, and session start succeed. Failure handling cancels any observation even when no active session exists, clears ownership, and prevents stale callbacks from failed sessions from mutating navigation.
+
+Local validation remains intentionally Xcode-based. Run the full Xcode 26 sequence locally: `xcodebuild -version`, `-showdestinations`, Debug build, build-for-testing, test-without-building for both `HookshotHeroTests` and `HookshotHeroUITests`, analyze, Release simulator build, unsigned device archive, `plutil -lint` for both property lists, `git diff --check`, `git status --short`, and manual review of `git grep -n "for .* in .*\\.keys"`, `git grep -n "try!"`, and `git grep -n "try?"`. The repository intentionally contains no CI workflows. The final app icon remains a manual distribution blocker; do not add generated artwork as part of runtime validation.
