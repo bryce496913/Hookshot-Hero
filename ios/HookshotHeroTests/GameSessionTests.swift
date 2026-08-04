@@ -219,7 +219,7 @@ final class LevelOneConversionTests: XCTestCase {
     func testVictoryAwardsJavaCompletionScoreExactlyOnce() throws {
         let simulation = try LevelOneSimulation(
             seed: 7,
-            startOverride: GridPosition(row: 4, column: 27)
+            startOverride: GridPosition(row: 4, column: 29)
         )
         simulation.input.send(.move(.up))
         simulation.update(deltaTime: 0.01)
@@ -229,5 +229,60 @@ final class LevelOneConversionTests: XCTestCase {
 
         simulation.update(deltaTime: 1)
         XCTAssertEqual(simulation.player.score, 100)
+    }
+
+    func testBoundaryGeometryIsAuthoritativeAndSixCellsWide() {
+        let level = LevelOneDefinition.make()
+        XCTAssertEqual(level.boundary.topExitRegion, GridRegion(rows: 0..<4, columns: 27..<33))
+        XCTAssertEqual(level.exitRegion, level.boundary.topExitRegion)
+        for column in 27...32 { XCTAssertFalse(level.isWall(.init(row: 0, column: column))) }
+        XCTAssertTrue(level.isWall(.init(row: 0, column: 26)))
+        XCTAssertTrue(level.isWall(.init(row: 0, column: 33)))
+        XCTAssertTrue(level.boundary.topWallRegions.allSatisfy { !$0.intersects(level.exitRegion) })
+        XCTAssertTrue(level.entryRegion.cells.allSatisfy(level.isWall))
+        XCTAssertTrue(level.boundary.wallRegions.flatMap(\.cells).allSatisfy(level.isWall))
+    }
+
+    func testCollisionProfilesAndSpawnedFootprintsAreSafe() throws {
+        let level = LevelOneDefinition.make()
+        XCTAssertFalse(CollisionProfile.player.isEmpty); XCTAssertFalse(CollisionProfile.coin.isEmpty)
+        XCTAssertFalse(CollisionProfile.cabbage.isEmpty); XCTAssertFalse(CollisionProfile.mine.isEmpty)
+        let player = CollisionProfile.player.region(at: .init(row: 10, column: 10))
+        XCTAssertEqual(player, .init(rows: 9..<12, columns: 9..<12))
+        XCTAssertTrue(player.intersects(CollisionProfile.coin.region(at: .init(row: 9, column: 10))))
+        var rng = SeededRandomNumberGenerator(seed: 42)
+        let entities = try SpawnService.spawn(in: level, using: &rng)
+        for entity in entities {
+            let footprint = CollisionProfile.footprint(for: entity.kind).region(at: entity.position)
+            XCTAssertFalse(level.isBlocked(footprint)); XCTAssertFalse(level.overlapsLava(footprint))
+            XCTAssertTrue(footprint.cells.allSatisfy(level.isInside))
+            XCTAssertFalse(entities.filter { $0.id != entity.id }.contains { CollisionProfile.footprint(for: $0.kind).region(at: $0.position).intersects(footprint) })
+        }
+    }
+
+    func testFeedbackExpiresOnlyWhenSimulationAdvances() throws {
+        let coin = WorldEntity(id: EntityID(), kind: .coin, position: .init(row: 49, column: 27))
+        let simulation = try LevelOneSimulation(seed: 1, entities: [coin])
+        simulation.input.send(.move(.up)); simulation.update(deltaTime: 0.01)
+        let event = try XCTUnwrap(simulation.feedbackEvents.first)
+        XCTAssertEqual(event.kind, .score); XCTAssertEqual(event.message, "+10")
+        XCTAssertTrue(event.accessibilityAnnouncement.contains("Coin collected"))
+        simulation.update(deltaTime: 0.1)
+        XCTAssertEqual(simulation.feedbackEvents.map(\.id), [event.id])
+        for _ in 0..<13 { simulation.update(deltaTime: 0.1) }
+        XCTAssertTrue(simulation.feedbackEvents.isEmpty)
+    }
+
+    func testDialogueSuspendsTimeAndCancelsHeldInput() throws {
+        let session = GameSession(seed: 1); _ = session.initializeWorld(); _ = session.start()
+        guard let simulation = session.simulation else { return XCTFail("missing simulation") }
+        simulation.input.send(.beginMove(.up)); session.openDialogue("Chest")
+        let position = simulation.player.position; let elapsed = session.elapsedTime
+        session.advance(by: 2)
+        XCTAssertEqual(session.state, .dialogue("Chest")); XCTAssertEqual(session.elapsedTime, elapsed)
+        XCTAssertEqual(simulation.player.position, position); XCTAssertNil(simulation.input.heldDirection)
+        session.applicationDidBecomeInactive(); XCTAssertFalse(session.continueDialogue())
+        session.applicationDidBecomeActive(); XCTAssertEqual(session.state, .dialogue("Chest"))
+        XCTAssertTrue(session.continueDialogue()); XCTAssertEqual(session.state, .running)
     }
 }
