@@ -441,13 +441,10 @@ final class GameScene: SKScene {
         for id in staleIDs { feedbackNodes[id]?.removeFromParent(); feedbackNodes.removeValue(forKey: id) }
         for event in feedback where feedbackNodes[event.id] == nil {
             let container = SKNode(); container.name = "feedback-\(event.id.uuidString)"; container.position = point(event.coordinate ?? session.simulation?.player.position ?? .init(row: 30, column: 30)); container.zPosition = 20
-            if event.kind == .explosion {
+            if case .mineDestroyed = event.kind {
                 let burst = SKShapeNode(circleOfRadius: 1.8); burst.strokeColor = .systemOrange; burst.lineWidth = 0.5; burst.fillColor = .systemRed.withAlphaComponent(0.35); container.addChild(burst)
                 burst.run(.group([.scale(to: 1.8, duration: event.duration), .fadeOut(withDuration: event.duration)]))
             }
-            let label = SKLabelNode(text: event.message); label.fontName = "AvenirNext-Bold"; label.fontSize = 1.5; label.fontColor = event.kind == .healthLoss ? .systemRed : .white; label.verticalAlignmentMode = .bottom; container.addChild(label)
-            if session.configuration.reducedMotion { container.run(.fadeOut(withDuration: event.duration)) }
-            else { container.run(.group([.moveBy(x: 0, y: 3, duration: event.duration), .fadeOut(withDuration: event.duration)])) }
             feedbackNodes[event.id] = container; world.addChild(container)
             UIAccessibility.post(notification: .announcement, argument: event.accessibilityAnnouncement)
         }

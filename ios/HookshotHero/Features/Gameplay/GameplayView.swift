@@ -8,7 +8,7 @@ struct GameplayView: View {
     var body: some View {
         VStack(spacing:8) { hud
             if let error=session.initializationError { ContentUnavailableView("Level 1 unavailable",systemImage:"exclamationmark.triangle",description:Text(error)) }
-            else { SpriteView(scene:scene).aspectRatio(1,contentMode:.fit).background(.black).accessibilityHidden(true).accessibilityIdentifier("levelOneBoard") }
+            else { ZStack { SpriteView(scene:scene).aspectRatio(1,contentMode:.fit).background(.black).accessibilityHidden(true).accessibilityIdentifier("levelOneBoard"); if let simulation = session.simulation { GameplayFeedbackOverlay(feedback: simulation.feedbackEvents, reducedMotion: session.configuration.reducedMotion) } } }
             if session.configuration.controlHintsEnabled { Text("Move with the direction pad. Face a direction and tap Grapple.").font(.caption).multilineTextAlignment(.center).accessibilityIdentifier("controlHint") }
             if let sim=session.simulation { GameControlsView(simulation:sim, disabled:!session.canSimulate) }
         }.padding(.horizontal,8).padding(.bottom,4).navigationBarBackButtonHidden().onDisappear { session.simulation?.cancelAllInput() }.overlay { if session.isPaused { pauseOverlay }; if let text=session.dialogue { DialogueOverlay(text:text, continueAction:session.continueDialogue) } }
@@ -20,7 +20,7 @@ struct GameplayView: View {
 
 struct GameControlsView: View {
     @ObservedObject var simulation: LevelOneSimulation; let disabled:Bool
-    var body:some View { HStack(spacing:24){ VStack(spacing:2){ DirectionButton(direction:.up,input:simulation.input);HStack(spacing:2){DirectionButton(direction:.left,input:simulation.input);DirectionButton(direction:.down,input:simulation.input);DirectionButton(direction:.right,input:simulation.input)}}
+    var body:some View { HStack(spacing:24){ VStack(spacing:2){ DirectionButton(direction:.up,input:simulation.input,isEnabled:!disabled);HStack(spacing:2){DirectionButton(direction:.left,input:simulation.input,isEnabled:!disabled);DirectionButton(direction:.down,input:simulation.input,isEnabled:!disabled);DirectionButton(direction:.right,input:simulation.input,isEnabled:!disabled)}}
         Button("Grapple"){simulation.input.send(.fireHook)}.font(.title3.bold()).frame(minWidth:96,minHeight:60).buttonStyle(.borderedProminent).tint(.orange).disabled(disabled || simulation.player.hookshot.phase != .idle).accessibilityLabel("Fire grapple").accessibilityValue(simulation.player.hookshot.phase.rawValue).accessibilityIdentifier("grappleButton")
     }.frame(maxWidth:.infinity).disabled(disabled).accessibilityElement(children:.contain)
     #if DEBUG
@@ -28,10 +28,57 @@ struct GameControlsView: View {
     #endif
     }
 }
-struct DirectionButton:View { let direction:GridDirection;let input:GameInputController;@State private var pressed=false;@State private var physicalPress=false
-    var body:some View { Button { if !physicalPress { input.send(.move(direction)) } } label: { Image(systemName:symbol).frame(width:52,height:44).contentShape(Rectangle()).background(.blue.opacity(pressed ? 0.7:0.2),in:RoundedRectangle(cornerRadius:9)) }.buttonStyle(.plain).simultaneousGesture(DragGesture(minimumDistance:0).onChanged{_ in if !pressed{pressed=true;physicalPress=true;input.send(.beginMove(direction))}}.onEnded{_ in pressed=false;input.send(.endMove(direction));Task { @MainActor in physicalPress=false }}).accessibilityLabel("Move \(direction.rawValue)").accessibilityIdentifier("move\(direction.rawValue.capitalized)Button") }
-    var symbol:String { switch direction{case .up:"arrow.up";case .down:"arrow.down";case .left:"arrow.left";case .right:"arrow.right"} }
+struct DirectionButton: View {
+    let direction: GridDirection
+    @ObservedObject var input: GameInputController
+    let isEnabled: Bool
+    @State private var pressed = false
+    @State private var physicalPress = false
+
+    var body: some View {
+        Button { if !physicalPress && isEnabled { input.send(.move(direction)) } } label: {
+            Image(systemName: symbol).frame(width: 52, height: 44).contentShape(Rectangle())
+                .background(.blue.opacity(pressed ? 0.7 : 0.2), in: RoundedRectangle(cornerRadius: 9))
+        }
+        .buttonStyle(.plain)
+        .simultaneousGesture(DragGesture(minimumDistance: 0)
+            .onChanged { _ in if isEnabled && !pressed { pressed = true; physicalPress = true; input.send(.beginMove(direction)) } }
+            .onEnded { _ in resetPressState() })
+        .onChange(of: isEnabled) { _, enabled in if !enabled { resetPressState() } }
+        .onChange(of: input.cancellationGeneration) { _, _ in resetPressState() }
+        .onDisappear(perform: resetPressState)
+        .accessibilityLabel("Move \(direction.rawValue)")
+        .accessibilityIdentifier("move\(direction.rawValue.capitalized)Button")
+    }
+
+    private func resetPressState() {
+        let wasPressed = pressed || physicalPress
+        pressed = false; physicalPress = false
+        if wasPressed { input.send(.endMove(direction)) }
+    }
+    private var symbol: String { switch direction { case .up: "arrow.up"; case .down: "arrow.down"; case .left: "arrow.left"; case .right: "arrow.right" } }
 }
+
+struct GameplayFeedbackOverlay: View {
+    let feedback: [GameplayFeedback]
+    let reducedMotion: Bool
+    var body: some View {
+        VStack(spacing: 6) {
+            ForEach(Array(feedback.enumerated()), id: \.element.id) { _, event in
+                Text(event.message)
+                    .font(.callout.bold()).foregroundStyle(.white).multilineTextAlignment(.center)
+                    .padding(.horizontal, 10).padding(.vertical, 6)
+                    .background(.black.opacity(0.78), in: Capsule()).shadow(radius: 2)
+                    .transition(reducedMotion ? .opacity : .opacity.combined(with: .move(edge: .top)))
+                    .accessibilityLabel(event.accessibilityAnnouncement)
+            }
+            Spacer()
+        }
+        .padding(.top, 12).padding(.horizontal, 8)
+        .allowsHitTesting(false).animation(reducedMotion ? nil : .easeOut(duration: 0.2), value: feedback.map(\.id))
+    }
+}
+
 struct DialogueOverlay:View { let text:String;let continueAction:()->Bool
     var body:some View { VStack(spacing:16){Text("Talking Chest").font(.headline).accessibilityIdentifier("chestDialogue");Text(text).font(.body);Button("Continue"){_ = continueAction()}.buttonStyle(.borderedProminent).accessibilityIdentifier("dialogueContinueButton")}.padding().background(.regularMaterial,in:RoundedRectangle(cornerRadius:16)).padding(24).accessibilityElement(children:.contain).accessibilityLabel("Talking Chest. \(text)").zIndex(10) }
 }

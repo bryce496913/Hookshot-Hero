@@ -265,7 +265,7 @@ final class LevelOneConversionTests: XCTestCase {
         let simulation = try LevelOneSimulation(seed: 1, entities: [coin])
         simulation.input.send(.move(.up)); simulation.update(deltaTime: 0.01)
         let event = try XCTUnwrap(simulation.feedbackEvents.first)
-        XCTAssertEqual(event.kind, .score); XCTAssertEqual(event.message, "+10")
+        XCTAssertEqual(event.kind, .coinCollected(points: 10)); XCTAssertEqual(event.message, "Coin: +10 Score")
         XCTAssertTrue(event.accessibilityAnnouncement.contains("Coin collected"))
         simulation.update(deltaTime: 0.1)
         XCTAssertEqual(simulation.feedbackEvents.map(\.id), [event.id])

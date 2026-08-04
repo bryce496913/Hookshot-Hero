@@ -25,3 +25,7 @@ The native Level 1 simulation deliberately uses elapsed-time movement and hooksh
 * Direction-pad elements are semantic SwiftUI buttons with accessible tap activation plus owned press/release state for time-based repetition.
 * Scene dictionaries use a two-phase stale-ID calculation before removal, including entity and feedback nodes, so synchronization is idempotent and never mutates an active iteration.
 * Deterministic geometry, footprint, spawn, feedback, dialogue, movement, grapple, scoring, and victory tests protect shared Level 1 systems before Level 2 work begins.
+
+## Level 1 stabilization
+
+Gameplay feedback uses event-specific associated-value cases. SwiftUI presents readable, stacked screen-space text while SpriteKit owns only world effects; chest score and health are one event and one announcement. Direction controls observe the authoritative input controller's cancellation generation, so dialogue, pause, lifecycle suspension, terminal state, and disappearance clear local press presentation as well as held simulation input. Entity-array order is the deterministic same-frame interaction order. A lethal contact synchronizes health and score, marks the world terminal, emits one outcome, and stops later contacts. Seed `496913` supplies the documented full-map regression fixture (coin at row 42/column 27 and mine at row 53/column 27), exercised from the production start with normal commands.

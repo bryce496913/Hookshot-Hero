@@ -115,19 +115,55 @@ enum SpawnService {
     }
 }
 
-enum GameplayFeedbackKind: Equatable, Sendable { case score, healthGain, healthLoss, healthFull, explosion, levelComplete }
-struct GameplayFeedback: Identifiable, Equatable, Sendable {
-    let id: UUID; let kind: GameplayFeedbackKind; let message: String; let coordinate: GridPosition?; let createdAt, duration: TimeInterval
-    var accessibilityAnnouncement: String {
-        switch kind { case .score: "Coin collected. \(message)"; case .healthGain: "Health gained. \(message)"; case .healthLoss: "Health lost. \(message)"; case .healthFull: "Health full"; case .explosion: "Mine destroyed. \(message)"; case .levelComplete: "Level completed. \(message)" }
+enum DamageSource: Equatable, Sendable { case lava, mine }
+enum GameplayFeedbackKind: Equatable, Sendable {
+    case coinCollected(points: Int)
+    case chestReward(score: Int, health: Int)
+    case healthItemCollected(amount: Int)
+    case healthAlreadyFull
+    case healthLost(amount: Int, source: DamageSource)
+    case mineDestroyed(points: Int)
+    case levelCompleted(points: Int)
+
+    var visualMessage: String {
+        switch self {
+        case .coinCollected(let points): "Coin: +\(points) Score"
+        case .chestReward(let score, let health): health > 0 ? "Chest: +\(score) Score, +\(health) Health" : "Chest: +\(score) Score, Health Full"
+        case .healthItemCollected(let amount): "+\(amount) Health"
+        case .healthAlreadyFull: "Health Full"
+        case .healthLost(let amount, _): "-\(amount) Health"
+        case .mineDestroyed(let points): "Mine: +\(points) Score"
+        case .levelCompleted(let points): "Level Complete: +\(points) Score"
+        }
     }
+
+    var accessibilityAnnouncement: String {
+        switch self {
+        case .coinCollected(let points): "Coin collected. Plus \(points) score."
+        case .chestReward(let score, let health): health > 0 ? "Chest opened. Plus \(score) score and \(health) health." : "Chest opened. Plus \(score) score. Health is already full."
+        case .healthItemCollected(let amount): "Health restored. Plus \(amount) health."
+        case .healthAlreadyFull: "Health is already full."
+        case .healthLost(let amount, _): "Damage taken. Minus \(amount) health."
+        case .mineDestroyed(let points): "Mine destroyed. Plus \(points) score."
+        case .levelCompleted(let points): "Level complete. Plus \(points) score."
+        }
+    }
+}
+struct GameplayFeedback: Identifiable, Equatable, Sendable {
+    let id: UUID
+    let kind: GameplayFeedbackKind
+    let coordinate: GridPosition?
+    let createdAt, duration: TimeInterval
+    var message: String { kind.visualMessage }
+    var accessibilityAnnouncement: String { kind.accessibilityAnnouncement }
 }
 
 @MainActor final class GameInputController: ObservableObject {
-    private var queue:[GameCommand]=[]; private(set) var heldDirection:GridDirection?
+    private var queue:[GameCommand]=[]; @Published private(set) var heldDirection:GridDirection?
+    @Published private(set) var cancellationGeneration = 0
     func send(_ command:GameCommand) { if case .beginMove(let d)=command { heldDirection=d }; if case .endMove(let d)=command, heldDirection==d { heldDirection=nil }; queue.append(command) }
     func drain()->[GameCommand] { defer{queue.removeAll()}; return queue }
-    func cancelAllInput(){ queue.removeAll(); heldDirection=nil }
+    func cancelAllInput(){ queue.removeAll(); heldDirection=nil; cancellationGeneration &+= 1 }
 }
 
 @MainActor final class LevelOneSimulation: ObservableObject {
@@ -146,13 +182,35 @@ struct GameplayFeedback: Identifiable, Equatable, Sendable {
     private func consumeCommands(){for command in input.drain(){switch command{case .move(let d):player.facing=d;attemptMove(d);case .beginMove(let d):player.facing=d;player.movementDirection=d;movementAccumulator=0;attemptMove(d);case .endMove(let d):if player.movementDirection==d{player.movementDirection=nil};case .fireHook:fireHook()}}}
     private func updateHeldMovement(_ dt:Double){guard let d=player.movementDirection,player.hookshot.phase == .idle else{return};movementAccumulator += dt;while movementAccumulator>=0.14{movementAccumulator -= 0.14;attemptMove(d)}}
     private func attemptMove(_ d:GridDirection){guard player.hookshot.phase == .idle else{return};let next=player.position.moved(d);let region=CollisionProfile.player.region(at:next);guard !level.isBlocked(region) else{return};if level.overlapsLava(region){damageFromLava();return};player.position=next;player.lastSafePosition=next;interact(region,hooked:false)}
-    private func damageFromLava(){guard player.damageCooldown<=0 else{return};player.health-=1;player.damageCooldown=0.75;player.position=player.lastSafePosition;emit(.healthLoss,"-1 Health",at:player.position);checkLoss()}
+    private func damageFromLava(){guard player.damageCooldown<=0 else{return};player.health-=1;player.damageCooldown=0.75;player.position=player.lastSafePosition;emit(.healthLost(amount: 1, source: .lava),at:player.position);checkLoss()}
     private func fireHook(){guard player.hookshot.phase == .idle else{return};player.movementDirection=nil;player.hookshot = .init(phase:.extending,origin:player.position,head:player.position,direction:player.facing)}
     private func updateHook(_ dt:Double){guard player.hookshot.phase != .idle else{return};player.hookshot.accumulator += dt*18;while player.hookshot.accumulator>=1,player.hookshot.phase != .idle{player.hookshot.accumulator-=1;hookStep()}}
     private func hookStep(){switch player.hookshot.phase{case .extending:guard let head=player.hookshot.head else{finishHook();return};let next=head.moved(player.hookshot.direction);if !level.isInside(next)||level.isWall(next){player.hookshot.phase = .latched;player.hookshot.head=next;return};player.hookshot.head=next;player.hookshot.travelled+=1;interact(CollisionProfile.hookHead.region(at:next),hooked:true);if player.hookshot.travelled>=HookshotState.maximumRange{player.hookshot.phase = .retracting};case .latched:player.hookshot.phase = .pulling;case .pulling:let next=player.position.moved(player.hookshot.direction);if level.isBlocked(CollisionProfile.player.region(at:next)){finishHook()}else{player.position=next;interact(CollisionProfile.player.region(at:next),hooked:true)};case .retracting:finishHook();case .idle:break}}
     private func finishHook(){if !level.overlapsLava(CollisionProfile.player.region(at:player.position)){player.lastSafePosition=player.position};player.hookshot=HookshotState()}
-    private func interact(_ contact:GridRegion,hooked:Bool){let hits=entities.filter{CollisionProfile.footprint(for:$0.kind).region(at:$0.position).intersects(contact)};for entity in hits{entities.removeAll{$0.id==entity.id};switch entity.kind{case .coin:player.score+=10;emit(.score,"+10",at:entity.position);case .cabbage:let old=player.health;player.health=min(player.maximumHealth,player.health+1);emit(player.health>old ? .healthGain:.healthFull,player.health>old ? "+1 Health":"Health Full",at:entity.position);case .mine:if hooked{player.score+=10;emit(.explosion,"Mine +10",at:entity.position)}else{player.health-=1;emit(.healthLoss,"-1 Health",at:entity.position);checkLoss()}}}}
-    private func checkChestAndExit(){let playerRegion=CollisionProfile.player.region(at:player.position);if !chestOpen,playerRegion.intersects(CollisionProfile.chest.region(at:level.chestAnchor)){chestOpen=true;player.score+=100;let gain=min(2,player.maximumHealth-player.health);player.health+=gain;emit(.score,"+100",at:level.chestAnchor);emit(gain>0 ? .healthGain:.healthFull,gain>0 ? "+\(gain) Health":"Health Full",at:level.chestAnchor);cancelAllInput();onDialogue?(Self.chestMessage)};if playerRegion.intersects(level.exitRegion),outcome==nil{player.score+=100;emit(.levelComplete,"Level Complete +100",at:player.position);outcome = .won;cancelAllInput();onStatusChange?(player.health,player.score);onOutcome?(.won)}}
-    private func checkLoss(){if player.health<=0,outcome==nil{outcome = .lost;cancelAllInput();onOutcome?(.lost)}}
-    private func emit(_ kind:GameplayFeedbackKind,_ message:String,at coordinate:GridPosition?){feedbackEvents.append(.init(id:UUID(),kind:kind,message:message,coordinate:coordinate,createdAt:simulationTime,duration:1.2))}
+    private func interact(_ contact: GridRegion, hooked: Bool) {
+        // Entity array order is the deterministic collision order. A terminal contact short-circuits the remainder.
+        let hits = entities.filter { CollisionProfile.footprint(for: $0.kind).region(at: $0.position).intersects(contact) }
+        for entity in hits {
+            guard outcome == nil else { return }
+            entities.removeAll { $0.id == entity.id }
+            switch entity.kind {
+            case .coin:
+                player.score += 10; emit(.coinCollected(points: 10), at: entity.position)
+            case .cabbage:
+                let old = player.health; player.health = min(player.maximumHealth, player.health + 1)
+                emit(player.health > old ? .healthItemCollected(amount: 1) : .healthAlreadyFull, at: entity.position)
+            case .mine:
+                if hooked { player.score += 10; emit(.mineDestroyed(points: 10), at: entity.position) }
+                else {
+                    player.health -= 1; emit(.healthLost(amount: 1, source: .mine), at: entity.position)
+                    onStatusChange?(player.health, player.score)
+                    checkLoss()
+                    if outcome != nil { return }
+                }
+            }
+        }
+    }
+    private func checkChestAndExit(){let playerRegion=CollisionProfile.player.region(at:player.position);if !chestOpen,playerRegion.intersects(CollisionProfile.chest.region(at:level.chestAnchor)){chestOpen=true;player.score+=100;let gain=min(2,player.maximumHealth-player.health);player.health+=gain;emit(.chestReward(score: 100, health: gain),at:level.chestAnchor);cancelAllInput();onDialogue?(Self.chestMessage)};if playerRegion.intersects(level.exitRegion),outcome==nil{player.score+=100;emit(.levelCompleted(points: 100),at:player.position);outcome = .won;cancelAllInput();onStatusChange?(player.health,player.score);onOutcome?(.won)}}
+    private func checkLoss(){if player.health<=0,outcome==nil{onStatusChange?(player.health,player.score);outcome = .lost;cancelAllInput();onOutcome?(.lost)}}
+    private func emit(_ kind:GameplayFeedbackKind,at coordinate:GridPosition?){feedbackEvents.append(.init(id:UUID(),kind:kind,coordinate:coordinate,createdAt:simulationTime,duration:2.4))}
 }
