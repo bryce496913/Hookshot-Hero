@@ -21,7 +21,7 @@ enum PauseReason: Equatable, Sendable { case user, applicationLifecycle }
         self.identifier = identifier; self.levelID = levelID; self.missionID = missionID; self.configuration = configuration
         do { simulation = try LevelOneSimulation(seed: seed ?? UInt64.random(in: 1...UInt64.max), entities: entities) }
         catch { simulation = nil; initializationError = error.localizedDescription }
-        simulation?.onStatusChange = { [weak self] health, score in self?.health = health; self?.score = score }
+        simulation?.onStatusChange = { [weak self] status in self?.synchronize(status: status) }
         simulation?.onOutcome = { [weak self] outcome in if outcome == .won { self?.win() } else { self?.lose() } }
         simulation?.onDialogue = { [weak self] message in self?.openDialogue(message) }
     }
@@ -38,6 +38,10 @@ enum PauseReason: Equatable, Sendable { case user, applicationLifecycle }
     func openDialogue(_ message:String){ guard state == .running else{return}; simulation?.cancelAllInput(); state = .dialogue(message) }
     @discardableResult func continueDialogue()->Bool { guard case .dialogue = state, applicationIsActive else{return false}; state = .running; return true }
     func win(){ if state == .running { simulation?.cancelAllInput(); state = .won } }; func lose(){ if state == .running { simulation?.cancelAllInput(); state = .lost } }
-    func dispose(){ guard state != .disposed else{return}; simulation?.cancelAllInput(); pauseReason = nil; state = .disposed }
+    func dispose(){ guard state != .disposed else{return}; simulation?.cancelAllInput(); pauseReason = nil; if !isTerminal { state = .disposed } }
+    func synchronize(status: PlayerStatusSnapshot) {
+        if health != status.health { health = status.health }
+        if score != status.score { score = status.score }
+    }
     private var isTerminal:Bool { state == .won || state == .lost || state == .disposed }
 }

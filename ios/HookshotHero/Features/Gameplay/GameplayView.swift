@@ -32,31 +32,49 @@ struct DirectionButton: View {
     let direction: GridDirection
     @ObservedObject var input: GameInputController
     let isEnabled: Bool
-    @State private var pressed = false
-    @State private var physicalPress = false
 
     var body: some View {
-        Button { if !physicalPress && isEnabled { input.send(.move(direction)) } } label: {
+        Button { if isEnabled { input.send(.move(direction)) } } label: {
             Image(systemName: symbol).frame(width: 52, height: 44).contentShape(Rectangle())
-                .background(.blue.opacity(pressed ? 0.7 : 0.2), in: RoundedRectangle(cornerRadius: 9))
-        }
-        .buttonStyle(.plain)
-        .simultaneousGesture(DragGesture(minimumDistance: 0)
-            .onChanged { _ in if isEnabled && !pressed { pressed = true; physicalPress = true; input.send(.beginMove(direction)) } }
-            .onEnded { _ in resetPressState() })
-        .onChange(of: isEnabled) { _, enabled in if !enabled { resetPressState() } }
-        .onChange(of: input.cancellationGeneration) { _, _ in resetPressState() }
-        .onDisappear(perform: resetPressState)
+        }.buttonStyle(DirectionPressButtonStyle(direction: direction, input: input, isEnabled: isEnabled,
+                                                cancellationGeneration: input.cancellationGeneration))
         .accessibilityLabel("Move \(direction.rawValue)")
         .accessibilityIdentifier("move\(direction.rawValue.capitalized)Button")
     }
-
-    private func resetPressState() {
-        let wasPressed = pressed || physicalPress
-        pressed = false; physicalPress = false
-        if wasPressed { input.send(.endMove(direction)) }
-    }
     private var symbol: String { switch direction { case .up: "arrow.up"; case .down: "arrow.down"; case .left: "arrow.left"; case .right: "arrow.right" } }
+}
+
+enum DirectionPressState: Equatable { case idle, pressed, holding }
+enum DirectionPressEvent: Equatable { case moveOnce(GridDirection), beginHold(GridDirection), endHold(GridDirection) }
+struct DirectionPressController: Equatable {
+    private(set) var state: DirectionPressState = .idle
+    mutating func press(_ direction: GridDirection) -> [DirectionPressEvent] { guard state == .idle else{return []};state = .pressed;return [] }
+    mutating func holdThreshold(_ direction: GridDirection) -> [DirectionPressEvent] { guard state == .pressed else{return []};state = .holding;return [.beginHold(direction)] }
+    mutating func release(_ direction: GridDirection) -> [DirectionPressEvent] { defer{state = .idle};switch state{case .pressed:return [.moveOnce(direction)];case .holding:return [.endHold(direction)];case .idle:return []} }
+    mutating func cancel(_ direction: GridDirection) -> [DirectionPressEvent] { defer{state = .idle};return state == .holding ? [.endHold(direction)] : [] }
+}
+
+private struct DirectionPressButtonStyle: PrimitiveButtonStyle {
+    let direction: GridDirection; let input: GameInputController; let isEnabled: Bool; let cancellationGeneration: Int
+    func makeBody(configuration: Configuration) -> some View {
+        DirectionPressBody(configuration: configuration, direction: direction, input: input,
+                           isEnabled: isEnabled, cancellationGeneration: cancellationGeneration)
+    }
+}
+
+private struct DirectionPressBody: View {
+    let configuration: PrimitiveButtonStyleConfiguration; let direction: GridDirection
+    @ObservedObject var input: GameInputController; let isEnabled: Bool; let cancellationGeneration: Int
+    @State private var controller = DirectionPressController(); @State private var holdTask: Task<Void, Never>?
+    var body: some View {
+        configuration.label.background(.blue.opacity(controller.state == .idle ? 0.2 : 0.7), in: RoundedRectangle(cornerRadius: 9))
+            .contentShape(Rectangle()).gesture(DragGesture(minimumDistance: 0).onChanged{_ in begin()}.onEnded{_ in finish()})
+            .onChange(of:isEnabled){_,enabled in if !enabled{cancel()}}.onChange(of:cancellationGeneration){_,_ in cancel()}.onDisappear(perform:cancel)
+    }
+    private func begin(){guard isEnabled,controller.state == .idle else{return};_ = controller.press(direction);holdTask=Task{@MainActor in try? await Task.sleep(for:.milliseconds(300));guard !Task.isCancelled else{return};dispatch(controller.holdThreshold(direction))}}
+    private func finish(){holdTask?.cancel();holdTask=nil;dispatch(controller.release(direction))}
+    private func cancel(){holdTask?.cancel();holdTask=nil;dispatch(controller.cancel(direction))}
+    private func dispatch(_ events:[DirectionPressEvent]){for event in events{switch event{case .moveOnce:configuration.trigger();case .beginHold(let d):input.send(.beginMove(d));case .endHold(let d):input.send(.endMove(d))}}}
 }
 
 struct GameplayFeedbackOverlay: View {

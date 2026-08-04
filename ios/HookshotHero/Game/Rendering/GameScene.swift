@@ -2,6 +2,17 @@ import Combine
 import SpriteKit
 import UIKit
 
+enum MineDestructionEffectStyle: Equatable { case standard, reducedMotion }
+struct MineDestructionEffectDescriptor: Equatable {
+    let style: MineDestructionEffectStyle; let duration: TimeInterval; let initialRadius: CGFloat; let finalScale: CGFloat
+    var isVisible: Bool { initialRadius > 0 && duration > 0 }
+    var scales: Bool { finalScale != 1 }
+    static func make(reducedMotion: Bool, duration: TimeInterval) -> Self {
+        .init(style: reducedMotion ? .reducedMotion : .standard, duration: duration,
+              initialRadius: 1.8, finalScale: reducedMotion ? 1 : 1.8)
+    }
+}
+
 private enum LegacyAssetMetrics {
     static let lidiaSheet = CGSize(width: 576, height: 256)
     static let bombSheet = CGSize(width: 120, height: 26)
@@ -442,8 +453,10 @@ final class GameScene: SKScene {
         for event in feedback where feedbackNodes[event.id] == nil {
             let container = SKNode(); container.name = "feedback-\(event.id.uuidString)"; container.position = point(event.coordinate ?? session.simulation?.player.position ?? .init(row: 30, column: 30)); container.zPosition = 20
             if case .mineDestroyed = event.kind {
-                let burst = SKShapeNode(circleOfRadius: 1.8); burst.strokeColor = .systemOrange; burst.lineWidth = 0.5; burst.fillColor = .systemRed.withAlphaComponent(0.35); container.addChild(burst)
-                burst.run(.group([.scale(to: 1.8, duration: event.duration), .fadeOut(withDuration: event.duration)]))
+                let descriptor = MineDestructionEffectDescriptor.make(reducedMotion: session.configuration.reducedMotion, duration: event.duration)
+                let burst = SKShapeNode(circleOfRadius: descriptor.initialRadius); burst.strokeColor = .systemOrange; burst.lineWidth = 0.5; burst.fillColor = .systemRed.withAlphaComponent(0.35); container.addChild(burst)
+                let fade = SKAction.fadeOut(withDuration: descriptor.duration)
+                burst.run(descriptor.scales ? .group([.scale(to: descriptor.finalScale, duration: descriptor.duration), fade]) : fade)
             }
             feedbackNodes[event.id] = container; world.addChild(container)
             UIAccessibility.post(notification: .announcement, argument: event.accessibilityAnnouncement)

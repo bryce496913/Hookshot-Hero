@@ -157,6 +157,7 @@ struct GameplayFeedback: Identifiable, Equatable, Sendable {
     var message: String { kind.visualMessage }
     var accessibilityAnnouncement: String { kind.accessibilityAnnouncement }
 }
+struct PlayerStatusSnapshot: Equatable, Sendable { let health: Int; let score: Int }
 
 @MainActor final class GameInputController: ObservableObject {
     private var queue:[GameCommand]=[]; @Published private(set) var heldDirection:GridDirection?
@@ -172,20 +173,31 @@ struct GameplayFeedback: Identifiable, Equatable, Sendable {
     @Published private(set) var player:PlayerState; @Published private(set) var entities:[WorldEntity]
     @Published private(set) var chestOpen=false; @Published private(set) var feedbackEvents:[GameplayFeedback]=[]
     private var movementAccumulator=0.0; private var simulationTime=0.0; private(set) var outcome:GameOutcome?
-    var onStatusChange:((Int,Int)->Void)?; var onOutcome:((GameOutcome)->Void)?; var onDialogue:((String)->Void)?
+    private var lastPublishedStatus: PlayerStatusSnapshot
+    var onStatusChange:((PlayerStatusSnapshot)->Void)?; var onOutcome:((GameOutcome)->Void)?; var onDialogue:((String)->Void)?
     init(seed:UInt64=UInt64.random(in:1...UInt64.max),startOverride:GridPosition?=nil,entities fixture:[WorldEntity]?=nil)throws{
-        level=LevelOneDefinition.make();let initial=startOverride ?? level.start;player = .init(id:EntityID(),position:initial,lastSafePosition:initial)
+        level=LevelOneDefinition.make();let initial=startOverride ?? level.start;player = .init(id:EntityID(),position:initial,lastSafePosition:initial); lastPublishedStatus = .init(health: 3, score: 0)
         var rng=SeededRandomNumberGenerator(seed:seed);entities=try fixture ?? SpawnService.spawn(in:level,using:&rng)
     }
-    func update(deltaTime raw:TimeInterval){let dt=min(max(raw,0),0.1);guard outcome==nil else{return};simulationTime += dt;player.damageCooldown=max(0,player.damageCooldown-dt);player.animationTime += dt;feedbackEvents.removeAll{$0.createdAt+$0.duration<=simulationTime};consumeCommands();updateHeldMovement(dt);updateHook(dt);checkChestAndExit();onStatusChange?(player.health,player.score)}
+    func update(deltaTime raw:TimeInterval){
+        guard outcome == nil else { return }
+        let dt=min(max(raw,0),0.1); simulationTime += dt; player.damageCooldown=max(0,player.damageCooldown-dt); player.animationTime += dt
+        feedbackEvents.removeAll{$0.createdAt+$0.duration<=simulationTime}
+        consumeCommands(); guard outcome == nil else { return }
+        updateHeldMovement(dt); guard outcome == nil else { return }
+        updateHook(dt); guard outcome == nil else { return }
+        checkChestAndExit(); guard outcome == nil else { return }
+        publishStatusIfChanged()
+    }
     func cancelAllInput(){input.cancelAllInput();player.movementDirection=nil;movementAccumulator=0}
-    private func consumeCommands(){for command in input.drain(){switch command{case .move(let d):player.facing=d;attemptMove(d);case .beginMove(let d):player.facing=d;player.movementDirection=d;movementAccumulator=0;attemptMove(d);case .endMove(let d):if player.movementDirection==d{player.movementDirection=nil};case .fireHook:fireHook()}}}
-    private func updateHeldMovement(_ dt:Double){guard let d=player.movementDirection,player.hookshot.phase == .idle else{return};movementAccumulator += dt;while movementAccumulator>=0.14{movementAccumulator -= 0.14;attemptMove(d)}}
-    private func attemptMove(_ d:GridDirection){guard player.hookshot.phase == .idle else{return};let next=player.position.moved(d);let region=CollisionProfile.player.region(at:next);guard !level.isBlocked(region) else{return};if level.overlapsLava(region){damageFromLava();return};player.position=next;player.lastSafePosition=next;interact(region,hooked:false)}
-    private func damageFromLava(){guard player.damageCooldown<=0 else{return};player.health-=1;player.damageCooldown=0.75;player.position=player.lastSafePosition;emit(.healthLost(amount: 1, source: .lava),at:player.position);checkLoss()}
-    private func fireHook(){guard player.hookshot.phase == .idle else{return};player.movementDirection=nil;player.hookshot = .init(phase:.extending,origin:player.position,head:player.position,direction:player.facing)}
-    private func updateHook(_ dt:Double){guard player.hookshot.phase != .idle else{return};player.hookshot.accumulator += dt*18;while player.hookshot.accumulator>=1,player.hookshot.phase != .idle{player.hookshot.accumulator-=1;hookStep()}}
-    private func hookStep(){switch player.hookshot.phase{case .extending:guard let head=player.hookshot.head else{finishHook();return};let next=head.moved(player.hookshot.direction);if !level.isInside(next)||level.isWall(next){player.hookshot.phase = .latched;player.hookshot.head=next;return};player.hookshot.head=next;player.hookshot.travelled+=1;interact(CollisionProfile.hookHead.region(at:next),hooked:true);if player.hookshot.travelled>=HookshotState.maximumRange{player.hookshot.phase = .retracting};case .latched:player.hookshot.phase = .pulling;case .pulling:let next=player.position.moved(player.hookshot.direction);if level.isBlocked(CollisionProfile.player.region(at:next)){finishHook()}else{player.position=next;interact(CollisionProfile.player.region(at:next),hooked:true)};case .retracting:finishHook();case .idle:break}}
+    private func consumeCommands(){for command in input.drain(){guard outcome == nil else { break }; process(command)}}
+    private func process(_ command: GameCommand){guard outcome == nil else{return};switch command{case .move(let d):player.facing=d;attemptMove(d);case .beginMove(let d):player.facing=d;player.movementDirection=d;movementAccumulator=0;attemptMove(d);case .endMove(let d):if player.movementDirection==d{player.movementDirection=nil};case .fireHook:fireHook()}}
+    private func updateHeldMovement(_ dt:Double){guard outcome == nil,let d=player.movementDirection,player.hookshot.phase == .idle else{return};movementAccumulator += dt;while movementAccumulator>=0.14{guard outcome == nil else{return};movementAccumulator -= 0.14;attemptMove(d)}}
+    func attemptMove(_ d:GridDirection){guard outcome == nil,player.hookshot.phase == .idle else{return};let next=player.position.moved(d);let region=CollisionProfile.player.region(at:next);guard !level.isBlocked(region) else{return};if level.overlapsLava(region){damageFromLava();return};player.position=next;player.lastSafePosition=next;interact(region,hooked:false);publishStatusIfChanged()}
+    private func damageFromLava(){guard outcome == nil,player.damageCooldown<=0 else{return};player.health-=1;player.damageCooldown=0.75;player.position=player.lastSafePosition;emit(.healthLost(amount: 1, source: .lava),at:player.position);publishStatusIfChanged();checkLoss()}
+    func fireHook(){guard outcome == nil,player.hookshot.phase == .idle else{return};player.movementDirection=nil;player.hookshot = .init(phase:.extending,origin:player.position,head:player.position,direction:player.facing)}
+    private func updateHook(_ dt:Double){guard outcome == nil,player.hookshot.phase != .idle else{return};player.hookshot.accumulator += dt*18;while player.hookshot.accumulator>=1,player.hookshot.phase != .idle{guard outcome == nil else{return};player.hookshot.accumulator-=1;hookStep()}}
+    private func hookStep(){guard outcome == nil else{return};switch player.hookshot.phase{case .extending:guard let head=player.hookshot.head else{finishHook();return};let next=head.moved(player.hookshot.direction);if !level.isInside(next)||level.isWall(next){player.hookshot.phase = .latched;player.hookshot.head=next;return};player.hookshot.head=next;player.hookshot.travelled+=1;interact(CollisionProfile.hookHead.region(at:next),hooked:true);if player.hookshot.travelled>=HookshotState.maximumRange{player.hookshot.phase = .retracting};case .latched:player.hookshot.phase = .pulling;case .pulling:let next=player.position.moved(player.hookshot.direction);if level.isBlocked(CollisionProfile.player.region(at:next)){finishHook()}else{player.position=next;interact(CollisionProfile.player.region(at:next),hooked:true)};case .retracting:finishHook();case .idle:break};publishStatusIfChanged()}
     private func finishHook(){if !level.overlapsLava(CollisionProfile.player.region(at:player.position)){player.lastSafePosition=player.position};player.hookshot=HookshotState()}
     private func interact(_ contact: GridRegion, hooked: Bool) {
         // Entity array order is the deterministic collision order. A terminal contact short-circuits the remainder.
@@ -203,14 +215,17 @@ struct GameplayFeedback: Identifiable, Equatable, Sendable {
                 if hooked { player.score += 10; emit(.mineDestroyed(points: 10), at: entity.position) }
                 else {
                     player.health -= 1; emit(.healthLost(amount: 1, source: .mine), at: entity.position)
-                    onStatusChange?(player.health, player.score)
+                    publishStatusIfChanged()
                     checkLoss()
                     if outcome != nil { return }
                 }
             }
         }
     }
-    private func checkChestAndExit(){let playerRegion=CollisionProfile.player.region(at:player.position);if !chestOpen,playerRegion.intersects(CollisionProfile.chest.region(at:level.chestAnchor)){chestOpen=true;player.score+=100;let gain=min(2,player.maximumHealth-player.health);player.health+=gain;emit(.chestReward(score: 100, health: gain),at:level.chestAnchor);cancelAllInput();onDialogue?(Self.chestMessage)};if playerRegion.intersects(level.exitRegion),outcome==nil{player.score+=100;emit(.levelCompleted(points: 100),at:player.position);outcome = .won;cancelAllInput();onStatusChange?(player.health,player.score);onOutcome?(.won)}}
-    private func checkLoss(){if player.health<=0,outcome==nil{onStatusChange?(player.health,player.score);outcome = .lost;cancelAllInput();onOutcome?(.lost)}}
-    private func emit(_ kind:GameplayFeedbackKind,at coordinate:GridPosition?){feedbackEvents.append(.init(id:UUID(),kind:kind,coordinate:coordinate,createdAt:simulationTime,duration:2.4))}
+    func activateChestAndExit(){checkChestAndExit()}
+    private func checkChestAndExit(){guard outcome == nil else{return};let playerRegion=CollisionProfile.player.region(at:player.position);if !chestOpen,playerRegion.intersects(CollisionProfile.chest.region(at:level.chestAnchor)){guard outcome == nil else{return};chestOpen=true;player.score+=100;let gain=min(2,player.maximumHealth-player.health);player.health+=gain;emit(.chestReward(score: 100, health: gain),at:level.chestAnchor);publishStatusIfChanged();cancelAllInput();onDialogue?(Self.chestMessage)};guard outcome == nil else{return};if playerRegion.intersects(level.exitRegion){player.score+=100;emit(.levelCompleted(points: 100),at:player.position);publishStatusIfChanged();setOutcome(.won)}}
+    private func checkLoss(){if player.health<=0{publishStatusIfChanged();setOutcome(.lost)}}
+    private func setOutcome(_ value:GameOutcome){guard outcome == nil else{return};outcome=value;cancelAllInput();player.hookshot=HookshotState();onOutcome?(value)}
+    private func publishStatusIfChanged(){guard outcome == nil else{return};let status=PlayerStatusSnapshot(health:player.health,score:player.score);guard status != lastPublishedStatus else{return};lastPublishedStatus=status;onStatusChange?(status)}
+    private func emit(_ kind:GameplayFeedbackKind,at coordinate:GridPosition?){guard outcome == nil else{return};feedbackEvents.append(.init(id:UUID(),kind:kind,coordinate:coordinate,createdAt:simulationTime,duration:2.4))}
 }

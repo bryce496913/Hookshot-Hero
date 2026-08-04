@@ -29,6 +29,14 @@ final class AppRouter: ObservableObject {
         path = [.gameplay]
     }
 
+    func startGame(session: GameSession) {
+        endActiveSession(expectedID: activeSession?.identifier)
+        activeSession = session
+        observe(session)
+        guard session.initializeWorld(), session.start() else { path = [.gameplay]; return }
+        path = [.gameplay]
+    }
+
     func showSettings() { path.append(.settings) }
     func showHelp() { path.append(.help) }
     func dismiss() { if !path.isEmpty { path.removeLast() } }

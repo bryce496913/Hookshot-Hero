@@ -30,6 +30,19 @@ final class HookshotHeroUITests: XCTestCase {
         XCTAssertTrue(app.staticTexts["scoreValue"].waitForExistence(timeout: 5)); XCTAssertEqual(app.staticTexts["scoreValue"].value as? String, "0")
         XCTAssertEqual(app.staticTexts["healthValue"].value as? String, "3")
     }
+    func testDirectionTapMovesExactlyOneCellAndDoesNotRepeat() {
+        launch(); app.buttons["playButton"].tap(); let coordinate = app.staticTexts["playerPosition"]; XCTAssertTrue(coordinate.waitForExistence(timeout: 5))
+        XCTAssertEqual(position(coordinate), [50, 27]); app.buttons["moveUpButton"].tap()
+        XCTAssertTrue(waitForPosition(coordinate, [49, 27])); Thread.sleep(forTimeInterval: 0.4); XCTAssertEqual(position(coordinate), [49, 27])
+    }
+    func testDirectionHoldRepeatsAndStopsWithoutReleaseStep() {
+        launch(); app.buttons["playButton"].tap(); let coordinate = app.staticTexts["playerPosition"]; XCTAssertTrue(coordinate.waitForExistence(timeout: 5))
+        app.buttons["moveLeftButton"].press(forDuration: 0.8); let released = position(coordinate)
+        XCTAssertEqual(released.first, 50); XCTAssertLessThan(released.last ?? 27, 26)
+        Thread.sleep(forTimeInterval: 0.4); XCTAssertEqual(position(coordinate), released)
+    }
+    private func position(_ element: XCUIElement) -> [Int] { element.label.split(separator: " ").compactMap { Int($0) } }
+    private func waitForPosition(_ element: XCUIElement, _ expected: [Int]) -> Bool { let deadline=Date().addingTimeInterval(2);while Date()<deadline{if position(element)==expected{return true};RunLoop.current.run(until:Date().addingTimeInterval(0.05))};return false }
     private func assertForcedResult(_ argument: String, title: String) {
         launch(argument); app.buttons["playButton"].tap(); XCTAssertTrue(app.staticTexts["resultsTitle"].waitForExistence(timeout: 5)); XCTAssertEqual(app.staticTexts["resultsTitle"].label, title)
         XCTAssertEqual(app.staticTexts["resultsScore"].label, "Final score")
