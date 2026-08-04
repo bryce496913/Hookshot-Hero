@@ -17,9 +17,9 @@ enum PauseReason: Equatable, Sendable { case user, applicationLifecycle }
     @Published private(set) var initializationError: String?
     private(set) var pauseReason: PauseReason?; private var applicationIsActive = true
     init(identifier: UUID = UUID(), levelID: LevelID = .init(rawValue: "level-1"), missionID: MissionID? = nil,
-         configuration: GameConfiguration = .init(reducedMotion: false, controlHintsEnabled: true), seed: UInt64? = nil) {
+         configuration: GameConfiguration = .init(reducedMotion: false, controlHintsEnabled: true), seed: UInt64? = nil, entities: [WorldEntity]? = nil) {
         self.identifier = identifier; self.levelID = levelID; self.missionID = missionID; self.configuration = configuration
-        do { simulation = try LevelOneSimulation(seed: seed ?? UInt64.random(in: 1...UInt64.max)) }
+        do { simulation = try LevelOneSimulation(seed: seed ?? UInt64.random(in: 1...UInt64.max), entities: entities) }
         catch { simulation = nil; initializationError = error.localizedDescription }
         simulation?.onStatusChange = { [weak self] health, score in self?.health = health; self?.score = score }
         simulation?.onOutcome = { [weak self] outcome in if outcome == .won { self?.win() } else { self?.lose() } }

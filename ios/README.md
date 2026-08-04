@@ -17,24 +17,23 @@ The existing Java sprite resources are bundled directly in the target. Do not du
 * **Pause:** suspends play and offers Resume or Return to Menu.
 * Direction controls appear as buttons with stable identifiers (`moveUpButton`, `moveDownButton`, `moveLeftButton`, `moveRightButton`); Grapple is `grappleButton`. They expose descriptive VoiceOver labels and disabled state. Health remains readable as text even though the legacy heart is also shown. Important collection, health, chest, mine, and completion events generate one accessibility announcement per event. Reduce Motion replaces travel-heavy feedback with a fade.
 
-## Toolchain and validation
+## Toolchain and local validation
 
-Use a stable **Xcode 26 or later** with an **iOS 26 SDK or later**. The minimum deployment target is **iOS 18.0**. Strict Swift concurrency checking is enabled. Open `ios/HookshotHero.xcodeproj` and use the shared `HookshotHero` scheme.
+This repository intentionally does not run automated checks. Debug, tests, Analyze, Release, and archive validation must be performed locally with Xcode 26 before merging changes. Use a distinct DerivedData directory for the test build so the testable application module cannot be confused with an ordinary Debug build.
 
 ```bash
 xcodebuild -version
 xcodebuild -project ios/HookshotHero.xcodeproj -scheme HookshotHero -showdestinations
-xcodebuild -project ios/HookshotHero.xcodeproj -scheme HookshotHero -configuration Debug -destination 'platform=iOS Simulator,id=<UDID>' -derivedDataPath /tmp/HookshotHero-LevelOne-Stabilization clean build
-xcodebuild -project ios/HookshotHero.xcodeproj -scheme HookshotHero -configuration Debug -destination 'platform=iOS Simulator,id=<UDID>' -derivedDataPath /tmp/HookshotHero-LevelOne-Stabilization test
-xcodebuild -project ios/HookshotHero.xcodeproj -scheme HookshotHero -configuration Debug -destination 'platform=iOS Simulator,id=<UDID>' -derivedDataPath /tmp/HookshotHero-LevelOne-Stabilization analyze
-xcodebuild -project ios/HookshotHero.xcodeproj -scheme HookshotHero -configuration Release -destination 'generic/platform=iOS Simulator' -derivedDataPath /tmp/HookshotHero-LevelOne-Stabilization-Release clean build
-xcodebuild -project ios/HookshotHero.xcodeproj -scheme HookshotHero -configuration Release -destination 'generic/platform=iOS' -archivePath /tmp/HookshotHero-LevelOne-Stabilization.xcarchive -derivedDataPath /tmp/HookshotHero-LevelOne-Stabilization-Archive CODE_SIGNING_ALLOWED=NO archive
+rm -rf /tmp/HookshotHero-Debug-DerivedData && xcodebuild -project ios/HookshotHero.xcodeproj -scheme HookshotHero -configuration Debug -destination 'platform=iOS Simulator,id=<UDID>' -derivedDataPath /tmp/HookshotHero-Debug-DerivedData clean build
+rm -rf /tmp/HookshotHero-Test-DerivedData && xcodebuild -project ios/HookshotHero.xcodeproj -scheme HookshotHero -configuration Debug -destination 'platform=iOS Simulator,id=<UDID>' -derivedDataPath /tmp/HookshotHero-Test-DerivedData clean build-for-testing
+xcodebuild -project ios/HookshotHero.xcodeproj -scheme HookshotHero -configuration Debug -destination 'platform=iOS Simulator,id=<UDID>' -derivedDataPath /tmp/HookshotHero-Test-DerivedData test-without-building
+rm -rf /tmp/HookshotHero-Analyze-DerivedData && xcodebuild -project ios/HookshotHero.xcodeproj -scheme HookshotHero -configuration Debug -destination 'platform=iOS Simulator,id=<UDID>' -derivedDataPath /tmp/HookshotHero-Analyze-DerivedData analyze
+rm -rf /tmp/HookshotHero-Release-DerivedData && xcodebuild -project ios/HookshotHero.xcodeproj -scheme HookshotHero -configuration Release -destination 'generic/platform=iOS Simulator' -derivedDataPath /tmp/HookshotHero-Release-DerivedData clean build
+rm -rf /tmp/HookshotHero-Archive-DerivedData /tmp/HookshotHero.xcarchive && xcodebuild -project ios/HookshotHero.xcodeproj -scheme HookshotHero -configuration Release -destination 'generic/platform=iOS' -archivePath /tmp/HookshotHero.xcarchive -derivedDataPath /tmp/HookshotHero-Archive-DerivedData CODE_SIGNING_ALLOWED=NO archive
 plutil -lint ios/HookshotHero/Resources/Info.plist ios/HookshotHero/Resources/PrivacyInfo.xcprivacy
 ```
 
-The `.github/workflows/ios-ci.yml` workflow exposes the stable **ios-validation** job on relevant pull requests and pushes to `main`. It selects stable Xcode 26, discovers an available iPhone simulator, and runs plist validation, Debug build, unit and UI tests, Analyze, Release simulator build, and an unsigned device archive with pipeline exit-code preservation and failed-log upload. To make it a merge requirement, a repository administrator must open **Settings → Branches or Rulesets** and require `ios-validation` before merging to `main`.
-
-Unit coverage protects shared geometry, render/collision agreement, collision footprints and spawn safety, time-based movement/grapple behavior, feedback lifetime, dialogue lifecycle, node synchronization, scoring, and deterministic spawn behavior. UI coverage queries semantic controls as buttons and covers play/pause/results flows.
+Unit coverage includes a deterministic complete Level 1 command playthrough, typed feedback, interrupted-input cancellation, terminal collision ordering, shared geometry, rendering agreement, persistence, and lifecycle behavior. Text feedback is projected in a readable Dynamic Type SwiftUI overlay; SpriteKit retains the mine burst. Input cancellation generations reset both authoritative held movement and local button presentation. Terminal contacts synchronize status before their one outcome callback and stop later same-update entity processing.
 
 ## Intentionally deferred Level 1 parity
 

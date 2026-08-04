@@ -5,6 +5,7 @@
 	objectVersion = 60;
 	objects = {
 /* Begin PBXBuildFile section */
+		C40000000000000000000001 /* LevelOneStabilizationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C40000000000000000000002; };
 		B10000000000000000000001 /* LevelOneSimulation.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000002; };
 		A00000000000000000000001 /* AppEnvironment.swift in Sources */ = {isa = PBXBuildFile; fileRef = A00000000000000000000002 /* AppEnvironment.swift */; };
 		A00000000000000000000003 /* AppRouterTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A00000000000000000000004 /* AppRouterTests.swift */; };
@@ -57,6 +58,7 @@
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
+		C40000000000000000000002 /* LevelOneStabilizationTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "HookshotHeroTests/LevelOneStabilizationTests.swift"; sourceTree = "<group>"; };
 		B10000000000000000000002 /* LevelOneSimulation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "HookshotHero/Game/Simulation/LevelOneSimulation.swift"; sourceTree = "<group>"; };
 		A00000000000000000000002 /* AppEnvironment.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "HookshotHero/App/AppEnvironment.swift"; sourceTree = "<group>"; };
 		A00000000000000000000004 /* AppRouterTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "HookshotHeroTests/AppRouterTests.swift"; sourceTree = "<group>"; };
@@ -121,6 +123,7 @@
 				A00000000000000000000002 /* AppEnvironment.swift */,
 				B10000000000000000000002 /* LevelOneSimulation.swift */,
 				A00000000000000000000004 /* AppRouterTests.swift */,
+				C40000000000000000000002 /* LevelOneStabilizationTests.swift */,
 				AA8C1A905D9395F73AD2D105 /* Assets.xcassets */,
 				4B20CAEC9337FDECB204F28A /* PrivacyInfo.xcprivacy */,
 				5D623A3A9ABC28C6858CD8C9 /* RootView.swift */,
@@ -157,7 +160,8 @@
 		12A78AD7BB4C0410A4A933CB = {isa = PBXResourcesBuildPhase; buildActionMask = 2147483647; files = (7CC64A48CD838314F1470C45 /* Assets.xcassets in Resources */, 227DDD5DE539927EC3903CEA /* PrivacyInfo.xcprivacy in Resources */, B30000000000000000000000 /* lidia.png in Resources */, B30000000000000000000001 /* heart.png in Resources */, B30000000000000000000002 /* bomb.png in Resources */, B30000000000000000000003 /* barrels.png in Resources */, B30000000000000000000004 /* goldCoin1.png in Resources */, B30000000000000000000005 /* goldCoin2.png in Resources */, B30000000000000000000006 /* goldCoin3.png in Resources */, B30000000000000000000007 /* goldCoin4.png in Resources */, B30000000000000000000008 /* goldCoin5.png in Resources */, B30000000000000000000009 /* goldCoin6.png in Resources */, B30000000000000000000010 /* goldCoin7.png in Resources */, B30000000000000000000011 /* goldCoin8.png in Resources */, B30000000000000000000012 /* goldCoin9.png in Resources */, B30000000000000000000013 /* floor.png in Resources */, B30000000000000000000014 /* lava.png in Resources */, B30000000000000000000015 /* wallGreyFront.png in Resources */, B30000000000000000000016 /* wallGreyLeftSide.png in Resources */, B30000000000000000000017 /* wallGreyRightSide.png in Resources */, B30000000000000000000018 /* DoorGreyOpen.png in Resources */, B30000000000000000000019 /* DoorGreyClosed.png in Resources */, B30000000000000000000020 /* chests.png in Resources */,); runOnlyForDeploymentPostprocessing = 0; };
 /* Begin PBXFrameworksBuildPhase section */
 		6C18526817C1377C39321D31 = {isa = PBXFrameworksBuildPhase; buildActionMask = 2147483647; files = (); runOnlyForDeploymentPostprocessing = 0; };
-		F7115B032A300979DADE839B = {isa = PBXSourcesBuildPhase; buildActionMask = 2147483647; files = (A00000000000000000000003 /* AppRouterTests.swift in Sources */, 12A0B74595F885094BF5AB54 /* ProgressionRepositoryTests.swift in Sources */, 1B6FF7C8E62687CB87326931 /* EntityStoreTests.swift in Sources */, 8EE27EF737E30DEF75FBDA25 /* GameSessionTests.swift in Sources */, 13BBF1CD945A2FDADA696549 /* SettingsTests.swift in Sources */, 5E9B9A1A44E292ED23EF4796 /* SimulationClockTests.swift in Sources */,); runOnlyForDeploymentPostprocessing = 0; };
+		F7115B032A300979DADE839B = {isa = PBXSourcesBuildPhase; buildActionMask = 2147483647; files = (A00000000000000000000003 /* AppRouterTests.swift in Sources */, 12A0B74595F885094BF5AB54 /* ProgressionRepositoryTests.swift in Sources */, 1B6FF7C8E62687CB87326931 /* EntityStoreTests.swift in Sources */, 8EE27EF737E30DEF75FBDA25 /* GameSessionTests.swift in Sources */,
+				C40000000000000000000001 /* LevelOneStabilizationTests.swift in Sources */, 13BBF1CD945A2FDADA696549 /* SettingsTests.swift in Sources */, 5E9B9A1A44E292ED23EF4796 /* SimulationClockTests.swift in Sources */,); runOnlyForDeploymentPostprocessing = 0; };
 		2A960B3687BD5174B1C1D252 = {isa = PBXResourcesBuildPhase; buildActionMask = 2147483647; files = (); runOnlyForDeploymentPostprocessing = 0; };
 		3152BA25849B7B83335DDC55 = {isa = PBXFrameworksBuildPhase; buildActionMask = 2147483647; files = (); runOnlyForDeploymentPostprocessing = 0; };
 		BD2535C6F11B59001D1B25CD = {isa = PBXSourcesBuildPhase; buildActionMask = 2147483647; files = (978D2CAACE297B6553ED40AC /* HookshotHeroUITests.swift in Sources */,); runOnlyForDeploymentPostprocessing = 0; };
@@ -186,7 +190,7 @@
 
 /* Begin XCBuildConfiguration section */
 		89E1FD6268CC0F221A2BE178 = {isa = XCBuildConfiguration; buildSettings = {ALWAYS_SEARCH_USER_PATHS = NO; CLANG_ENABLE_MODULES = YES; CLANG_ENABLE_OBJC_ARC = YES; ENABLE_STRICT_OBJC_MSGSEND = YES; GCC_C_LANGUAGE_STANDARD = gnu17; IPHONEOS_DEPLOYMENT_TARGET = 18.0; SDKROOT = iphoneos; SWIFT_STRICT_CONCURRENCY = complete; SWIFT_VERSION = 5.0; DEBUG_INFORMATION_FORMAT = dwarf; GCC_OPTIMIZATION_LEVEL = 0; SWIFT_OPTIMIZATION_LEVEL = "-Onone";}; name = Debug; };
-		E9B2E96ABC5F6856F2BE79CF = {isa = XCBuildConfiguration; buildSettings = {CURRENT_PROJECT_VERSION = 1; MARKETING_VERSION = 0.1.0; PRODUCT_MODULE_NAME = HookshotHero; PRODUCT_BUNDLE_IDENTIFIER = com.hookshothero.game; ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon; ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor; CODE_SIGN_STYLE = Automatic; GENERATE_INFOPLIST_FILE = NO; INFOPLIST_FILE = HookshotHero/Resources/Info.plist; PRODUCT_NAME = "Hookshot Hero"; TARGETED_DEVICE_FAMILY = 1; SUPPORTS_MACCATALYST = NO;}; name = Debug; };
+		E9B2E96ABC5F6856F2BE79CF = {isa = XCBuildConfiguration; buildSettings = {CURRENT_PROJECT_VERSION = 1; MARKETING_VERSION = 0.1.0; PRODUCT_MODULE_NAME = HookshotHero; PRODUCT_BUNDLE_IDENTIFIER = com.hookshothero.game; ENABLE_TESTABILITY = YES; ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon; ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor; CODE_SIGN_STYLE = Automatic; GENERATE_INFOPLIST_FILE = NO; INFOPLIST_FILE = HookshotHero/Resources/Info.plist; PRODUCT_NAME = "Hookshot Hero"; TARGETED_DEVICE_FAMILY = 1; SUPPORTS_MACCATALYST = NO;}; name = Debug; };
 		0F3D67935A4F199E058A017A = {isa = XCBuildConfiguration; buildSettings = {CURRENT_PROJECT_VERSION = 1; MARKETING_VERSION = 0.1.0; PRODUCT_BUNDLE_IDENTIFIER = com.hookshothero.game.tests; CODE_SIGN_STYLE = Automatic; GENERATE_INFOPLIST_FILE = YES; PRODUCT_NAME = "$(TARGET_NAME)"; TEST_HOST = "$(BUILT_PRODUCTS_DIR)/Hookshot Hero.app/Hookshot Hero"; BUNDLE_LOADER = "$(TEST_HOST)";}; name = Debug; };
 		94C1D7A82E2F92E70C5BA5D8 = {isa = XCBuildConfiguration; buildSettings = {CURRENT_PROJECT_VERSION = 1; MARKETING_VERSION = 0.1.0; PRODUCT_BUNDLE_IDENTIFIER = com.hookshothero.game.uitests; CODE_SIGN_STYLE = Automatic; GENERATE_INFOPLIST_FILE = YES; PRODUCT_NAME = "$(TARGET_NAME)"; TEST_TARGET_NAME = HookshotHero;}; name = Debug; };
 		E6DE6C99132752C914FEF632 = {isa = XCBuildConfiguration; buildSettings = {ALWAYS_SEARCH_USER_PATHS = NO; CLANG_ENABLE_MODULES = YES; CLANG_ENABLE_OBJC_ARC = YES; ENABLE_STRICT_OBJC_MSGSEND = YES; GCC_C_LANGUAGE_STANDARD = gnu17; IPHONEOS_DEPLOYMENT_TARGET = 18.0; SDKROOT = iphoneos; SWIFT_STRICT_CONCURRENCY = complete; SWIFT_VERSION = 5.0; DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym"; SWIFT_COMPILATION_MODE = wholemodule; SWIFT_OPTIMIZATION_LEVEL = "-O";}; name = Release; };
