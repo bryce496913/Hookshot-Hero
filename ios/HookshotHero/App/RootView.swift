@@ -8,7 +8,7 @@ struct RootView: View {
     var body: some View {
         NavigationStack(path: $router.path) {
             MainMenuView(
-                play: { router.startGame(configuration: settingsStore.configuration(systemReduceMotion: systemReduceMotion)) },
+                play: { router.startNewGame(configuration: settingsStore.configuration(systemReduceMotion: systemReduceMotion)) },
                 settings: router.showSettings,
                 help: router.showHelp
             )
@@ -24,10 +24,17 @@ struct RootView: View {
                     SettingsView(store: settingsStore, dismiss: router.dismiss)
                 case .help:
                     HelpView(dismiss: router.dismiss)
+                case .gameLoadingFailure(let failure):
+                    GameLoadingFailureView(failure: failure, retry: { router.retryLoading(failure) }, returnToMenu: router.returnToMenu)
                 case .results(let result):
                     ResultsView(result: result, returnToMenu: router.returnToMenu)
                 }
             }
         }
     }
+}
+
+struct GameLoadingFailureView: View {
+    let failure: GameLoadingFailurePresentation; let retry: () -> Void; let returnToMenu: () -> Void
+    var body: some View { ContentUnavailableView { Label(failure.title, systemImage: "exclamationmark.triangle") } description: { VStack { Text(failure.message); Text(failure.recoverySuggestion) } } actions: { Button("Retry", action: retry).buttonStyle(.borderedProminent).accessibilityIdentifier("retryLevelButton"); Button("Return to Menu", action: returnToMenu).accessibilityIdentifier("loadingFailureMenuButton") }.navigationBarBackButtonHidden() }
 }

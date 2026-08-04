@@ -12,4 +12,5 @@ struct GameResult: Hashable, Sendable {
 enum AppRoute: Hashable, Sendable {
     case gameplay, settings, help
     case results(GameResult)
+    case gameLoadingFailure(GameLoadingFailurePresentation)
 }

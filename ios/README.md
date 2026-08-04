@@ -58,8 +58,24 @@ The simulation is authoritative for health, score, entities, timing, and outcome
 
 SwiftUI observes the small, equatable `GameplayUISnapshot`: level identity, health, maximum health, score, movement/grapple availability, pause/dialogue presentation, and stable feedback events. Equivalent snapshots are not assigned. Feedback publishes when it is added or removed, not as its duration advances. Elapsed gameplay time is a nonpublished session value, and paused, dialogue, and background intervals remain excluded.
 
-SpriteKit synchronously pulls `GameRenderSnapshot`, which contains level geometry, player render state, stable-ID entities, grapple state, chest state, and feedback presentation. Player animation time, interpolation, entity animation, frame timestamps, and accumulators remain nonobservable. Unit observation tests verify that idle frames and safe empty-cell movement produce zero `GameSession.objectWillChange` events in production mode.
+SpriteKit caches `LevelPresentationDefinition` once and pulls one level-neutral `GameRenderSnapshot` per active frame. The dynamic snapshot contains stable-ID render entities, grapple state, and generic effects; level geometry and one-off chest flags do not cross that boundary. Player animation time, interpolation, frame timestamps, and accumulators remain nonobservable. Unit observation tests verify that idle frames and safe empty-cell movement produce zero `GameSession.objectWillChange` events in production mode.
 
 UI tests inject the deterministic Level 1 seed `496913` in their shared setup. A DEBUG-only coordinate diagnostic is enabled only for seeded test composition; Release gameplay does not publish coordinates.
 
 This repository intentionally has no CI workflows or required automated checks. The complete local Xcode 26-or-later build, unit test, UI test, analyze, Release build, unsigned archive, and plist validation sequence is mandatory before release.
+
+## Multi-level loading and render boundary
+
+The current main menu calls `AppRouter.startNewGame()`, whose typed `GameStartConfiguration` resolves `.levelOne`. Level-specific callers use `AppRouter.startGame(levelID:)`; that API forwards the identifier, configuration, and optional deterministic seed without substituting Level 1. Construction follows `MainMenu or level selection → AppRouter.startGame(levelID:) → GameSimulationFactory → concrete GameSimulation → GameSession → GameplayView → generic GameScene`. `GameSession` accepts only a preconstructed simulation and performs no fallible factory work.
+
+Factory errors are mapped to a stable `GameLoadingFailurePresentation`, logged with the public level identifier, diagnostic category, description, and retry status, and displayed in a recovery screen. Retry is request-identity checked and requests the exact failed level again; Return to Menu clears both the route and request. Unsupported identifiers never fall back to Level 1 and failed construction retains no session.
+
+Gameplay now has three distinct channels:
+
+* **Simulation state** owns authoritative rules, collisions, entities, score, health, and outcomes.
+* **UI snapshot** owns health, score, dialogue, feedback, control availability, and pause presentation.
+* **Render state** is an immutable, cached `LevelPresentationDefinition` plus one generic dynamic `GameRenderSnapshot` captured per active SpriteKit frame.
+
+Level One builds floor, lava, walls, and doors as static descriptors. Its player, chest (open or closed), coins, cabbages, mines, grapple, and future effects cross the shared boundary as stable-ID generic descriptors with extensible `RenderAssetID` and animation identifiers. `TextureCatalog` caches full textures and sheet slices, preserves nearest-neighbor filtering, and reports typed missing/invalid resources. `GameScene` caches grid/layout data, never reads static geometry from a dynamic snapshot, and passes the frame's single captured snapshot through synchronization helpers. Direction buttons use SwiftUI's semantic `.disabled` state as well as cancelling physical hold state, so VoiceOver and Switch Control receive the same availability as gameplay.
+
+A future Level 2 should add `LevelTwoSimulation`, `LevelTwoDefinition`, `LevelTwoPresentationDefinition`, Level Two catalog mappings, and explicit factory support. It must not add Level Two gameplay branches to the generic scene or rewrite Level One. This boundary remains pending complete Xcode 26 validation before Level 2 work begins.

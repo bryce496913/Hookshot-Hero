@@ -33,3 +33,7 @@ Gameplay feedback uses event-specific associated-value cases. SwiftUI presents r
 ## Multi-level dependency boundary
 
 Gameplay construction now follows `AppRouter → GameSimulationFactory → GameSimulation → GameSession → GameplayView and GameScene`. SwiftUI consumes only equatable UI snapshots, while SpriteKit pulls nonobservable render snapshots. The concrete simulation remains authoritative, including every score mutation; level-specific rules stay in `LevelOneSimulation`. The factory has an explicit typed unsupported-level error and is the future extension point for Level 2, which is intentionally not part of this pass.
+
+## Multi-level dependency direction
+
+The validated dependency target is `MainMenu or level selection → AppRouter.startGame(levelID:) → GameSimulationFactory → concrete GameSimulation → GameSession → GameplayView → generic GameScene`. Fallible construction ends at the factory. Simulation state, the equatable SwiftUI snapshot, and static-plus-dynamic render state are deliberately independent. A level supplies an immutable presentation definition and generic dynamic descriptors; the shared scene contains no level gameplay switches. Level 2 is to enter through new simulation, definition, presentation, asset mappings, and factory support only.

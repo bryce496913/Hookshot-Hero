@@ -57,6 +57,7 @@ struct DirectionButton: View {
             Image(systemName: symbol).frame(width: 52, height: 44).contentShape(Rectangle())
         }.buttonStyle(DirectionPressButtonStyle(direction: direction, input: input, isEnabled: isEnabled,
                                                 cancellationGeneration: input.cancellationGeneration))
+.disabled(!isEnabled)
         .accessibilityLabel("Move \(direction.rawValue)")
         .accessibilityIdentifier("move\(direction.rawValue.capitalized)Button")
     }
