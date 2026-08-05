@@ -192,7 +192,7 @@ struct AppGameLoadingLogger: GameLoadingLogging {
       let runtime = try runtimeFactory.makeRuntime(
         levelID: request.destinationLevelID, configuration: gameConfiguration, seed: levelSeed,
         entryPosition: request.destinationEntry, carryover: request.carryover)
-      if request.sourceLevelID == .levelOne {
+      if request.reason == .completedForward {
         progressionStore.record(
           result: GameResult(
             sessionID: session.identifier, levelID: request.sourceLevelID,
