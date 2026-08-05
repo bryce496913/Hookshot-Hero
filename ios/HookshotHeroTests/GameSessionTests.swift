@@ -269,6 +269,7 @@ final class GameSessionTests: XCTestCase {
   let inputController = GameInputController()
   var onUISnapshotChange: ((GameplayUISnapshot) -> Void)?
   var onOutcome: ((GameOutcome) -> Void)?
+  var onLevelTransition: ((LevelTransitionRequest) -> Void)?
   var onDialogue: ((String) -> Void)?
   var pauses: [Bool] = []
   var dialogueContinuations = 0
