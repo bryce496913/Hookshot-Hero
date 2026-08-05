@@ -152,6 +152,7 @@ struct AppGameLoadingLogger: GameLoadingLogging {
   private func observe(_ session: GameSession) {
     let id = session.identifier
     sessionObservation = session.$state.sink { [weak self] state in
+      if case .transitioning = state, let request = session.pendingTransitionRequest { self?.performTransition(request, for: session) }
       guard state == .won || state == .lost else {
         if state == .running, let outcome = self?.forcedOutcome {
           #if DEBUG
@@ -161,6 +162,17 @@ struct AppGameLoadingLogger: GameLoadingLogging {
         return
       }
       self?.finishGame(sessionID: id, outcome: state == .won ? .won : .lost)
+    }
+  }
+  private func performTransition(_ request: LevelTransitionRequest, for session: GameSession) {
+    guard activeSession?.identifier == session.identifier else { return }
+    if request.destinationLevelID == .levelThree { return }
+    do {
+      let runtime = try runtimeFactory.makeRuntime(levelID: request.destinationLevelID, configuration: gameConfiguration, seed: levelSeed, entryPosition: request.destinationEntry, carryover: request.carryover)
+      if request.sourceLevelID == .levelOne { progressionStore.record(result: GameResult(sessionID: session.identifier, levelID: request.sourceLevelID, missionID: session.missionID, score: request.carryover.score, elapsedTime: session.elapsedTime, outcome: .won)) }
+      session.installRuntime(runtime)
+    } catch {
+      handle(error as? GameLoadingError ?? .invalidLevelDefinition(request.destinationLevelID), levelID: request.destinationLevelID, isRetry: false, requestID: .init(rawValue: UUID()))
     }
   }
   private func endActiveSession(expectedID: UUID?) {

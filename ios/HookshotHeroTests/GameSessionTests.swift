@@ -490,3 +490,44 @@ final class LevelOneConversionTests: XCTestCase {
     XCTAssertEqual(session.state, .running)
   }
 }
+
+@MainActor
+final class LevelTwoDefinitionTests: XCTestCase {
+  func testLevelTwoGeometryMatchesJavaAnchors() throws {
+    let level = LevelTwoDefinition.make()
+    XCTAssertEqual(level.grid, GridSize(rows: 60, columns: 60))
+    XCTAssertEqual(level.start, GridPosition(row: 50, column: 27))
+    XCTAssertEqual(level.exitAnchor, GridPosition(row: 0, column: 27))
+    XCTAssertEqual(level.entryAnchor, GridPosition(row: 56, column: 27))
+    XCTAssertEqual(level.boundary.topExitRegion.columns, 27..<33)
+    XCTAssertEqual(level.boundary.bottomDoorRegion.columns, 27..<33)
+    XCTAssertEqual(LevelTwoDefinition.internalWallAnchors, [4,8,12,16,20,24,28,32,36,40].map{GridPosition(row:16,column:$0)} + [8,12].map{GridPosition(row:24,column:$0)} + [20,24].flatMap{r in [36,40].map{GridPosition(row:r,column:$0)}})
+    XCTAssertEqual(LevelTwoDefinition.lavaAnchors.count, 63)
+    XCTAssertTrue((0..<level.grid.rows).contains(level.exitAnchor.row))
+    XCTAssertFalse(level.isBlocked(CollisionProfile.player.region(at: level.start)))
+  }
+}
+
+@MainActor
+final class LevelTwoSpawnAndEnemyTests: XCTestCase {
+  func testLevelTwoSpawnsItemsAndEnemiesDeterministically() throws {
+    let first = try LevelTwoSimulation(seed: 496_913)
+    let second = try LevelTwoSimulation(seed: 496_913)
+    XCTAssertEqual(first.entities.filter { $0.kind == .mine }.count, 3)
+    XCTAssertEqual(first.entities.filter { $0.kind == .cabbage }.count, 2)
+    XCTAssertEqual(first.entities.filter { $0.kind == .coin }.count, 10)
+    XCTAssertEqual(first.entities.map(\.position), second.entities.map(\.position))
+  }
+
+  func testLevelTwoEnemyConstants() throws {
+    XCTAssertEqual(EnemyArchetype.skeleton.maximumHealth, 3)
+    XCTAssertEqual(EnemyArchetype.skeleton.sight, 19)
+    XCTAssertEqual(EnemyArchetype.skeleton.patrolInterval, 0.7)
+    XCTAssertEqual(EnemyArchetype.skeleton.seekInterval, 0.5)
+    XCTAssertEqual(EnemyArchetype.flyingTerror.maximumHealth, 5)
+    XCTAssertEqual(EnemyArchetype.flyingTerror.sight, 39)
+    XCTAssertEqual(EnemyArchetype.flyingTerror.patrolInterval, 0.3)
+    XCTAssertEqual(EnemyArchetype.flyingTerror.seekInterval, 0.3)
+    XCTAssertEqual(EnemyArchetype.flyingTerror.footprint.rowOffsets, -3..<5)
+  }
+}

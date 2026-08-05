@@ -2,7 +2,7 @@ import Combine
 import Foundation
 
 struct LevelID: RawRepresentable, Codable, Hashable, Sendable { let rawValue: String }
-extension LevelID { static let levelOne = Self(rawValue: "level-1") }
+extension LevelID { static let levelOne = Self(rawValue: "level-1"); static let levelTwo = Self(rawValue: "level-2"); static let levelThree = Self(rawValue: "level-3") }
 struct MissionID: RawRepresentable, Codable, Hashable, Sendable { let rawValue: String }
 struct UnlockID: RawRepresentable, Codable, Hashable, Sendable { let rawValue: String }
 struct GameConfiguration: Equatable, Sendable {
@@ -13,16 +13,17 @@ enum GameOutcome: Equatable, Sendable { case won, lost }
 enum GameSessionState: Equatable, Sendable {
   case loading, initialized, running
   case dialogue(String)
-  case paused, won, lost, disposed
+  case paused, transitioning(LevelID), won, lost, disposed
 }
 enum PauseReason: Equatable, Sendable { case user, applicationLifecycle }
 
 @MainActor final class GameSession: ObservableObject {
   let identifier: UUID
   let configuration: GameConfiguration
-  let runtime: GameLevelRuntime
+  @Published private(set) var runtimeGeneration: Int = 0
+  private(set) var runtime: GameLevelRuntime
   var simulation: any GameSimulation { runtime.simulation }
-  let levelID: LevelID
+  var levelID: LevelID { simulation.levelID }
   let missionID: MissionID?
 
   @Published private(set) var uiSnapshot: GameplayUISnapshot
@@ -49,7 +50,6 @@ enum PauseReason: Equatable, Sendable { case user, applicationLifecycle }
       let textureCatalog = TextureCatalog(entries: LevelOneTextureCatalog.entries)
       self.runtime = .init(simulation: simulation, presentation: simulation.presentationDefinition, textureCatalog: textureCatalog, animationCatalog: LevelOneAnimationCatalog(textureCatalog: textureCatalog), assetManifest: .levelOne)
     }
-    self.levelID = simulation.levelID
     self.publishesDiagnosticPosition = publishesDiagnosticPosition
     self.uiSnapshot = simulation.uiSnapshot
     bindSimulation()
@@ -172,6 +172,28 @@ enum PauseReason: Equatable, Sendable { case user, applicationLifecycle }
     simulation.onUISnapshotChange = { [weak self] _ in self?.refreshUISnapshot() }
     simulation.onOutcome = { [weak self] outcome in self?.transitionToTerminal(outcome) }
     simulation.onDialogue = { [weak self] message in self?.openDialogue(message) }
+    simulation.onLevelTransition = { [weak self] request in self?.beginTransition(request) }
+  }
+
+  private(set) var pendingTransitionRequest: LevelTransitionRequest?
+  private func beginTransition(_ request: LevelTransitionRequest) {
+    guard state == .running else { return }
+    pendingTransitionRequest = request
+    simulation.cancelAllInput()
+    simulation.setPaused(true)
+    state = .transitioning(request.destinationLevelID)
+    refreshUISnapshot()
+  }
+  func installRuntime(_ newRuntime: GameLevelRuntime) {
+    guard case .transitioning = state else { return }
+    simulation.dispose()
+    runtime = newRuntime
+    runtimeGeneration &+= 1
+    pendingTransitionRequest = nil
+    bindSimulation()
+    runtime.simulation.setPaused(false)
+    state = .running
+    refreshUISnapshot()
   }
 
   private func transitionToTerminal(_ outcome: GameOutcome) {
