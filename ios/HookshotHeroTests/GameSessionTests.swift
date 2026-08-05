@@ -110,7 +110,7 @@ final class GameSessionTests: XCTestCase {
     XCTAssertTrue(session.initializeWorld())
     XCTAssertTrue(session.start())
 
-    let scene = GameScene(size: CGSize(width: 100, height: 100), session: session, catalog: session.runtime.textureCatalog, animationCatalog: session.runtime.animationCatalog)
+    let scene = GameScene(size: CGSize(width: 100, height: 100), session: session, runtime: session.runtime, generation: session.runtimeGeneration)
     let view = SKView()
     scene.didMove(to: view)
     XCTAssertEqual(session.state, .running)
@@ -232,7 +232,7 @@ final class GameSessionTests: XCTestCase {
     let session = GameSession(simulation: simulation)
     _ = session.initializeWorld()
     _ = session.start()
-    let scene = GameScene(size: .init(width: 100, height: 100), session: session, catalog: session.runtime.textureCatalog, animationCatalog: session.runtime.animationCatalog)
+    let scene = GameScene(size: .init(width: 100, height: 100), session: session, runtime: session.runtime, generation: session.runtimeGeneration)
     XCTAssertEqual(simulation.presentationRequests, 1)
     scene.update(1)
     XCTAssertEqual(simulation.renderRequests, 1)
@@ -244,6 +244,63 @@ final class GameSessionTests: XCTestCase {
     scene.didChangeSize(.zero)
     XCTAssertEqual(simulation.presentationRequests, 1)
     XCTAssertEqual(simulation.renderRequests, 2)
+  }
+
+
+  func testLevelTransitionWaitsForReplacementSceneBeforeRunningLevelTwo() throws {
+    let session = GameSession(levelID: .levelOne, seed: 42)
+    XCTAssertTrue(session.initializeWorld())
+    XCTAssertTrue(session.start())
+    let oldScene = GameScene(size: .init(width: 100, height: 100), session: session, runtime: session.runtime, generation: session.runtimeGeneration)
+    let view = SKView()
+    oldScene.didMove(to: view)
+    XCTAssertEqual(oldScene.levelID, .levelOne)
+    XCTAssertTrue(oldScene.staticAssetIDs.contains(LevelOneRenderAssets.exitDoor))
+
+    let carryover = PlayerCarryoverState(
+      characterID: session.simulation.renderSnapshot.player.id, health: session.health, score: 25,
+      completedLevelIDs: [.levelOne])
+    session.simulation.onLevelTransition?(
+      LevelTransitionRequest(
+        sourceLevelID: .levelOne, destinationLevelID: .levelTwo, destinationEntry: .bottom,
+        carryover: carryover))
+    XCTAssertEqual(session.state, .transitioning(.levelTwo))
+
+    let runtime = try DefaultGameLevelRuntimeFactory().makeRuntime(
+      levelID: .levelTwo, configuration: session.configuration, seed: 99, entryPosition: .bottom,
+      carryover: carryover)
+    let generationBeforeInstall = session.runtimeGeneration
+    session.installRuntime(runtime)
+
+    XCTAssertEqual(session.runtimeGeneration, generationBeforeInstall + 1)
+    XCTAssertEqual(session.state, .transitioning(.levelTwo))
+    XCTAssertFalse(session.canSimulate)
+    let positionBeforeAttachment = session.simulation.renderSnapshot.player.coordinate
+    oldScene.update(10)
+    XCTAssertEqual(session.simulation.renderSnapshot.player.coordinate, positionBeforeAttachment)
+
+    oldScene.willMove(from: view)
+    XCTAssertTrue(oldScene.children.isEmpty)
+    XCTAssertTrue(oldScene.staticAssetIDs.isEmpty)
+
+    let replacementScene = GameScene(
+      size: .init(width: 100, height: 100), session: session, runtime: session.runtime,
+      generation: session.runtimeGeneration)
+    replacementScene.didMove(to: view)
+
+    XCTAssertEqual(replacementScene.levelID, .levelTwo)
+    XCTAssertEqual(session.state, .running)
+    XCTAssertTrue(session.canSimulate)
+    XCTAssertEqual(session.health, carryover.health)
+    XCTAssertEqual(session.score, carryover.score)
+    XCTAssertEqual(session.simulation.renderSnapshot.player.id, carryover.characterID)
+    XCTAssertTrue(replacementScene.staticAssetIDs.contains(LevelTwoRenderAssets.lava))
+    XCTAssertTrue(replacementScene.staticAssetIDs.contains(LevelTwoRenderAssets.exitDoor))
+    XCTAssertTrue(replacementScene.staticAssetIDs.contains(LevelTwoRenderAssets.entryDoor))
+    XCTAssertTrue(replacementScene.staticAssetIDs.contains(LevelTwoRenderAssets.smoke))
+    XCTAssertFalse(replacementScene.staticAssetIDs.contains(LevelOneRenderAssets.exitDoor))
+    XCTAssertTrue(session.simulation.renderSnapshot.entities.contains { $0.asset == EnemyArchetype.skeleton.asset })
+    XCTAssertTrue(session.simulation.renderSnapshot.entities.contains { $0.asset == EnemyArchetype.flyingTerror.asset })
   }
 
   private func running() -> GameSession {
