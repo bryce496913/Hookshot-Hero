@@ -131,3 +131,36 @@ simulation update
 Session observation now starts only after runtime construction, preflight, session initialization, and session start succeed. Failure handling cancels any observation even when no active session exists, clears ownership, and prevents stale callbacks from failed sessions from mutating navigation.
 
 Local validation remains intentionally Xcode-based. Run the full Xcode 26 sequence locally: `xcodebuild -version`, `-showdestinations`, Debug build, build-for-testing, test-without-building for both `HookshotHeroTests` and `HookshotHeroUITests`, analyze, Release simulator build, unsigned device archive, `plutil -lint` for both property lists, `git diff --check`, `git status --short`, and manual review of `git grep -n "for .* in .*\\.keys"`, `git grep -n "try!"`, and `git grep -n "try?"`. The repository intentionally contains no CI workflows. The final app icon remains a manual distribution blocker; do not add generated artwork as part of runtime validation.
+
+## Level 2 Runtime Conversion
+
+Level 2 is now implemented in the shared runtime path. A normal production playthrough still starts at Level 1, and the Level 1 top exit emits a transition request rather than a terminal results outcome. The router validates the Level 2 runtime, then installs it into the same `GameSession` so health, score, session ID, and elapsed playthrough time transfer. Level 2 can return to Level 1 through the bottom entrance; the returned Level 1 runtime uses the top entry start. Level 2's top exit is the current playable-content boundary: it awards the Level 2 completion bonus and presents results while preserving Level 3 as the intended next destination identifier. Level 3 gameplay remains unimplemented.
+
+Conversion flow:
+
+```text
+LevelOneRuntime
+→ transition request
+→ validated LevelTwoRuntime
+→ same GameSession
+→ LevelTwoSimulation
+```
+
+Level 2 uses the Java 60×60 grid with 4×4 environment tiles. Internal wall anchors are row 16 columns 4, 8, 12, 16, 20, 24, 28, 32, 36, and 40; row 24 columns 8 and 12; and rows 20 and 24 at columns 36 and 40. Lava anchors are rows 32, 36, and 40 at columns 4 through 52 by fours; rows 44, 48, and 52 at columns 36, 40, 44, 48, and 52; and rows 20, 24, and 28 at columns 20, 24, and 28.
+
+Level 2 item requirements are three mines, two cabbages, and ten coins. The deterministic Level 2 test seed is `496913`. In DEBUG UI testing, `HOOKSHOT_START_LEVEL=level-2` starts a fresh Level 2 session with health 3, score 0, and the bottom entry; `HOOKSHOT_LEVEL_SEED` controls deterministic spawning.
+
+Level 2 contains one Skeleton and one Flying Terror. The Skeleton has 3 health, sight range 19 cells, 0.7 second patrol timing, and 0.5 second seek timing. It respects walls, may cross lava, and uses deterministic greedy fallback movement when the Java single shortest move would be blocked. The Flying Terror has 5 health, sight range 39 cells, 0.3 second patrol and seek timing, flies over walls and lava, and enforces its complete 8×8 footprint inside the board. Enemy contact damage uses the shared cooldown instead of frame-repeated damage. Grapple hits damage the first enemy footprint crossed and add 10 score per hit; no separate defeat bonus is added.
+
+Level 2 asset requirements reference the existing tracked Java resources: `skeleton.png`, `flying_terror.png`, `smoke1.png`, `smoke2.png`, and `smoke3.png`, plus the shared Level 1 environment, Lidia, coin, mine, cabbage, and heart art. No new binary assets are required.
+
+Intentional Java corrections:
+
+- Overlapping enemy spawn positions were replaced with deterministic Skeleton row 5 column 23 and Flying Terror row 5 column 33 positions.
+- Enemy bounds are enforced for the complete collision footprint.
+- Seek movement uses greedy fallback around blocked cells rather than stalling on one blocked shortest choice.
+- Random streams are injected and deterministic for item spawning, Skeleton AI, and Flying Terror AI.
+- Contact damage uses the shared cooldown instead of frame repetition.
+- Completion rewards cannot be farmed repeatedly during one session.
+
+Local validation in this container is limited because `xcodebuild` and `xcrun` are not installed. The repository intentionally contains no CI workflows. App icon approval remains a manual distribution blocker for archive/distribution.

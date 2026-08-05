@@ -94,6 +94,14 @@ final class LevelOneAnimationCatalog: AnimationCatalogProviding {
       let direction = String(animationID.rawValue.split(separator: ".").last ?? "right")
       let row = ["up": 0, "left": 1, "down": 2, "right": 3][direction] ?? 3
       assets = (0..<9).map { RenderAssetID(rawValue: "character.lidia.\(row)-\($0)") }
+    } else if animationID.rawValue.hasPrefix("enemy.skeleton.walk.") {
+      let direction = String(animationID.rawValue.split(separator: ".").last ?? "right")
+      let row = ["up": 8, "left": 9, "down": 10, "right": 11][direction] ?? 11
+      assets = (0..<9).map { RenderAssetID(rawValue: "enemy.skeleton.\(row)-\($0)") }
+    } else if animationID.rawValue.hasPrefix("enemy.flying-terror.walk.") {
+      let direction = String(animationID.rawValue.split(separator: ".").last ?? "right")
+      let row = ["left": 0, "up": 2, "right": 4, "down": 6][direction] ?? 4
+      assets = (0..<10).map { RenderAssetID(rawValue: "enemy.flying-terror.\(row)-\($0)") }
     } else {
       throw TextureCatalogError.missingAsset(.init(rawValue: animationID.rawValue))
     }
@@ -141,6 +149,18 @@ enum LevelOneTextureCatalog {
     add(
       .init(rawValue: "character.lidia"), "lidia.png",
       .init(x: 0, y: 192, width: 64, height: 64, sheetWidth: 576, sheetHeight: 256))
+    add(.init(rawValue: "level-two.floor"), "floor.png")
+    add(.init(rawValue: "level-two.lava"), "lava.png")
+    add(.init(rawValue: "level-two.wall.front"), "wallGreyFront.png")
+    add(.init(rawValue: "level-two.wall.left"), "wallGreyLeftSide.png")
+    add(.init(rawValue: "level-two.wall.right"), "wallGreyRightSide.png")
+    add(.init(rawValue: "level-two.door.open"), "DoorGreyOpen.png")
+    add(.init(rawValue: "level-two.door.closed"), "DoorGreyClosed.png")
+    add(.init(rawValue: "level-two.smoke"), "smoke1.png")
+    add(.init(rawValue: "enemy.skeleton"), "skeleton.png", .init(x:0,y:704,width:64,height:64,sheetWidth:576,sheetHeight:768))
+    for row in [8,9,10,11] { for frame in 0..<9 { add(.init(rawValue: "enemy.skeleton.\(row)-\(frame)"), "skeleton.png", .init(x:Double(frame*64), y:Double(row*64), width:64, height:64, sheetWidth:576, sheetHeight:768)) } }
+    add(.init(rawValue: "enemy.flying-terror"), "flying_terror.png", .init(x:0,y:512,width:128,height:128,sheetWidth:1280,sheetHeight:896))
+    for row in [0,2,4,6] { for frame in 0..<10 { add(.init(rawValue: "enemy.flying-terror.\(row)-\(frame)"), "flying_terror.png", .init(x:Double(frame*128), y:Double(row*128), width:128, height:128, sheetWidth:1280, sheetHeight:896)) } }
     return e
   }()
 }

@@ -37,3 +37,7 @@ Gameplay construction now follows `AppRouter → GameSimulationFactory → GameS
 ## Multi-level dependency direction
 
 The validated dependency target is `MainMenu or level selection → AppRouter.startGame(levelID:) → GameSimulationFactory → concrete GameSimulation → GameSession → GameplayView → generic GameScene`. Fallible construction ends at the factory. Simulation state, the equatable SwiftUI snapshot, and static-plus-dynamic render state are deliberately independent. A level supplies an immutable presentation definition and generic dynamic descriptors; the shared scene contains no level gameplay switches. Level 2 is to enter through new simulation, definition, presentation, asset mappings, and factory support only.
+
+## Level 2 Transition Runtime
+
+Level 1 completion now emits a typed transition request carrying character ID, health, score, and completed-level IDs. The same `GameSession` enters a transitioning state, disables input, and installs a preflighted Level 2 runtime through the runtime factory. This preserves session identity and elapsed gameplay time while replacing the simulation, presentation, catalogs, manifest, and scene generation.

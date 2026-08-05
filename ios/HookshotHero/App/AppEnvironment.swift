@@ -5,6 +5,7 @@ struct AppEnvironment {
     let progressionRepository: ProgressionRepository
     let forcedOutcome: GameOutcome?
     let levelSeed: UInt64?
+    let startConfiguration: GameStartConfiguration
 
     @MainActor
     static func current(arguments: [String] = ProcessInfo.processInfo.arguments) -> AppEnvironment {
@@ -25,20 +26,21 @@ struct AppEnvironment {
                 settingsRepository: UserDefaultsSettingsRepository(defaults: defaults),
                 progressionRepository: ProgressionRepository(fileURL: root.appending(path: "progression.json")),
                 forcedOutcome: outcome,
-                levelSeed: ProcessInfo.processInfo.environment["HOOKSHOT_LEVEL_SEED"].flatMap(UInt64.init)
+                levelSeed: ProcessInfo.processInfo.environment["HOOKSHOT_LEVEL_SEED"].flatMap(UInt64.init),
+                startConfiguration: .init(initialLevelID: ProcessInfo.processInfo.environment["HOOKSHOT_START_LEVEL"] == "level-2" ? .levelTwo : .levelOne)
             )
         }
         #endif
         do {
             return AppEnvironment(settingsRepository: UserDefaultsSettingsRepository(),
                                   progressionRepository: try .applicationRepository(), forcedOutcome: nil,
-                                  levelSeed: ProcessInfo.processInfo.environment["HOOKSHOT_LEVEL_SEED"].flatMap(UInt64.init))
+                                  levelSeed: ProcessInfo.processInfo.environment["HOOKSHOT_LEVEL_SEED"].flatMap(UInt64.init), startConfiguration: .current)
         } catch {
             AppLog.persistence.error("Application Support unavailable: \(error.localizedDescription, privacy: .public)")
             let fallback = FileManager.default.temporaryDirectory.appending(path: "HookshotHero-progression.json")
             return AppEnvironment(settingsRepository: UserDefaultsSettingsRepository(),
                                   progressionRepository: ProgressionRepository(fileURL: fallback), forcedOutcome: nil,
-                                  levelSeed: ProcessInfo.processInfo.environment["HOOKSHOT_LEVEL_SEED"].flatMap(UInt64.init))
+                                  levelSeed: ProcessInfo.processInfo.environment["HOOKSHOT_LEVEL_SEED"].flatMap(UInt64.init), startConfiguration: .current)
         }
     }
 }
