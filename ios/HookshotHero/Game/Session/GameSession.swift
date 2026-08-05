@@ -191,6 +191,13 @@ enum PauseReason: Equatable, Sendable { case user, applicationLifecycle }
     runtimeGeneration &+= 1
     pendingTransitionRequest = nil
     bindSimulation()
+    runtime.simulation.setPaused(true)
+    refreshUISnapshot()
+  }
+
+  func runtimeSceneDidAttach(generation: Int, levelID: LevelID) {
+    guard case .transitioning(let targetLevelID) = state, generation == runtimeGeneration, levelID == targetLevelID, levelID == runtime.presentation.levelID else { return }
+    pauseReason = nil
     runtime.simulation.setPaused(false)
     state = .running
     refreshUISnapshot()

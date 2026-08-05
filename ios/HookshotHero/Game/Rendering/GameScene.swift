@@ -177,6 +177,8 @@ struct RenderLayoutContext {
 
 @MainActor final class GameScene: SKScene {
   private let session: GameSession
+  let runtimeGeneration: Int
+  let levelID: LevelID
   private let presentation: LevelPresentationDefinition
   private let catalog: any TextureCatalogProviding
   private let animationCatalog: any AnimationCatalogProviding
@@ -184,6 +186,7 @@ struct RenderLayoutContext {
   private var completedEffectIDs: Set<UUID> = []
   private(set) var clock = SimulationClock()
   private let world = SKNode()
+  private(set) var staticAssetIDs: [RenderAssetID] = []
   private var nodes: [EntityID: SKSpriteNode] = [:]
   private var healthNodes: [EntityID: SKNode] = [:]
   private let chain = SKShapeNode()
@@ -192,12 +195,14 @@ struct RenderLayoutContext {
   private var layout: RenderLayoutContext
   init(
     size: CGSize = .init(width: 600, height: 600), session: GameSession,
-    catalog: any TextureCatalogProviding, animationCatalog: any AnimationCatalogProviding
+    runtime: GameLevelRuntime, generation: Int
   ) {
     self.session = session
-    presentation = session.runtime.presentation
-    self.catalog = catalog
-    self.animationCatalog = animationCatalog
+    self.runtimeGeneration = generation
+    presentation = runtime.presentation
+    levelID = runtime.presentation.levelID
+    self.catalog = runtime.textureCatalog
+    self.animationCatalog = runtime.animationCatalog
     layout = .init(gridSize: presentation.logicalGridSize)
     super.init(size: size)
     scaleMode = .resizeFill
@@ -206,6 +211,7 @@ struct RenderLayoutContext {
   required init?(coder: NSCoder) { nil }
   override func didMove(to view: SKView) {
     build()
+    session.runtimeSceneDidAttach(generation: runtimeGeneration, levelID: levelID)
     observation = session.$state.sink { [weak self] _ in self?.clock.reset() }
     clock.reset()
   }
@@ -227,6 +233,7 @@ struct RenderLayoutContext {
     observation?.cancel()
     observation = nil
     clock.reset()
+    cleanup()
   }
   private func build() {
     guard world.parent == nil else { return }
@@ -237,12 +244,14 @@ struct RenderLayoutContext {
           try add(
             asset: tile.asset, at: tile.coordinate, size: tile.sizeInCells, anchor: tile.anchor,
             z: layer.zPosition)
+          staticAssetIDs.append(tile.asset)
         }
       }
       for item in presentation.staticObjects {
         try add(
           asset: item.asset, at: item.coordinate, size: item.renderSize, anchor: item.anchor,
           z: item.zPosition)
+        staticAssetIDs.append(item.asset)
       }
       chain.strokeColor = .white
       chain.lineWidth = 0.35
@@ -255,6 +264,18 @@ struct RenderLayoutContext {
       AppLog.rendering.error(
         "Static presentation failed: \(error.localizedDescription,privacy:.public)")
     }
+  }
+  private func cleanup() {
+    removeAllActions()
+    world.removeAllActions()
+    world.removeAllChildren()
+    world.removeFromParent()
+    nodes.removeAll()
+    healthNodes.removeAll()
+    effectNodes.removeAll()
+    completedEffectIDs.removeAll()
+    staticAssetIDs.removeAll()
+    chain.path = nil
   }
   private func add(
     asset: RenderAssetID, at coordinate: GridPosition, size: LogicalRenderSize,
