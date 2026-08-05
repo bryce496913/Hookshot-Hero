@@ -688,8 +688,30 @@ extension LevelAssetManifest {
       LevelOneRenderAnimations.lidiaWalk(.down), LevelOneRenderAnimations.lidiaWalk(.left),
       LevelOneRenderAnimations.lidiaWalk(.right),
     ]))
+  private static let sharedPlayerTextureAssetIDs = Set(
+    (0..<4).flatMap { row in
+      (0..<9).map { RenderAssetID(rawValue: "character.lidia.\(row)-\($0)") }
+    } + [LevelOneRenderAssets.lidia])
+  private static let sharedCoinTextureAssetIDs = Set(
+    (1...9).map { RenderAssetID(rawValue: "level-one.coin.\($0)") } + [LevelOneRenderAssets.coin])
+  private static let sharedEnemyTextureAssetIDs = Set(
+    [EnemyArchetype.skeleton.asset, EnemyArchetype.flyingTerror.asset]
+      + [8, 9, 10, 11].flatMap { row in
+        (0..<9).map { RenderAssetID(rawValue: "enemy.skeleton.\(row)-\($0)") }
+      }
+      + [0, 2, 4, 6].flatMap { row in
+        (0..<10).map { RenderAssetID(rawValue: "enemy.flying-terror.\(row)-\($0)") }
+      })
   static let levelTwo = LevelAssetManifest(
-    textureAssetIDs: Set(LevelOneTextureCatalog.entries.keys).filter { !$0.rawValue.hasPrefix("level-three.") },
+    textureAssetIDs: Set([
+      LevelTwoRenderAssets.floor, LevelTwoRenderAssets.lava, LevelTwoRenderAssets.wallFront,
+      LevelTwoRenderAssets.wallLeft, LevelTwoRenderAssets.wallRight, LevelTwoRenderAssets.exitDoor,
+      LevelTwoRenderAssets.entryDoor, LevelTwoRenderAssets.smoke,
+    ])
+      .union(sharedPlayerTextureAssetIDs)
+      .union(sharedCoinTextureAssetIDs)
+      .union(sharedEnemyTextureAssetIDs)
+      .union((1...3).map { RenderAssetID(rawValue: "level-two.smoke.\($0)") }),
     animationIDs: Set([
       LevelOneRenderAnimations.coinSpin, LevelOneRenderAnimations.lidiaWalk(.up),
       LevelOneRenderAnimations.lidiaWalk(.down), LevelOneRenderAnimations.lidiaWalk(.left),
@@ -703,7 +725,15 @@ extension LevelAssetManifest {
       LevelTwoRenderAnimations.enemy(.flyingTerror, .right),
     ]))
   static let levelThree = LevelAssetManifest(
-    textureAssetIDs: Set(LevelOneTextureCatalog.entries.keys).filter { !$0.rawValue.hasPrefix("level-two.") },
+    textureAssetIDs: Set([
+      LevelThreeRenderAssets.floor, LevelThreeRenderAssets.lava, LevelThreeRenderAssets.wallFront,
+      LevelThreeRenderAssets.wallLeft, LevelThreeRenderAssets.wallRight, LevelThreeRenderAssets.exitDoor,
+      LevelThreeRenderAssets.entryDoor, LevelThreeRenderAssets.smoke,
+    ])
+      .union(sharedPlayerTextureAssetIDs)
+      .union(sharedCoinTextureAssetIDs)
+      .union(sharedEnemyTextureAssetIDs)
+      .union((1...3).map { RenderAssetID(rawValue: "level-three.smoke.\($0)") }),
     animationIDs: Set([
       LevelOneRenderAnimations.coinSpin, LevelOneRenderAnimations.lidiaWalk(.up),
       LevelOneRenderAnimations.lidiaWalk(.down), LevelOneRenderAnimations.lidiaWalk(.left),
