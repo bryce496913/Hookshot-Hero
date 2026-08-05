@@ -157,10 +157,10 @@ enum LevelOneTextureCatalog {
     add(.init(rawValue: "level-two.door.open"), "DoorGreyOpen.png")
     add(.init(rawValue: "level-two.door.closed"), "DoorGreyClosed.png")
     add(.init(rawValue: "level-two.smoke"), "smoke1.png")
-    add(.init(rawValue: "enemy.skeleton"), "skeleton.png", .init(x:0,y:704,width:64,height:64,sheetWidth:576,sheetHeight:768))
-    for row in [8,9,10,11] { for frame in 0..<9 { add(.init(rawValue: "enemy.skeleton.\(row)-\(frame)"), "skeleton.png", .init(x:Double(frame*64), y:Double(row*64), width:64, height:64, sheetWidth:576, sheetHeight:768)) } }
-    add(.init(rawValue: "enemy.flying-terror"), "flying_terror.png", .init(x:0,y:512,width:128,height:128,sheetWidth:1280,sheetHeight:896))
-    for row in [0,2,4,6] { for frame in 0..<10 { add(.init(rawValue: "enemy.flying-terror.\(row)-\(frame)"), "flying_terror.png", .init(x:Double(frame*128), y:Double(row*128), width:128, height:128, sheetWidth:1280, sheetHeight:896)) } }
+    add(.init(rawValue: "enemy.skeleton"), "skeleton.png", .init(x:0,y:704,width:64,height:64,sheetWidth:832,sheetHeight:1344))
+    for row in [8,9,10,11] { for frame in 0..<9 { add(.init(rawValue: "enemy.skeleton.\(row)-\(frame)"), "skeleton.png", .init(x:Double(frame*64), y:Double(row*64), width:64, height:64, sheetWidth:832, sheetHeight:1344)) } }
+    add(.init(rawValue: "enemy.flying-terror"), "flying_terror.png", .init(x:0,y:512,width:128,height:128,sheetWidth:4480,sheetHeight:1024))
+    for row in [0,2,4,6] { for frame in 0..<10 { add(.init(rawValue: "enemy.flying-terror.\(row)-\(frame)"), "flying_terror.png", .init(x:Double(frame*128), y:Double(row*128), width:128, height:128, sheetWidth:4480, sheetHeight:1024)) } }
     return e
   }()
 }
@@ -185,6 +185,7 @@ struct RenderLayoutContext {
   private(set) var clock = SimulationClock()
   private let world = SKNode()
   private var nodes: [EntityID: SKSpriteNode] = [:]
+  private var healthNodes: [EntityID: SKNode] = [:]
   private let chain = SKShapeNode()
   private let hook = SKShapeNode(circleOfRadius: 3)
   private var observation: AnyCancellable?
@@ -288,6 +289,7 @@ struct RenderLayoutContext {
   private func sync(_ entities: [RenderEntitySnapshot]) {
     let active = Set(entities.map(\.id))
     removeStaleNodes(from: &nodes, keeping: active)
+    removeStaleNodes(from: &healthNodes, keeping: active)
     for entity in entities {
       do {
         let node = nodes[entity.id] ?? SKSpriteNode()
@@ -307,11 +309,42 @@ struct RenderLayoutContext {
         node.zPosition = CGFloat(entity.zPosition)
         node.alpha = CGFloat(entity.opacity)
         node.isHidden = entity.isHidden
+        syncHealth(for: entity)
       } catch {
         AppLog.rendering.error(
           "Dynamic asset failed: \(error.localizedDescription,privacy:.public)")
       }
     }
+  }
+
+  private func syncHealth(for entity: RenderEntitySnapshot) {
+    guard let health = entity.health, health.maximum > 0, !entity.isHidden else {
+      healthNodes[entity.id]?.removeFromParent()
+      healthNodes.removeValue(forKey: entity.id)
+      return
+    }
+    let container = healthNodes[entity.id] ?? SKNode()
+    if container.parent == nil {
+      world.addChild(container)
+      healthNodes[entity.id] = container
+    }
+    container.removeAllChildren()
+    container.position = layout.point(entity.coordinate)
+    container.zPosition = CGFloat(entity.zPosition + 0.5)
+    let width = CGFloat(max(entity.renderSize.width, 2.0))
+    let y = CGFloat(entity.renderSize.height / 2 + 0.45)
+    let background = SKShapeNode(rectOf: CGSize(width: width, height: 0.35), cornerRadius: 0.08)
+    background.position = CGPoint(x: 0, y: y)
+    background.fillColor = .darkGray
+    background.strokeColor = .black
+    background.lineWidth = 0.05
+    let ratio = CGFloat(max(0, min(health.current, health.maximum))) / CGFloat(health.maximum)
+    let fill = SKShapeNode(rectOf: CGSize(width: max(0.05, width * ratio), height: 0.23), cornerRadius: 0.06)
+    fill.position = CGPoint(x: -(width - width * ratio) / 2, y: y)
+    fill.fillColor = ratio > 0.4 ? .systemGreen : .systemRed
+    fill.strokeColor = .clear
+    container.addChild(background)
+    container.addChild(fill)
   }
 
   private func syncEffects(_ effects: [RenderEffectSnapshot]) {

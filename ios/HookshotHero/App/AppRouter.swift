@@ -14,6 +14,7 @@ struct GameLoadingFailurePresentation: Hashable, Sendable {
   let message: String
   let recoverySuggestion: String
   let diagnosticCode: String
+  let transitionRequest: LevelTransitionRequest?
 }
 protocol GameLoadingLogging {
   func loadingFailed(levelID: LevelID, error: GameLoadingError, isRetry: Bool)
@@ -97,19 +98,29 @@ struct AppGameLoadingLogger: GameLoadingLogging {
       return
     }
     path.removeAll()
-    startGame(levelID: failure.requestedLevelID, isRetry: true, requestID: .init(rawValue: UUID()))
+    if let request = failure.transitionRequest, let session = activeSession {
+      let retryID = GameLoadingRequestID(rawValue: UUID())
+      loadingRequestID = retryID
+      performTransition(request, for: session, isRetry: true, requestID: retryID)
+    } else {
+      startGame(levelID: failure.requestedLevelID, isRetry: true, requestID: .init(rawValue: UUID()))
+    }
   }
   private func handle(
-    _ error: GameLoadingError, levelID: LevelID, isRetry: Bool, requestID: GameLoadingRequestID
+    _ error: GameLoadingError, levelID: LevelID, isRetry: Bool, requestID: GameLoadingRequestID,
+    transitionRequest: LevelTransitionRequest? = nil, clearActiveSession: Bool = true
   ) {
-    sessionObservation?.cancel()
-    sessionObservation = nil
-    activeSession = nil
+    if clearActiveSession {
+      sessionObservation?.cancel()
+      sessionObservation = nil
+      activeSession = nil
+    }
     logger.loadingFailed(levelID: levelID, error: error, isRetry: isRetry)
     let p = GameLoadingFailurePresentation(
       requestID: requestID, requestedLevelID: levelID, title: "Unable to Load Level",
       message: "The requested level “\(levelID.rawValue)” could not be loaded.",
-      recoverySuggestion: "Retry, or return to the main menu.", diagnosticCode: error.diagnosticCode
+      recoverySuggestion: "Retry, or return to the main menu.", diagnosticCode: error.diagnosticCode,
+      transitionRequest: transitionRequest
     )
     loadingRequestID = requestID
     path = [.gameLoadingFailure(p)]
@@ -152,7 +163,7 @@ struct AppGameLoadingLogger: GameLoadingLogging {
   private func observe(_ session: GameSession) {
     let id = session.identifier
     sessionObservation = session.$state.sink { [weak self] state in
-      if case .transitioning = state, let request = session.pendingTransitionRequest { self?.performTransition(request, for: session) }
+      if case .transitioning = state, let request = session.pendingTransitionRequest { Task { @MainActor [weak self] in self?.performTransition(request, for: session) } }
       guard state == .won || state == .lost else {
         if state == .running, let outcome = self?.forcedOutcome {
           #if DEBUG
@@ -161,18 +172,20 @@ struct AppGameLoadingLogger: GameLoadingLogging {
         }
         return
       }
-      self?.finishGame(sessionID: id, outcome: state == .won ? .won : .lost)
+      Task { @MainActor [weak self] in self?.finishGame(sessionID: id, outcome: state == .won ? .won : .lost) }
     }
   }
-  private func performTransition(_ request: LevelTransitionRequest, for session: GameSession) {
+  private func performTransition(_ request: LevelTransitionRequest, for session: GameSession, isRetry: Bool = false, requestID: GameLoadingRequestID = .init(rawValue: UUID())) {
     guard activeSession?.identifier == session.identifier else { return }
     if request.destinationLevelID == .levelThree { return }
     do {
       let runtime = try runtimeFactory.makeRuntime(levelID: request.destinationLevelID, configuration: gameConfiguration, seed: levelSeed, entryPosition: request.destinationEntry, carryover: request.carryover)
       if request.sourceLevelID == .levelOne { progressionStore.record(result: GameResult(sessionID: session.identifier, levelID: request.sourceLevelID, missionID: session.missionID, score: request.carryover.score, elapsedTime: session.elapsedTime, outcome: .won)) }
       session.installRuntime(runtime)
+      loadingRequestID = nil
+      path = [.gameplay]
     } catch {
-      handle(error as? GameLoadingError ?? .invalidLevelDefinition(request.destinationLevelID), levelID: request.destinationLevelID, isRetry: false, requestID: .init(rawValue: UUID()))
+      handle(error as? GameLoadingError ?? .invalidLevelDefinition(request.destinationLevelID), levelID: request.destinationLevelID, isRetry: isRetry, requestID: requestID, transitionRequest: request, clearActiveSession: false)
     }
   }
   private func endActiveSession(expectedID: UUID?) {

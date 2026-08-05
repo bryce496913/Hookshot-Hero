@@ -128,6 +128,8 @@ import XCTest
     let levelID: LevelID
     let configuration: GameConfiguration
     let seed: UInt64?
+    let entryPosition: LevelEntryPosition
+    let carryover: PlayerCarryoverState?
   }
   var requests: [Request] = []
   var supportedLevel: LevelID = .levelOne
@@ -136,13 +138,16 @@ import XCTest
   func makeSimulation(levelID: LevelID, configuration: GameConfiguration, seed: UInt64?) throws
     -> any GameSimulation
   {
-    requests.append(.init(levelID: levelID, configuration: configuration, seed: seed))
+    try makeSimulation(levelID: levelID, configuration: configuration, seed: seed, entryPosition: .bottom, carryover: nil)
+  }
+  func makeSimulation(levelID: LevelID, configuration: GameConfiguration, seed: UInt64?, entryPosition: LevelEntryPosition, carryover: PlayerCarryoverState?) throws -> any GameSimulation {
+    requests.append(.init(levelID: levelID, configuration: configuration, seed: seed, entryPosition: entryPosition, carryover: carryover))
     if failuresBeforeSuccess > 0 {
       failuresBeforeSuccess -= 1
       throw GameLoadingError.unsupportedLevel(levelID)
     }
     guard levelID == supportedLevel else { throw GameLoadingError.unsupportedLevel(levelID) }
-    return try LevelOneSimulation(configuration: configuration, seed: seed ?? 1)
+    return try LevelOneSimulation(configuration: configuration, seed: seed ?? 1, entryPosition: entryPosition, carryover: carryover)
   }
 }
 
