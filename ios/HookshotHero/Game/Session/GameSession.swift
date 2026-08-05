@@ -2,7 +2,7 @@ import Combine
 import Foundation
 
 struct LevelID: RawRepresentable, Codable, Hashable, Sendable { let rawValue: String }
-extension LevelID { static let levelOne = Self(rawValue: "level-1"); static let levelTwo = Self(rawValue: "level-2"); static let levelThree = Self(rawValue: "level-3") }
+extension LevelID { static let levelOne = Self(rawValue: "level-1"); static let levelTwo = Self(rawValue: "level-2"); static let levelThree = Self(rawValue: "level-3"); static let levelFour = Self(rawValue: "level-4") }
 struct MissionID: RawRepresentable, Codable, Hashable, Sendable { let rawValue: String }
 struct UnlockID: RawRepresentable, Codable, Hashable, Sendable { let rawValue: String }
 struct GameConfiguration: Equatable, Sendable {

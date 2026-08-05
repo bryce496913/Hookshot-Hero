@@ -105,6 +105,11 @@ final class LevelOneAnimationCatalog: AnimationCatalogProviding {
       let direction = String(animationID.rawValue.split(separator: ".").last ?? "right")
       let row = ["left": 0, "up": 2, "right": 4, "down": 6][direction] ?? 4
       assets = (0..<10).map { RenderAssetID(rawValue: "enemy.flying-terror.\(row)-\($0)") }
+    } else if animationID.rawValue.hasPrefix("enemy.minotaur.") {
+      let parts = animationID.rawValue.split(separator: ".")
+      let sprite = parts.last.map(String.init) ?? "0-0"
+      let row = Int(sprite.split(separator: "-").first ?? "0") ?? 0
+      assets = (0..<3).map { RenderAssetID(rawValue: "enemy.minotaur.\(row)-\($0)") }
     } else {
       throw TextureCatalogError.missingAsset(.init(rawValue: animationID.rawValue))
     }
@@ -174,6 +179,27 @@ enum LevelOneTextureCatalog {
     add(.init(rawValue: "level-three.smoke.1"), "smoke1.png")
     add(.init(rawValue: "level-three.smoke.2"), "smoke2.png")
     add(.init(rawValue: "level-three.smoke.3"), "smoke3.png")
+
+    add(.init(rawValue: "level-four.floor"), "floor.png")
+    add(.init(rawValue: "level-four.wall.front"), "wallGreyFront.png")
+    add(.init(rawValue: "level-four.wall.left"), "wallGreyLeftSide.png")
+    add(.init(rawValue: "level-four.wall.right"), "wallGreyRightSide.png")
+    add(.init(rawValue: "level-four.door.open"), "DoorGreyOpen.png")
+    add(.init(rawValue: "level-four.door.closed"), "DoorGreyClosed.png")
+    add(.init(rawValue: "level-four.door.open.side"), "DoorGreyOpenSide.png")
+    add(.init(rawValue: "level-four.door.closed.right"), "DoorGreyClosedRightSide.png")
+    add(
+      .init(rawValue: "enemy.minotaur"), "minotaur.png",
+      .init(x: 0, y: 0, width: 48, height: 64, sheetWidth: 144, sheetHeight: 256))
+    for row in 0..<4 {
+      for frame in 0..<3 {
+        add(
+          .init(rawValue: "enemy.minotaur.\(row)-\(frame)"), "minotaur.png",
+          .init(
+            x: Double(frame * 48), y: Double(row * 64), width: 48, height: 64,
+            sheetWidth: 144, sheetHeight: 256))
+      }
+    }
     add(
       .init(rawValue: "enemy.skeleton"), "skeleton.png",
       .init(x: 0, y: 704, width: 64, height: 64, sheetWidth: 832, sheetHeight: 1344))
