@@ -164,3 +164,19 @@ Intentional Java corrections:
 - Completion rewards cannot be farmed repeatedly during one session.
 
 Local validation in this container is limited because `xcodebuild` and `xcrun` are not installed. The repository intentionally contains no CI workflows. App icon approval remains a manual distribution blocker for archive/distribution.
+
+## iOS visual theme
+
+SwiftUI interface surfaces use one centralized theme in `ios/HookshotHero/DesignSystem/AppTheme.swift`. The theme is limited to the app shell, controls, HUD, overlays, menus, settings, help, loading failure, and results UI; SpriteKit gameplay artwork, texture catalogs, animations, sprite sheets, particles, app icons, launch artwork, audio, and Java-derived image palettes are intentionally not recolored.
+
+Theme color values are exact:
+
+* `background`: black (`red 0`, `green 0`, `blue 0`) for screen roots, navigation backgrounds, full-screen overlays, and the SpriteKit board surround.
+* `surface`: `red 0.12`, `green 0.04`, `blue 0.2` for cards, HUD containers, dialogue panels, settings/help sections, controls at rest, and error/result containers.
+* `accent`: `red 0.72`, `green 0.29`, `blue 0.95` for primary actions, direction-control borders and pressed states, selected settings controls, navigation tint, and positive feedback.
+* `highlight`: `red 0.98`, `green 0.32`, `blue 0.67` for Grapple, victory/game-over emphasis, chest rewards, damage, mine destruction, completion, and high-priority actions.
+* `text`: white (`red 1`, `green 1`, `blue 1`) for readable labels and primary copy. Secondary copy uses reduced opacity from this semantic text color.
+
+Typography is exposed through `AppTextStyle` with exact base sizes: `h1 = 16`, `h2 = 14`, `h3 = 12`, and `paragraph = 10`. Weights are semantic (`h1` bold, `h2` semibold, `h3` medium, `paragraph` regular) and use the rounded system design. No custom binary font file is included. Views should use `.appTextStyle(_:)` instead of arbitrary local font sizes; remaining custom system sizes are limited to SF Symbol icon presentation and fixed gameplay artwork dimensions such as the existing HUD heart image.
+
+Reusable styling helpers are defined beside the theme: `.appTextStyle(_:)`, `.appScreenBackground()`, `.appSurface(cornerRadius:)`, `.appNavigationStyle()`, `AppPrimaryButtonStyle`, `AppSecondaryButtonStyle`, and `AppHighlightButtonStyle`. Button styles preserve semantic SwiftUI `Button` behavior, a minimum 44-point hit target, visible pressed states, and visible disabled states. Dynamic Type is supported by using SwiftUI fonts at the required base sizes with flexible stacks, wrapping, scrolling settings/help content, and full-width actions so primary controls remain visible instead of clipping.
