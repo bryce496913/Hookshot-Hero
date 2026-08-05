@@ -82,7 +82,6 @@ final class TextureCatalog: TextureCatalogProviding {
   }
 }
 
-
 final class LevelOneAnimationCatalog: AnimationCatalogProviding {
   private let textureCatalog: any TextureCatalogProviding
   init(textureCatalog: any TextureCatalogProviding) { self.textureCatalog = textureCatalog }
@@ -157,10 +156,38 @@ enum LevelOneTextureCatalog {
     add(.init(rawValue: "level-two.door.open"), "DoorGreyOpen.png")
     add(.init(rawValue: "level-two.door.closed"), "DoorGreyClosed.png")
     add(.init(rawValue: "level-two.smoke"), "smoke1.png")
-    add(.init(rawValue: "enemy.skeleton"), "skeleton.png", .init(x:0,y:704,width:64,height:64,sheetWidth:832,sheetHeight:1344))
-    for row in [8,9,10,11] { for frame in 0..<9 { add(.init(rawValue: "enemy.skeleton.\(row)-\(frame)"), "skeleton.png", .init(x:Double(frame*64), y:Double(row*64), width:64, height:64, sheetWidth:832, sheetHeight:1344)) } }
-    add(.init(rawValue: "enemy.flying-terror"), "flying_terror.png", .init(x:0,y:512,width:128,height:128,sheetWidth:4480,sheetHeight:1024))
-    for row in [0,2,4,6] { for frame in 0..<10 { add(.init(rawValue: "enemy.flying-terror.\(row)-\(frame)"), "flying_terror.png", .init(x:Double(frame*128), y:Double(row*128), width:128, height:128, sheetWidth:4480, sheetHeight:1024)) } }
+    add(.init(rawValue: "level-three.floor"), "floor.png")
+    add(.init(rawValue: "level-three.lava"), "lava.png")
+    add(.init(rawValue: "level-three.wall.front"), "wallGreyFront.png")
+    add(.init(rawValue: "level-three.wall.left"), "wallGreyLeftSide.png")
+    add(.init(rawValue: "level-three.wall.right"), "wallGreyRightSide.png")
+    add(.init(rawValue: "level-three.door.open"), "DoorGreyOpen.png")
+    add(.init(rawValue: "level-three.door.closed"), "DoorGreyClosed.png")
+    add(.init(rawValue: "level-three.smoke"), "smoke1.png")
+    add(
+      .init(rawValue: "enemy.skeleton"), "skeleton.png",
+      .init(x: 0, y: 704, width: 64, height: 64, sheetWidth: 832, sheetHeight: 1344))
+    for row in [8, 9, 10, 11] {
+      for frame in 0..<9 {
+        add(
+          .init(rawValue: "enemy.skeleton.\(row)-\(frame)"), "skeleton.png",
+          .init(
+            x: Double(frame * 64), y: Double(row * 64), width: 64, height: 64, sheetWidth: 832,
+            sheetHeight: 1344))
+      }
+    }
+    add(
+      .init(rawValue: "enemy.flying-terror"), "flying_terror.png",
+      .init(x: 0, y: 512, width: 128, height: 128, sheetWidth: 4480, sheetHeight: 1024))
+    for row in [0, 2, 4, 6] {
+      for frame in 0..<10 {
+        add(
+          .init(rawValue: "enemy.flying-terror.\(row)-\(frame)"), "flying_terror.png",
+          .init(
+            x: Double(frame * 128), y: Double(row * 128), width: 128, height: 128, sheetWidth: 4480,
+            sheetHeight: 1024))
+      }
+    }
     return e
   }()
 }
@@ -321,11 +348,15 @@ struct RenderLayoutContext {
         node.texture =
           try entity.animation.map { animation in
             let frames = try animationCatalog.frames(for: animation.animationID)
-            guard !frames.isEmpty else { throw TextureCatalogError.missingAsset(.init(rawValue: animation.animationID.rawValue)) }
+            guard !frames.isEmpty else {
+              throw TextureCatalogError.missingAsset(
+                .init(rawValue: animation.animationID.rawValue))
+            }
             return frames[animation.frameIndex % frames.count]
           } ?? catalog.texture(for: entity.asset)
         node.position = layout.point(entity.coordinate)
-        node.size = CGSize(width: CGFloat(entity.renderSize.width), height: CGFloat(entity.renderSize.height))
+        node.size = CGSize(
+          width: CGFloat(entity.renderSize.width), height: CGFloat(entity.renderSize.height))
         node.anchorPoint = .init(x: CGFloat(entity.anchor.x), y: CGFloat(entity.anchor.y))
         node.zPosition = CGFloat(entity.zPosition)
         node.alpha = CGFloat(entity.opacity)
@@ -360,7 +391,8 @@ struct RenderLayoutContext {
     background.strokeColor = .black
     background.lineWidth = 0.05
     let ratio = CGFloat(max(0, min(health.current, health.maximum))) / CGFloat(health.maximum)
-    let fill = SKShapeNode(rectOf: CGSize(width: max(0.05, width * ratio), height: 0.23), cornerRadius: 0.06)
+    let fill = SKShapeNode(
+      rectOf: CGSize(width: max(0.05, width * ratio), height: 0.23), cornerRadius: 0.06)
     fill.position = CGPoint(x: -(width - width * ratio) / 2, y: y)
     fill.fillColor = ratio > 0.4 ? .systemGreen : .systemRed
     fill.strokeColor = .clear
@@ -372,7 +404,8 @@ struct RenderLayoutContext {
     let incoming = Set(effects.map(\.id))
     let active = incoming.union(effectNodes.keys.filter { !completedEffectIDs.contains($0) })
     removeStaleNodes(from: &effectNodes, keeping: active)
-    for effect in effects where effectNodes[effect.id] == nil && !completedEffectIDs.contains(effect.id) {
+    for effect in effects
+    where effectNodes[effect.id] == nil && !completedEffectIDs.contains(effect.id) {
       let node = SKShapeNode(circleOfRadius: CGFloat(effect.descriptor.initialRadius))
       node.position = layout.point(effect.coordinate)
       node.zPosition = CGFloat(effect.descriptor.zPosition)
@@ -382,16 +415,30 @@ struct RenderLayoutContext {
       world.addChild(node)
       effectNodes[effect.id] = node
       var actions: [SKAction] = []
-      if effect.descriptor.scales { actions.append(.scale(to: CGFloat(effect.descriptor.finalScale), duration: effect.descriptor.duration)) }
+      if effect.descriptor.scales {
+        actions.append(
+          .scale(to: CGFloat(effect.descriptor.finalScale), duration: effect.descriptor.duration))
+      }
       actions.append(.fadeOut(withDuration: effect.descriptor.duration))
-      node.run(.sequence([.group(actions), .run { [weak self, weak node] in
-        node?.removeFromParent(); self?.effectNodes.removeValue(forKey: effect.id); self?.completedEffectIDs.insert(effect.id)
-      }]))
+      node.run(
+        .sequence([
+          .group(actions),
+          .run { [weak self, weak node] in
+            node?.removeFromParent()
+            self?.effectNodes.removeValue(forKey: effect.id)
+            self?.completedEffectIDs.insert(effect.id)
+          },
+        ]))
     }
   }
-  private func removeStaleNodes<ID: Hashable, Node: SKNode>(from nodes: inout [ID: Node], keeping activeIDs: Set<ID>) {
+  private func removeStaleNodes<ID: Hashable, Node: SKNode>(
+    from nodes: inout [ID: Node], keeping activeIDs: Set<ID>
+  ) {
     let staleIDs = nodes.keys.filter { !activeIDs.contains($0) }
-    for id in staleIDs { nodes[id]?.removeFromParent(); nodes.removeValue(forKey: id) }
+    for id in staleIDs {
+      nodes[id]?.removeFromParent()
+      nodes.removeValue(forKey: id)
+    }
   }
   private func layoutWorld() {
     let side = min(size.width, size.height)
