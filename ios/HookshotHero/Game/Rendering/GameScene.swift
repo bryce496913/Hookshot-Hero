@@ -93,6 +93,10 @@ final class LevelOneAnimationCatalog: AnimationCatalogProviding {
       let direction = String(animationID.rawValue.split(separator: ".").last ?? "right")
       let row = ["up": 0, "left": 1, "down": 2, "right": 3][direction] ?? 3
       assets = (0..<9).map { RenderAssetID(rawValue: "character.lidia.\(row)-\($0)") }
+    } else if animationID.rawValue == "level-three.smoke.loop" {
+      assets = (1...3).map { RenderAssetID(rawValue: "level-three.smoke.\($0)") }
+    } else if animationID.rawValue == "level-two.smoke.loop" {
+      assets = (1...3).map { RenderAssetID(rawValue: "level-two.smoke.\($0)") }
     } else if animationID.rawValue.hasPrefix("enemy.skeleton.walk.") {
       let direction = String(animationID.rawValue.split(separator: ".").last ?? "right")
       let row = ["up": 8, "left": 9, "down": 10, "right": 11][direction] ?? 11
@@ -156,6 +160,9 @@ enum LevelOneTextureCatalog {
     add(.init(rawValue: "level-two.door.open"), "DoorGreyOpen.png")
     add(.init(rawValue: "level-two.door.closed"), "DoorGreyClosed.png")
     add(.init(rawValue: "level-two.smoke"), "smoke1.png")
+    add(.init(rawValue: "level-two.smoke.1"), "smoke1.png")
+    add(.init(rawValue: "level-two.smoke.2"), "smoke2.png")
+    add(.init(rawValue: "level-two.smoke.3"), "smoke3.png")
     add(.init(rawValue: "level-three.floor"), "floor.png")
     add(.init(rawValue: "level-three.lava"), "lava.png")
     add(.init(rawValue: "level-three.wall.front"), "wallGreyFront.png")
@@ -164,6 +171,9 @@ enum LevelOneTextureCatalog {
     add(.init(rawValue: "level-three.door.open"), "DoorGreyOpen.png")
     add(.init(rawValue: "level-three.door.closed"), "DoorGreyClosed.png")
     add(.init(rawValue: "level-three.smoke"), "smoke1.png")
+    add(.init(rawValue: "level-three.smoke.1"), "smoke1.png")
+    add(.init(rawValue: "level-three.smoke.2"), "smoke2.png")
+    add(.init(rawValue: "level-three.smoke.3"), "smoke3.png")
     add(
       .init(rawValue: "enemy.skeleton"), "skeleton.png",
       .init(x: 0, y: 704, width: 64, height: 64, sheetWidth: 832, sheetHeight: 1344))
@@ -277,7 +287,7 @@ struct RenderLayoutContext {
       for item in presentation.staticObjects {
         try add(
           asset: item.asset, at: item.coordinate, size: item.renderSize, anchor: item.anchor,
-          z: item.zPosition)
+          z: item.zPosition, animationID: item.animationID)
         staticAssetIDs.append(item.asset)
       }
       chain.strokeColor = .white
@@ -306,7 +316,7 @@ struct RenderLayoutContext {
   }
   private func add(
     asset: RenderAssetID, at coordinate: GridPosition, size: LogicalRenderSize,
-    anchor: RenderAnchor, z: Double
+    anchor: RenderAnchor, z: Double, animationID: RenderAnimationID? = nil
   ) throws {
     let n = SKSpriteNode(texture: try catalog.texture(for: asset))
     n.anchorPoint = .init(x: CGFloat(anchor.x), y: CGFloat(anchor.y))
@@ -315,6 +325,10 @@ struct RenderLayoutContext {
       ? layout.bottomLeft(coordinate, height: size.height) : layout.point(coordinate)
     n.size = .init(width: CGFloat(size.width), height: CGFloat(size.height))
     n.zPosition = CGFloat(z)
+    if let animationID {
+      let frames = try animationCatalog.frames(for: animationID)
+      if !frames.isEmpty { n.run(.repeatForever(.animate(with: frames, timePerFrame: 0.18))) }
+    }
     world.addChild(n)
   }
   private func synchronize(using snapshot: GameRenderSnapshot) {

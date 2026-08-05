@@ -245,11 +245,20 @@ struct PlayerCarryoverState: Hashable, Sendable {
   let score: Int
   let completedLevelIDs: Set<LevelID>
 }
+enum LevelTransitionReason: Hashable, Sendable { case completedForward, returnedBackward }
 struct LevelTransitionRequest: Hashable, Sendable {
   let sourceLevelID: LevelID
   let destinationLevelID: LevelID
   let destinationEntry: LevelEntryPosition
   let carryover: PlayerCarryoverState
+  let reason: LevelTransitionReason
+  init(sourceLevelID: LevelID, destinationLevelID: LevelID, destinationEntry: LevelEntryPosition, carryover: PlayerCarryoverState, reason: LevelTransitionReason = .completedForward) {
+    self.sourceLevelID = sourceLevelID
+    self.destinationLevelID = destinationLevelID
+    self.destinationEntry = destinationEntry
+    self.carryover = carryover
+    self.reason = reason
+  }
 }
 enum LevelDestination: Equatable, Sendable {
   case level(LevelID, entry: LevelEntryPosition)
@@ -369,6 +378,10 @@ struct StaticRenderDescriptor: Sendable {
   let renderSize: LogicalRenderSize
   let anchor: RenderAnchor
   let zPosition: Double
+  let animationID: RenderAnimationID?
+  init(id: EntityID, asset: RenderAssetID, coordinate: GridPosition, renderSize: LogicalRenderSize, anchor: RenderAnchor, zPosition: Double, animationID: RenderAnimationID? = nil) {
+    self.id = id; self.asset = asset; self.coordinate = coordinate; self.renderSize = renderSize; self.anchor = anchor; self.zPosition = zPosition; self.animationID = animationID
+  }
 }
 struct LevelPresentationDefinition: Sendable {
   let levelID: LevelID
@@ -660,14 +673,21 @@ extension TextureCatalogError {
 }
 extension LevelAssetManifest {
   static let levelOne = LevelAssetManifest(
-    textureAssetIDs: Set(LevelOneTextureCatalog.entries.keys),
+    textureAssetIDs: Set([
+      LevelOneRenderAssets.floor, LevelOneRenderAssets.lava, LevelOneRenderAssets.wallFront,
+      LevelOneRenderAssets.wallLeft, LevelOneRenderAssets.wallRight, LevelOneRenderAssets.exitDoor,
+      LevelOneRenderAssets.entryDoor, LevelOneRenderAssets.lidia, LevelOneRenderAssets.coin,
+      LevelOneRenderAssets.cabbage, LevelOneRenderAssets.mine, LevelOneRenderAssets.chestClosed,
+      LevelOneRenderAssets.chestOpen,
+    ] + (1...9).map { RenderAssetID(rawValue: "level-one.coin.\($0)") }
+      + (0..<4).flatMap { row in (0..<9).map { RenderAssetID(rawValue: "character.lidia.\(row)-\($0)") } }),
     animationIDs: Set([
       LevelOneRenderAnimations.coinSpin, LevelOneRenderAnimations.lidiaWalk(.up),
       LevelOneRenderAnimations.lidiaWalk(.down), LevelOneRenderAnimations.lidiaWalk(.left),
       LevelOneRenderAnimations.lidiaWalk(.right),
     ]))
   static let levelTwo = LevelAssetManifest(
-    textureAssetIDs: Set(LevelOneTextureCatalog.entries.keys),
+    textureAssetIDs: Set(LevelOneTextureCatalog.entries.keys).filter { !$0.rawValue.hasPrefix("level-three.") },
     animationIDs: Set([
       LevelOneRenderAnimations.coinSpin, LevelOneRenderAnimations.lidiaWalk(.up),
       LevelOneRenderAnimations.lidiaWalk(.down), LevelOneRenderAnimations.lidiaWalk(.left),
@@ -681,11 +701,19 @@ extension LevelAssetManifest {
       LevelTwoRenderAnimations.enemy(.flyingTerror, .right),
     ]))
   static let levelThree = LevelAssetManifest(
-    textureAssetIDs: Set(LevelOneTextureCatalog.entries.keys),
+    textureAssetIDs: Set(LevelOneTextureCatalog.entries.keys).filter { !$0.rawValue.hasPrefix("level-two.") },
     animationIDs: Set([
       LevelOneRenderAnimations.coinSpin, LevelOneRenderAnimations.lidiaWalk(.up),
       LevelOneRenderAnimations.lidiaWalk(.down), LevelOneRenderAnimations.lidiaWalk(.left),
-      LevelOneRenderAnimations.lidiaWalk(.right),
+      LevelOneRenderAnimations.lidiaWalk(.right), LevelThreeRenderAnimations.smokeLoop,
+      LevelTwoRenderAnimations.enemy(.skeleton, .up),
+      LevelTwoRenderAnimations.enemy(.skeleton, .down),
+      LevelTwoRenderAnimations.enemy(.skeleton, .left),
+      LevelTwoRenderAnimations.enemy(.skeleton, .right),
+      LevelTwoRenderAnimations.enemy(.flyingTerror, .up),
+      LevelTwoRenderAnimations.enemy(.flyingTerror, .down),
+      LevelTwoRenderAnimations.enemy(.flyingTerror, .left),
+      LevelTwoRenderAnimations.enemy(.flyingTerror, .right),
     ]))
 }
 @MainActor protocol GameSimulationFactory {
@@ -800,6 +828,13 @@ struct DefaultGameSimulationFactory: GameSimulationFactory {
       diagnosticPlayerPosition: nil)
     var rng = SeededRandomNumberGenerator(seed: seed)
     entities = try fixture ?? SpawnService.spawn(in: level, using: &rng)
+    try validateInitialPlayerFootprint()
+  }
+  func validateInitialPlayerFootprint() throws {
+    let region = CollisionProfile.player.region(at: player.position)
+    guard !level.isBlocked(region), !level.overlapsLava(region) else {
+      throw GameLoadingError.invalidInitialState(levelID)
+    }
   }
   var levelID: LevelID { .levelOne }
   var levelName: String { level.displayName }
@@ -1067,7 +1102,7 @@ struct DefaultGameSimulationFactory: GameSimulationFactory {
     onLevelTransition?(
       LevelTransitionRequest(
         sourceLevelID: .levelOne, destinationLevelID: .levelTwo, destinationEntry: .bottom,
-        carryover: carry))
+        carryover: carry, reason: .completedForward))
   }
   func checkLoss() {
     if player.health <= 0 {
@@ -1317,9 +1352,10 @@ enum LevelTwoPresentationDefinition {
     try super.init(
       configuration: configuration, seed: seed, entryPosition: entryPosition, carryover: carryover,
       startOverride: entryPosition == .top
-        ? .init(row: 50, column: 27) : .init(row: 50, column: 27), entities: nil)
+        ? .init(row: 5, column: 27) : .init(row: 50, column: 27), entities: nil)
     level = LevelTwoDefinition.make()
     presentationDefinition = LevelTwoPresentationDefinition.make(from: level)
+    try validateInitialPlayerFootprint()
     var rng = streams.itemSpawn
     entities = try SpawnService.spawn(
       in: level,
@@ -1434,7 +1470,7 @@ enum LevelTwoPresentationDefinition {
       onLevelTransition?(
         LevelTransitionRequest(
           sourceLevelID: .levelTwo, destinationLevelID: .levelOne, destinationEntry: .top,
-          carryover: carry))
+          carryover: carry, reason: .returnedBackward))
     } else if region.intersects(level.exitRegion) {
       if !completedLevelIDs.contains(.levelTwo) {
         player.score += 100
@@ -1447,7 +1483,7 @@ enum LevelTwoPresentationDefinition {
       onLevelTransition?(
         LevelTransitionRequest(
           sourceLevelID: .levelTwo, destinationLevelID: .levelThree, destinationEntry: .bottom,
-          carryover: carry))
+          carryover: carry, reason: .completedForward))
     }
   }
   private func damageFromEnemy(_ a: EnemyArchetype) {
@@ -1522,6 +1558,9 @@ enum LevelThreeRenderAssets {
     entryDoor = RenderAssetID(rawValue: "level-three.door.closed"),
     smoke = RenderAssetID(rawValue: "level-three.smoke")
 }
+enum LevelThreeRenderAnimations {
+  static let smokeLoop = RenderAnimationID(rawValue: "level-three.smoke.loop")
+}
 
 enum LevelThreePresentationDefinition {
   static func make(from level: LevelDefinition) -> LevelPresentationDefinition {
@@ -1577,22 +1616,39 @@ enum LevelThreePresentationDefinition {
           anchor: .bottomLeft, zPosition: 3),
         .init(
           id: EntityID(), asset: LevelThreeRenderAssets.smoke, coordinate: .init(row: 9, column: 5),
-          renderSize: .init(width: 4, height: 4), anchor: .bottomLeft, zPosition: 4),
+          renderSize: .init(width: 4, height: 4), anchor: .bottomLeft, zPosition: 4, animationID: LevelThreeRenderAnimations.smokeLoop),
         .init(
           id: EntityID(), asset: LevelThreeRenderAssets.smoke,
           coordinate: .init(row: 56, column: 20), renderSize: .init(width: 4, height: 4),
-          anchor: .bottomLeft, zPosition: 4),
+          anchor: .bottomLeft, zPosition: 4, animationID: LevelThreeRenderAnimations.smokeLoop),
         .init(
           id: EntityID(), asset: LevelThreeRenderAssets.smoke,
           coordinate: .init(row: 42, column: 49), renderSize: .init(width: 4, height: 4),
-          anchor: .bottomLeft, zPosition: 4),
+          anchor: .bottomLeft, zPosition: 4, animationID: LevelThreeRenderAnimations.smokeLoop),
       ])
   }
 }
 
 @MainActor final class LevelThreeSimulation: LevelOneSimulation {
+  private var enemies: [EnemyState] = []
+  private var enemiesHitByCurrentHook: Set<EntityID> = []
   override var levelID: LevelID { .levelThree }
   override var levelName: String { "Level 3" }
+  override var renderSnapshot: GameRenderSnapshot {
+    let s = super.renderSnapshot
+    let es = enemies.map { e in
+      RenderEntitySnapshot(
+        id: e.id, asset: e.archetype.asset, coordinate: e.position,
+        renderSize: e.archetype.renderSize, anchor: .center, zPosition: 7,
+        orientation: RenderOrientation(rawValue: e.facing.rawValue) ?? .right,
+        animation: .init(
+          animationID: LevelTwoRenderAnimations.enemy(
+            e.archetype, RenderOrientation(rawValue: e.facing.rawValue) ?? .right),
+          frameIndex: Int(e.animationTime / 0.08) % 10), opacity: 1, isHidden: false,
+        health: .init(current: e.health, maximum: e.maximumHealth))
+    }
+    return .init(player: s.player, entities: s.entities + es, grapple: s.grapple, effects: s.effects)
+  }
   init(
     configuration: GameConfiguration = .init(reducedMotion: false, controlHintsEnabled: true),
     seed: UInt64 = 3, entryPosition: LevelEntryPosition = .bottom,
@@ -1600,10 +1656,15 @@ enum LevelThreePresentationDefinition {
   ) throws {
     try super.init(
       configuration: configuration, seed: seed, entryPosition: entryPosition, carryover: carryover,
-      startOverride: entryPosition == .top ? .init(row: 5, column: 23) : .init(row: 50, column: 27),
+      startOverride: entryPosition == .top ? .init(row: 5, column: 29) : .init(row: 50, column: 29),
       entities: [])
     level = LevelThreeDefinition.make()
     presentationDefinition = LevelThreePresentationDefinition.make(from: level)
+    enemies = [
+      .init(id: EntityID(), archetype: .skeleton, position: .init(row: 16, column: 29), facing: .right, health: 3, maximumHealth: 3, behaviorState: .patrol, decisionAccumulator: 0, animationTime: 0),
+      .init(id: EntityID(), archetype: .flyingTerror, position: .init(row: 18, column: 42), facing: .left, health: 5, maximumHealth: 5, behaviorState: .patrol, decisionAccumulator: 0, animationTime: 0),
+    ]
+    try validateInitialPlayerFootprint()
     var rng = SeededRandomNumberGenerator(seed: seed ^ 0x33)
     entities = try SpawnService.spawn(
       in: level,
@@ -1611,14 +1672,33 @@ enum LevelThreePresentationDefinition {
         .init(kind: .mine, count: 3), .init(kind: .cabbage, count: 2),
         .init(kind: .coin, count: 10),
       ],
-      protectedRegions: [
+      protectedRegions: enemies.map { $0.archetype.footprint.region(at: $0.position) } + [
         .init(rows: 9..<13, columns: 5..<9), .init(rows: 56..<60, columns: 20..<24),
         .init(rows: 42..<46, columns: 49..<53),
       ], using: &rng)
   }
   override func update(deltaTime: TimeInterval) {
     super.update(deltaTime: deltaTime)
+    updateLevelThreeEnemyGrappleHits()
+    for i in enemies.indices { enemies[i].animationTime += deltaTime }
     checkLevelThreeInteractions()
+  }
+  private func updateLevelThreeEnemyGrappleHits() {
+    guard let head = player.hookshot.head, player.hookshot.phase == .extending else {
+      if player.hookshot.phase == .idle { enemiesHitByCurrentHook.removeAll() }
+      return
+    }
+    let hook = CollisionProfile.hookHead.region(at: head)
+    for i in enemies.indices where !enemiesHitByCurrentHook.contains(enemies[i].id) && enemies[i].archetype.footprint.region(at: enemies[i].position).intersects(hook) {
+      enemiesHitByCurrentHook.insert(enemies[i].id)
+      enemies[i].health -= 1
+      player.score += 10
+      let archetype = enemies[i].archetype
+      emit(.enemyHit(archetype: archetype, points: 10, remainingHealth: max(0, enemies[i].health)), at: enemies[i].position)
+      if enemies[i].health <= 0 { enemies.remove(at: i) }
+      player.hookshot.phase = .retracting
+      break
+    }
   }
   private func checkLevelThreeInteractions() {
     guard outcome == nil else { return }
@@ -1640,7 +1720,7 @@ enum LevelThreePresentationDefinition {
       onLevelTransition?(
         LevelTransitionRequest(
           sourceLevelID: .levelThree, destinationLevelID: .levelTwo, destinationEntry: .top,
-          carryover: carry))
+          carryover: carry, reason: .returnedBackward))
     } else if region.intersects(level.exitRegion) {
       if !completedLevelIDs.contains(.levelThree) {
         player.score += 100

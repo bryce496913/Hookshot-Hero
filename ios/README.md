@@ -46,13 +46,13 @@ The repository intentionally has no CI workflow. The commands above are the requ
 * Transition into Level 2.
 * Approved final app icon (the empty catalog slot remains a distribution blocker).
 
-No Level 2 enemies, missions, or transition are part of this stabilization pass.
+Level 2 and Level 3 are now registered native gameplay levels. Level 4 remains intentionally out of scope until the Level 3 correction pass is fully verified.
 
 See [Conversion decisions](Documentation/ConversionDecisions.md), [Responsibility map](Documentation/ResponsibilityMap.md), and [Temporary assets](Resources/TemporaryAssets.md).
 
 ## Shared simulation and UI publication boundary
 
-The gameplay dependency direction is `AppRouter → GameSimulationFactory → GameSimulation → GameSession → GameplayView / GameScene`. `DefaultGameSimulationFactory` currently creates only `LevelOneSimulation`; unsupported identifiers fail with `GameLoadingError.unsupportedLevel`. Level 2 is not implemented.
+The gameplay dependency direction is `AppRouter → GameSimulationFactory → GameSimulation → GameSession → GameplayView / GameScene`. `DefaultGameSimulationFactory` currently creates `LevelOneSimulation`, `LevelTwoSimulation`, and `LevelThreeSimulation`; unsupported identifiers fail with `GameLoadingError.unsupportedLevel`. Level 4 is not implemented yet.
 
 The simulation is authoritative for health, score, entities, timing, and outcomes. Every Level 1 score source—coins, grapple-destroyed mines, the chest, and level completion—mutates the simulation player. `GameSession` has no score-award API and reads the final authoritative status for routing and immutable results.
 
@@ -78,7 +78,7 @@ Gameplay now has three distinct channels:
 
 Level One builds floor, lava, walls, and doors as static descriptors. Its player, chest (open or closed), coins, cabbages, mines, grapple, and future effects cross the shared boundary as stable-ID generic descriptors with extensible `RenderAssetID` and animation identifiers. `TextureCatalog` caches full textures and sheet slices, preserves nearest-neighbor filtering, and reports typed missing/invalid resources. `GameScene` caches grid/layout data, never reads static geometry from a dynamic snapshot, and passes the frame's single captured snapshot through synchronization helpers. Direction buttons use SwiftUI's semantic `.disabled` state as well as cancelling physical hold state, so VoiceOver and Switch Control receive the same availability as gameplay.
 
-A future Level 2 should add `LevelTwoSimulation`, `LevelTwoDefinition`, `LevelTwoPresentationDefinition`, Level Two catalog mappings, and explicit factory support. It must not add Level Two gameplay branches to the generic scene or rewrite Level One. This boundary remains pending complete Xcode 26 validation before Level 2 work begins.
+Level 3 now uses footprint-safe door entry anchors, construction-time initial-footprint validation, level-specific asset manifests, animated smoke texture descriptors, and a temporary Results boundary instead of advancing to Level 4. Forward transitions persist the completed source level, while reverse transitions do not create completion records.
 
 ## Runtime loading and renderer correction pass
 
