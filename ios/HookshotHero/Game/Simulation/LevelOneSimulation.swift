@@ -644,7 +644,9 @@ struct LevelAssetManifest: Equatable, Sendable {
     let manifest =
       levelID == .levelTwo
       ? LevelAssetManifest.levelTwo
-      : (levelID == .levelThree ? LevelAssetManifest.levelThree : LevelAssetManifest.levelOne)
+      : (levelID == .levelThree
+        ? LevelAssetManifest.levelThree
+        : (levelID == .levelFour ? LevelAssetManifest.levelFour : LevelAssetManifest.levelOne))
     do {
       try preflight.validate(
         manifest: manifest, textureCatalog: textureCatalog, animationCatalog: animationCatalog)
@@ -749,6 +751,10 @@ struct DefaultGameSimulationFactory: GameSimulationFactory {
           entryPosition: entryPosition, carryover: carryover)
       case .levelThree:
         return try LevelThreeSimulation(
+          configuration: configuration, seed: seed ?? UInt64.random(in: 1...UInt64.max),
+          entryPosition: entryPosition, carryover: carryover)
+      case .levelFour:
+        return try LevelFourSimulation(
           configuration: configuration, seed: seed ?? UInt64.random(in: 1...UInt64.max),
           entryPosition: entryPosition, carryover: carryover)
       default:
@@ -1143,22 +1149,32 @@ struct DefaultGameSimulationFactory: GameSimulationFactory {
 }
 
 enum EnemyArchetype: Equatable, Sendable {
-  case skeleton, flyingTerror
-  var displayName: String { self == .skeleton ? "Skeleton" : "Flying Terror" }
-  var asset: RenderAssetID {
-    RenderAssetID(rawValue: self == .skeleton ? "enemy.skeleton" : "enemy.flying-terror")
+  case skeleton, flyingTerror, minotaur
+  var displayName: String {
+    switch self {
+    case .skeleton: "Skeleton"
+    case .flyingTerror: "Flying Terror"
+    case .minotaur: "Minotaur"
+    }
   }
-  var maximumHealth: Int { self == .skeleton ? 3 : 5 }
-  var sight: Double { self == .skeleton ? 19 : 39 }
-  var patrolInterval: TimeInterval { self == .skeleton ? 0.7 : 0.3 }
-  var seekInterval: TimeInterval { self == .skeleton ? 0.5 : 0.3 }
+  var asset: RenderAssetID {
+    RenderAssetID(rawValue: self == .skeleton ? "enemy.skeleton" : (self == .flyingTerror ? "enemy.flying-terror" : "enemy.minotaur"))
+  }
+  var maximumHealth: Int { self == .skeleton ? 3 : (self == .flyingTerror ? 5 : 10) }
+  var sight: Double { self == .skeleton ? 19 : (self == .flyingTerror ? 39 : 19) }
+  var patrolInterval: TimeInterval { self == .skeleton ? 0.7 : (self == .flyingTerror ? 0.3 : 0.45) }
+  var seekInterval: TimeInterval { self == .skeleton ? 0.5 : (self == .flyingTerror ? 0.3 : 0.35) }
   var footprint: CollisionFootprint {
     self == .skeleton
       ? .init(rowOffsets: -2..<3, columnOffsets: -2..<3)
-      : .init(rowOffsets: -3..<5, columnOffsets: -3..<5)
+      : (self == .flyingTerror
+        ? .init(rowOffsets: -3..<5, columnOffsets: -3..<5)
+        : .init(rowOffsets: -2..<3, columnOffsets: -2..<3))
   }
   var renderSize: LogicalRenderSize {
-    self == .skeleton ? .init(width: 4.9, height: 4.7) : .init(width: 12.8, height: 12.8)
+    self == .skeleton
+      ? .init(width: 4.9, height: 4.7)
+      : (self == .flyingTerror ? .init(width: 12.8, height: 12.8) : .init(width: 4.8, height: 6.4))
   }
 }
 enum EnemyBehaviorState: Equatable, Sendable { case patrol, seek }
@@ -1231,7 +1247,11 @@ enum LevelTwoRenderAssets {
 }
 enum LevelTwoRenderAnimations {
   static func enemy(_ a: EnemyArchetype, _ d: RenderOrientation) -> RenderAnimationID {
-    .init(rawValue: "enemy.\(a == .skeleton ? "skeleton" : "flying-terror").walk.\(d.rawValue)")
+    if a == .minotaur {
+      let row = switch d { case .down: 0; case .left: 1; case .right: 2; case .up: 3; case .none: 0 }
+      return .init(rawValue: "enemy.minotaur.\(row)-0")
+    }
+    return .init(rawValue: "enemy.\(a == .skeleton ? "skeleton" : "flying-terror").walk.\(d.rawValue)")
   }
 }
 
@@ -1725,6 +1745,179 @@ enum LevelThreePresentationDefinition {
       if !completedLevelIDs.contains(.levelThree) {
         player.score += 100
         completedLevelIDs.insert(.levelThree)
+        emit(.levelCompleted(points: 100), at: player.position)
+      }
+      cancelAllInput()
+      let carry = PlayerCarryoverState(
+        characterID: player.id, health: player.health, score: player.score,
+        completedLevelIDs: completedLevelIDs)
+      onLevelTransition?(
+        LevelTransitionRequest(
+          sourceLevelID: .levelThree, destinationLevelID: .levelFour, destinationEntry: .bottom,
+          carryover: carry, reason: .completedForward))
+    }
+  }
+}
+
+enum LevelFourDefinition {
+  static let rightExitRegion = GridRegion(rows: 27..<33, columns: 56..<60)
+  static func make() -> LevelDefinition {
+    let boundary = LevelBoundaryGeometry(
+      topWallRegions: [.init(rows: 0..<4, columns: 0..<27), .init(rows: 0..<4, columns: 33..<60)],
+      bottomWallRegions: [.init(rows: 56..<60, columns: 0..<60)],
+      leftWallRegions: [.init(rows: 4..<56, columns: 0..<4)],
+      rightWallRegions: [.init(rows: 4..<27, columns: 56..<60), .init(rows: 33..<56, columns: 56..<60)],
+      topExitRegion: .init(rows: 0..<4, columns: 27..<33),
+      bottomDoorRegion: .init(rows: 56..<60, columns: 27..<33))
+    return .init(
+      grid: .init(rows: 60, columns: 60), start: .init(row: 50, column: 27),
+      exitAnchor: .init(row: 0, column: 27), entryAnchor: .init(row: 56, column: 27),
+      chestAnchor: .init(row: -100, column: -100), boundary: boundary, walls: boundary.wallRegions,
+      lava: [], internalWallAnchors: [], displayName: "Level 4")
+  }
+}
+enum LevelFourRenderAssets {
+  static let floor = RenderAssetID(rawValue: "level-four.floor"),
+    wallFront = RenderAssetID(rawValue: "level-four.wall.front"),
+    wallLeft = RenderAssetID(rawValue: "level-four.wall.left"),
+    wallRight = RenderAssetID(rawValue: "level-four.wall.right"),
+    doorOpen = RenderAssetID(rawValue: "level-four.door.open"),
+    doorClosed = RenderAssetID(rawValue: "level-four.door.closed"),
+    doorOpenSide = RenderAssetID(rawValue: "level-four.door.open.side"),
+    doorClosedRight = RenderAssetID(rawValue: "level-four.door.closed.right")
+}
+enum LevelFourRenderAnimations {
+  static func minotaur(_ d: RenderOrientation) -> RenderAnimationID {
+    let row = switch d { case .down: 0; case .left: 1; case .right: 2; case .up: 3; case .none: 0 }
+    return .init(rawValue: "enemy.minotaur.\(row)-0")
+  }
+}
+
+extension LevelAssetManifest {
+  static let levelFour = LevelAssetManifest(
+    textureAssetIDs: Set(LevelOneTextureCatalog.entries.keys).filter { id in
+      !id.rawValue.hasPrefix("level-two.") && !id.rawValue.hasPrefix("level-three.")
+    },
+    animationIDs: Set([
+      LevelOneRenderAnimations.lidiaWalk(.up), LevelOneRenderAnimations.lidiaWalk(.down),
+      LevelOneRenderAnimations.lidiaWalk(.left), LevelOneRenderAnimations.lidiaWalk(.right),
+      LevelTwoRenderAnimations.enemy(.minotaur, .up), LevelTwoRenderAnimations.enemy(.minotaur, .down),
+      LevelTwoRenderAnimations.enemy(.minotaur, .left), LevelTwoRenderAnimations.enemy(.minotaur, .right),
+    ]))
+}
+
+extension LevelTwoRenderAnimations {
+  static func minotaur(_ d: RenderOrientation) -> RenderAnimationID {
+    let row = switch d { case .down: 0; case .left: 1; case .right: 2; case .up: 3; case .none: 0 }
+    return .init(rawValue: "enemy.minotaur.\(row)-0")
+  }
+}
+
+enum LevelFourPresentationDefinition {
+  static func make(from level: LevelDefinition, bossDefeated: Bool = false) -> LevelPresentationDefinition {
+    func tile(_ r: GridRegion, _ a: RenderAssetID) -> TileRenderPlacement {
+      .init(coordinate: .init(row: r.rows.lowerBound, column: r.columns.lowerBound), sizeInCells: .init(width: Double(r.columns.count), height: Double(r.rows.count)), asset: a, anchor: .bottomLeft)
+    }
+    let floor = stride(from: 0, to: level.grid.rows, by: 10).flatMap { row in
+      stride(from: 0, to: level.grid.columns, by: 10).map { col in
+        tile(.init(rows: row..<min(row + 10, level.grid.rows), columns: col..<min(col + 10, level.grid.columns)), LevelFourRenderAssets.floor)
+      }
+    }
+    let javaBoundaryWalls = [GridRegion(rows: 0..<4, columns: 0..<60), .init(rows: 56..<60, columns: 0..<60), .init(rows: 4..<56, columns: 0..<4), .init(rows: 4..<56, columns: 56..<60)]
+    let walls = javaBoundaryWalls.map {
+      tile($0, $0.columns == 0..<4 ? LevelFourRenderAssets.wallLeft : ($0.columns == 56..<60 ? LevelFourRenderAssets.wallRight : LevelFourRenderAssets.wallFront))
+    }
+    return .init(
+      levelID: .levelFour, logicalGridSize: level.grid, background: .init(colorName: "black"),
+      tileLayers: [.init(id: .init(rawValue: "floor"), zPosition: 0, tiles: floor), .init(id: .init(rawValue: "walls"), zPosition: 2, tiles: walls)],
+      staticObjects: [
+        .init(id: EntityID(), asset: bossDefeated ? LevelFourRenderAssets.doorOpen : LevelFourRenderAssets.doorClosed, coordinate: .init(row: 0, column: 28), renderSize: .init(width: 4, height: 4), anchor: .bottomLeft, zPosition: 3),
+        .init(id: EntityID(), asset: bossDefeated ? LevelFourRenderAssets.doorOpenSide : LevelFourRenderAssets.doorClosedRight, coordinate: .init(row: 28, column: 56), renderSize: .init(width: 4, height: 4), anchor: .bottomLeft, zPosition: 3),
+        .init(id: EntityID(), asset: LevelFourRenderAssets.doorClosed, coordinate: .init(row: 56, column: 28), renderSize: .init(width: 4, height: 4), anchor: .bottomLeft, zPosition: 3),
+      ])
+  }
+}
+
+@MainActor final class LevelFourSimulation: LevelOneSimulation {
+  private var boss: EnemyState?
+  private var bossHitByCurrentHook = false
+  override var levelID: LevelID { .levelFour }
+  override var levelName: String { "Level 4" }
+  override var renderSnapshot: GameRenderSnapshot {
+    let s = super.renderSnapshot
+    let bossRender = boss.map { b in
+      RenderEntitySnapshot(id: b.id, asset: b.archetype.asset, coordinate: b.position, renderSize: b.archetype.renderSize, anchor: .center, zPosition: 7, orientation: RenderOrientation(rawValue: b.facing.rawValue) ?? .right, animation: nil, opacity: 1, isHidden: false, health: .init(current: b.health, maximum: b.maximumHealth))
+    }
+    return .init(player: s.player, entities: s.entities.filter { $0.asset != LevelOneRenderAssets.chestClosed && $0.asset != LevelOneRenderAssets.chestOpen } + (bossRender.map { [$0] } ?? []), grapple: s.grapple, effects: s.effects)
+  }
+  init(configuration: GameConfiguration = .init(reducedMotion: false, controlHintsEnabled: true), seed: UInt64 = 4, entryPosition: LevelEntryPosition = .bottom, carryover: PlayerCarryoverState? = nil) throws {
+    boss = .init(id: EntityID(), archetype: .minotaur, position: .init(row: 25, column: 25), facing: .right, health: 10, maximumHealth: 10, behaviorState: .seek, decisionAccumulator: 0, animationTime: 0)
+    try super.init(configuration: configuration, seed: seed, entryPosition: entryPosition, carryover: carryover, startOverride: entryPosition == .top ? .init(row: 5, column: 27) : .init(row: 50, column: 27), entities: [])
+    level = LevelFourDefinition.make()
+    presentationDefinition = LevelFourPresentationDefinition.make(from: level)
+    try validateInitialPlayerFootprint()
+  }
+  override func update(deltaTime: TimeInterval) {
+    super.update(deltaTime: deltaTime)
+    updateBoss(deltaTime)
+    checkLevelFourDoors()
+  }
+  private func updateBoss(_ dt: TimeInterval) {
+    guard var b = boss, outcome == nil else { return }
+    b.animationTime += dt
+    b.decisionAccumulator += dt
+    if b.decisionAccumulator >= b.archetype.seekInterval {
+      b.decisionAccumulator = 0
+      let dirs = GridDirection.allCases
+      if let best = dirs.filter({ dir in
+        let region = b.archetype.footprint.region(at: b.position.moved(dir))
+        return region.cells.allSatisfy(level.isInside) && !level.walls.contains { $0.intersects(region) }
+      }).min(by: { a, c in
+        hypot(Double(b.position.moved(a).row - player.position.row), Double(b.position.moved(a).column - player.position.column)) < hypot(Double(b.position.moved(c).row - player.position.row), Double(b.position.moved(c).column - player.position.column))
+      }) {
+        b.facing = best
+        b.position = b.position.moved(best)
+      }
+    }
+    boss = b
+    if b.archetype.footprint.region(at: b.position).intersects(CollisionProfile.player.region(at: player.position)) {
+      guard player.damageCooldown <= 0 else { return }
+      player.health -= 1
+      player.damageCooldown = 0.75
+      emit(.healthLost(amount: 1, source: .enemy(.minotaur)), at: player.position)
+      checkLoss()
+    }
+    guard let head = player.hookshot.head, player.hookshot.phase == .extending else {
+      if player.hookshot.phase == .idle { bossHitByCurrentHook = false }
+      return
+    }
+    if !bossHitByCurrentHook && b.archetype.footprint.region(at: b.position).intersects(CollisionProfile.hookHead.region(at: head)) {
+      bossHitByCurrentHook = true
+      b.health -= 1
+      player.score += 10
+      emit(.enemyHit(archetype: .minotaur, points: 10, remainingHealth: max(0, b.health)), at: b.position)
+      player.hookshot.phase = .retracting
+      if b.health <= 0 {
+        let id = emit(.enemyDefeated(archetype: .minotaur), at: b.position)
+        effectEvents.append(.init(id: id, coordinate: b.position, descriptor: .enemyDefeat(reducedMotion: configuration.reducedMotion), createdAt: simulationTime))
+        boss = nil
+        presentationDefinition = LevelFourPresentationDefinition.make(from: level, bossDefeated: true)
+      } else {
+        boss = b
+      }
+    }
+  }
+  private func checkLevelFourDoors() {
+    guard outcome == nil else { return }
+    let region = CollisionProfile.player.region(at: player.position)
+    if region.intersects(level.entryRegion) {
+      cancelAllInput()
+      let carry = PlayerCarryoverState(characterID: player.id, health: player.health, score: player.score, completedLevelIDs: completedLevelIDs)
+      onLevelTransition?(LevelTransitionRequest(sourceLevelID: .levelFour, destinationLevelID: .levelThree, destinationEntry: .top, carryover: carry, reason: .returnedBackward))
+    } else if boss == nil && (region.intersects(level.exitRegion) || region.intersects(LevelFourDefinition.rightExitRegion)) {
+      if !completedLevelIDs.contains(.levelFour) {
+        player.score += 100
+        completedLevelIDs.insert(.levelFour)
         emit(.levelCompleted(points: 100), at: player.position)
       }
       setOutcome(.won)
