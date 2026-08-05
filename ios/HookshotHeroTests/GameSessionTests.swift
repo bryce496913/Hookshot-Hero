@@ -507,6 +507,27 @@ final class LevelTwoDefinitionTests: XCTestCase {
     XCTAssertTrue((0..<level.grid.rows).contains(level.exitAnchor.row))
     XCTAssertFalse(level.isBlocked(CollisionProfile.player.region(at: level.start)))
   }
+
+  func testLevelTwoPresentationMatchesJavaDoorAndBoundaryLayout() throws {
+    let level = LevelTwoDefinition.make()
+    let presentation = LevelTwoPresentationDefinition.make(from: level)
+    let walls = try XCTUnwrap(presentation.tileLayers.first { $0.id.rawValue == "walls" })
+
+    XCTAssertTrue(walls.tiles.contains { $0.coordinate == GridPosition(row: 0, column: 0) && $0.sizeInCells == LogicalRenderSize(width: 60, height: 4) })
+    XCTAssertTrue(walls.tiles.contains { $0.coordinate == GridPosition(row: 56, column: 0) && $0.sizeInCells == LogicalRenderSize(width: 60, height: 4) })
+
+    let exitDoor = try XCTUnwrap(presentation.staticObjects.first { $0.asset == LevelTwoRenderAssets.exitDoor })
+    let entryDoor = try XCTUnwrap(presentation.staticObjects.first { $0.asset == LevelTwoRenderAssets.entryDoor })
+    XCTAssertEqual(exitDoor.coordinate, GridPosition(row: 0, column: 28))
+    XCTAssertEqual(exitDoor.renderSize, LogicalRenderSize(width: 4, height: 4))
+    XCTAssertEqual(entryDoor.coordinate, GridPosition(row: 56, column: 28))
+    XCTAssertEqual(entryDoor.renderSize, LogicalRenderSize(width: 4, height: 4))
+
+    let smokeObjects = presentation.staticObjects.filter { $0.asset == LevelTwoRenderAssets.smoke }
+    XCTAssertEqual(smokeObjects.map(\.coordinate), [GridPosition(row: 39, column: 5), GridPosition(row: 55, column: 50)])
+    XCTAssertTrue(smokeObjects.allSatisfy { $0.anchor == .bottomLeft })
+  }
+
 }
 
 @MainActor
