@@ -585,6 +585,16 @@ final class LevelTwoDefinitionTests: XCTestCase {
     XCTAssertTrue(smokeObjects.allSatisfy { $0.anchor == .bottomLeft })
   }
 
+  func testLevelTwoManifestDoesNotPreflightUnrelatedFutureLevelAssets() {
+    XCTAssertFalse(LevelAssetManifest.levelTwo.textureAssetIDs.contains(RenderAssetID(rawValue: "level-four.door.open.side")))
+    XCTAssertFalse(LevelAssetManifest.levelTwo.textureAssetIDs.contains(RenderAssetID(rawValue: "enemy.minotaur")))
+    XCTAssertTrue(LevelAssetManifest.levelTwo.textureAssetIDs.contains(LevelTwoRenderAssets.entryDoor))
+    XCTAssertTrue(LevelAssetManifest.levelTwo.textureAssetIDs.contains(EnemyArchetype.skeleton.asset))
+    XCTAssertTrue(LevelAssetManifest.levelTwo.textureAssetIDs.contains(EnemyArchetype.flyingTerror.asset))
+    XCTAssertTrue(LevelAssetManifest.levelTwo.animationIDs.contains(LevelTwoRenderAnimations.enemy(.skeleton, .right)))
+    XCTAssertTrue(LevelAssetManifest.levelTwo.animationIDs.contains(LevelTwoRenderAnimations.enemy(.flyingTerror, .right)))
+  }
+
 }
 
 @MainActor
