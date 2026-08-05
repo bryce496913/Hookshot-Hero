@@ -6,35 +6,53 @@ struct MainMenuView: View {
     let help: () -> Void
 
     var body: some View {
-        VStack(spacing: 20) {
-            Spacer()
-            Image(systemName: "scope")
-                .font(.system(size: 72))
-                .accessibilityHidden(true)
-            Text("Hookshot Hero")
-                .font(.largeTitle.bold())
-                .multilineTextAlignment(.center)
-            Text("Native iOS development build")
-                .font(.footnote)
-                .foregroundStyle(.secondary)
-            Spacer()
-            menuButton("Play", systemImage: "play.fill", action: play)
-                .accessibilityIdentifier("playButton")
-            menuButton("Settings", systemImage: "gearshape", action: settings)
-                .accessibilityIdentifier("settingsButton")
-            menuButton("Help", systemImage: "questionmark.circle", action: help)
-                .accessibilityIdentifier("helpButton")
-            Spacer()
+        ZStack {
+            AppTheme.Colors.background.ignoresSafeArea()
+            VStack(spacing: 18) {
+                Spacer(minLength: 20)
+                VStack(spacing: 12) {
+                    Image(systemName: "scope")
+                        .font(.system(size: 54, weight: .bold, design: .rounded))
+                        .foregroundStyle(AppTheme.Colors.highlight)
+                        .accessibilityHidden(true)
+                    Text("Hookshot Hero")
+                        .appTextStyle(.h1)
+                        .multilineTextAlignment(.center)
+                        .accessibilityAddTraits(.isHeader)
+                    Text("Native iOS development build")
+                        .appTextStyle(.paragraph)
+                        .foregroundStyle(AppTheme.Colors.text.opacity(0.7))
+                        .multilineTextAlignment(.center)
+                }
+                .frame(maxWidth: .infinity)
+                .padding(24)
+                .appSurface()
+                Spacer(minLength: 12)
+                menuButton("Play", systemImage: "play.fill", style: .primary, action: play)
+                    .accessibilityIdentifier("playButton")
+                menuButton("Settings", systemImage: "gearshape", style: .secondary, action: settings)
+                    .accessibilityIdentifier("settingsButton")
+                menuButton("Help", systemImage: "questionmark.circle", style: .secondary, action: help)
+                    .accessibilityIdentifier("helpButton")
+                Spacer(minLength: 20)
+            }
+            .padding(.horizontal, 32)
+            .safeAreaPadding(.bottom)
         }
-        .padding(.horizontal, 32)
-        .safeAreaPadding(.bottom)
         .navigationBarBackButtonHidden()
+        .appNavigationStyle()
         .accessibilityElement(children: .contain)
     }
 
-    private func menuButton(_ title: String, systemImage: String, action: @escaping () -> Void) -> some View {
-        Button(action: action) { Label(title, systemImage: systemImage).frame(maxWidth: .infinity, minHeight: 44) }
-            .buttonStyle(.borderedProminent)
+    private enum MenuButtonStyle { case primary, secondary }
+
+    @ViewBuilder
+    private func menuButton(_ title: String, systemImage: String, style: MenuButtonStyle, action: @escaping () -> Void) -> some View {
+        let button = Button(action: action) { Label(title, systemImage: systemImage) }
             .accessibilityLabel(title)
+        switch style {
+        case .primary: button.buttonStyle(AppPrimaryButtonStyle())
+        case .secondary: button.buttonStyle(AppSecondaryButtonStyle())
+        }
     }
 }
