@@ -38,6 +38,14 @@ final class HookshotHeroUITests: XCTestCase {
     app.switches["reducedMotionToggle"].tap()
     app.buttons["settingsDoneButton"].tap()
   }
+  func testDebugLevelSelectIsReachableAndStartsLevelFive() {
+    launch()
+    let levelSelect = app.buttons["debugLevelSelectButton"]
+    XCTAssertTrue(levelSelect.waitForExistence(timeout: 5))
+    levelSelect.tap()
+    app.buttons["debugLevel5Button"].tap()
+    XCTAssertTrue(app.otherElements["gameplayHUD"].waitForExistence(timeout: 5))
+  }
   func testForcedWinAndResultsReturn() {
     assertForcedResult("--force-game-outcome=win", title: "Victory")
   }
