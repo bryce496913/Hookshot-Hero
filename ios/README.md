@@ -46,13 +46,13 @@ The repository intentionally has no CI workflow. The commands above are the requ
 * Transition into Level 2.
 * Approved final app icon (the empty catalog slot remains a distribution blocker).
 
-Level 2 and Level 3 are now registered native gameplay levels. Level 4 remains intentionally out of scope until the Level 3 correction pass is fully verified.
+Levels 2 through 5 are registered native gameplay levels. Level 5 reproduces the Java maze, lava, side entry, top exit, chest, smoke emitters, and deterministic consumable placement. In DEBUG builds, the main menu also exposes a direct level-select screen for development and testing.
 
 See [Conversion decisions](Documentation/ConversionDecisions.md), [Responsibility map](Documentation/ResponsibilityMap.md), and [Temporary assets](Resources/TemporaryAssets.md).
 
 ## Shared simulation and UI publication boundary
 
-The gameplay dependency direction is `AppRouter → GameSimulationFactory → GameSimulation → GameSession → GameplayView / GameScene`. `DefaultGameSimulationFactory` currently creates `LevelOneSimulation`, `LevelTwoSimulation`, and `LevelThreeSimulation`; unsupported identifiers fail with `GameLoadingError.unsupportedLevel`. Level 4 is not implemented yet.
+The gameplay dependency direction is `AppRouter → GameSimulationFactory → GameSimulation → GameSession → GameplayView / GameScene`. `DefaultGameSimulationFactory` creates the concrete simulation for Levels 1 through 5; unsupported identifiers fail with `GameLoadingError.unsupportedLevel`.
 
 The simulation is authoritative for health, score, entities, timing, and outcomes. Every Level 1 score source—coins, grapple-destroyed mines, the chest, and level completion—mutates the simulation player. `GameSession` has no score-award API and reads the final authoritative status for routing and immutable results.
 

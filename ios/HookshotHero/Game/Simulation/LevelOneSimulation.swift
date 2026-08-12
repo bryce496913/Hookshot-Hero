@@ -646,7 +646,8 @@ struct LevelAssetManifest: Equatable, Sendable {
       ? LevelAssetManifest.levelTwo
       : (levelID == .levelThree
         ? LevelAssetManifest.levelThree
-        : (levelID == .levelFour ? LevelAssetManifest.levelFour : LevelAssetManifest.levelOne))
+        : (levelID == .levelFour ? LevelAssetManifest.levelFour
+          : (levelID == .levelFive ? LevelAssetManifest.levelFive : LevelAssetManifest.levelOne)))
     do {
       try preflight.validate(
         manifest: manifest, textureCatalog: textureCatalog, animationCatalog: animationCatalog)
@@ -785,6 +786,10 @@ struct DefaultGameSimulationFactory: GameSimulationFactory {
           entryPosition: entryPosition, carryover: carryover)
       case .levelFour:
         return try LevelFourSimulation(
+          configuration: configuration, seed: seed ?? UInt64.random(in: 1...UInt64.max),
+          entryPosition: entryPosition, carryover: carryover)
+      case .levelFive:
+        return try LevelFiveSimulation(
           configuration: configuration, seed: seed ?? UInt64.random(in: 1...UInt64.max),
           entryPosition: entryPosition, carryover: carryover)
       default:
@@ -1958,6 +1963,109 @@ enum LevelFourPresentationDefinition {
         completedLevelIDs.insert(.levelFour)
         emit(.levelCompleted(points: 100), at: player.position)
       }
+      if region.intersects(LevelFourDefinition.rightExitRegion) {
+        cancelAllInput()
+        let carry = PlayerCarryoverState(characterID: player.id, health: player.health, score: player.score, completedLevelIDs: completedLevelIDs)
+        onLevelTransition?(LevelTransitionRequest(sourceLevelID: .levelFour, destinationLevelID: .levelFive, destinationEntry: .bottom, carryover: carry))
+      } else {
+        // Java's top door leads to Level 6, which is not converted yet.
+        setOutcome(.won)
+      }
+    }
+  }
+}
+
+// Java LevelFive uses 40-pixel environment tiles on a 600-pixel board. Native gameplay keeps
+// the established 60-cell logical grid, so every Java pixel anchor is divided by ten here.
+enum LevelFiveDefinition {
+  static let wallAnchors: [GridPosition] =
+    stride(from: 32, to: 52, by: 4).map { .init(row: 12, column: $0) }
+    + stride(from: 32, to: 44, by: 4).map { .init(row: 16, column: $0) }
+    + stride(from: 8, to: 28, by: 4).map { .init(row: 16, column: $0) }
+    + stride(from: 4, to: 28, by: 4).map { .init(row: 24, column: $0) }
+    + stride(from: 12, to: 28, by: 4).map { .init(row: 32, column: $0) }
+    + stride(from: 32, to: 56, by: 4).map { .init(row: $0, column: 32) }
+    + stride(from: 20, to: 40, by: 4).flatMap { row in [44, 48].map { GridPosition(row: row, column: $0) } }
+    + stride(from: 8, to: 16, by: 4).map { .init(row: $0, column: 16) }
+    + [.init(row: 8, column: 32), .init(row: 44, column: 52), .init(row: 52, column: 36),
+       .init(row: 32, column: 36), .init(row: 36, column: 36), .init(row: 40, column: 28),
+       .init(row: 32, column: 4), .init(row: 36, column: 4), .init(row: 52, column: 4),
+       .init(row: 52, column: 28), .init(row: 8, column: 28)]
+  static let lavaAnchors: [GridPosition] =
+    stride(from: 40, to: 52, by: 4).flatMap { row in stride(from: 4, to: 30, by: 4).map { .init(row: row, column: $0) } }
+    + stride(from: 40, to: 52, by: 4).flatMap { row in stride(from: 40, to: 52, by: 4).map { .init(row: row, column: $0) } }
+    + stride(from: 20, to: 32, by: 4).flatMap { row in stride(from: 32, to: 40, by: 4).map { .init(row: row, column: $0) } }
+    + stride(from: 4, to: 12, by: 4).flatMap { row in stride(from: 40, to: 52, by: 4).map { .init(row: row, column: $0) } }
+    + stride(from: 8, to: 20, by: 4).map { .init(row: 20, column: $0) }
+    + stride(from: 24, to: 36, by: 4).map { .init(row: $0, column: 28) }
+    + stride(from: 12, to: 24, by: 4).map { .init(row: 36, column: $0) }
+    + stride(from: 12, to: 24, by: 4).map { .init(row: 52, column: $0) }
+    + [.init(row: 4, column: 4), .init(row: 4, column: 8), .init(row: 8, column: 12),
+       .init(row: 4, column: 24), .init(row: 8, column: 24), .init(row: 20, column: 40),
+       .init(row: 24, column: 40)]
+  static func make() -> LevelDefinition {
+    let boundary = LevelBoundaryGeometry(
+      topWallRegions: [.init(rows: 0..<4, columns: 0..<27), .init(rows: 0..<4, columns: 33..<60)],
+      bottomWallRegions: [.init(rows: 56..<60, columns: 0..<60)],
+      leftWallRegions: [.init(rows: 4..<8, columns: 0..<4), .init(rows: 12..<56, columns: 0..<4)],
+      rightWallRegions: [.init(rows: 4..<56, columns: 56..<60)],
+      topExitRegion: .init(rows: 0..<4, columns: 27..<33),
+      bottomDoorRegion: .init(rows: 8..<12, columns: 0..<4))
+    return .init(grid: .init(rows: 60, columns: 60), start: .init(row: 8, column: 7),
+      exitAnchor: .init(row: 0, column: 27), entryAnchor: .init(row: 8, column: 0),
+      chestAnchor: .init(row: 52, column: 8), boundary: boundary,
+      walls: boundary.wallRegions + wallAnchors.map { .init(rows: $0.row..<($0.row + 4), columns: $0.column..<($0.column + 4)) },
+      lava: lavaAnchors.map { .init(rows: $0.row..<($0.row + 4), columns: $0.column..<($0.column + 4)) },
+      internalWallAnchors: wallAnchors, displayName: "Level 5")
+  }
+}
+
+enum LevelFiveRenderAssets {
+  static let floor = RenderAssetID(rawValue: "level-five.floor"), lava = RenderAssetID(rawValue: "level-five.lava"), wallFront = RenderAssetID(rawValue: "level-five.wall.front"), wallLeft = RenderAssetID(rawValue: "level-five.wall.left"), wallRight = RenderAssetID(rawValue: "level-five.wall.right"), exitDoor = RenderAssetID(rawValue: "level-five.door.open"), entryDoor = RenderAssetID(rawValue: "level-five.door.closed.left"), chest = RenderAssetID(rawValue: "level-five.chest.side"), smoke = RenderAssetID(rawValue: "level-five.smoke")
+}
+extension LevelAssetManifest {
+  static let levelFive = LevelAssetManifest(textureAssetIDs: Set([LevelFiveRenderAssets.floor, LevelFiveRenderAssets.lava, LevelFiveRenderAssets.wallFront, LevelFiveRenderAssets.wallLeft, LevelFiveRenderAssets.wallRight, LevelFiveRenderAssets.exitDoor, LevelFiveRenderAssets.entryDoor, LevelFiveRenderAssets.chest, LevelFiveRenderAssets.smoke]).union(sharedPlayerTextureAssetIDs).union(sharedCoinTextureAssetIDs), animationIDs: Set([LevelOneRenderAnimations.coinSpin, LevelOneRenderAnimations.lidiaWalk(.up), LevelOneRenderAnimations.lidiaWalk(.down), LevelOneRenderAnimations.lidiaWalk(.left), LevelOneRenderAnimations.lidiaWalk(.right)]))
+}
+
+enum LevelFivePresentationDefinition {
+  static func make(from level: LevelDefinition) -> LevelPresentationDefinition {
+    func tile(_ r: GridRegion, _ a: RenderAssetID) -> TileRenderPlacement { .init(coordinate: .init(row: r.rows.lowerBound, column: r.columns.lowerBound), sizeInCells: .init(width: Double(r.columns.count), height: Double(r.rows.count)), asset: a, anchor: .bottomLeft) }
+    let floor = stride(from: 0, to: 60, by: 10).flatMap { row in stride(from: 0, to: 60, by: 10).map { col in tile(.init(rows: row..<min(row+10,60), columns: col..<min(col+10,60)), LevelFiveRenderAssets.floor) } }
+    return .init(levelID: .levelFive, logicalGridSize: level.grid, background: .init(colorName: "black"), tileLayers: [
+      .init(id: .init(rawValue: "floor"), zPosition: 0, tiles: floor),
+      .init(id: .init(rawValue: "lava"), zPosition: 1, tiles: level.lava.map { tile($0, LevelFiveRenderAssets.lava) }),
+      .init(id: .init(rawValue: "walls"), zPosition: 2, tiles: level.walls.map { tile($0, $0.columns == 0..<4 ? LevelFiveRenderAssets.wallLeft : ($0.columns == 56..<60 ? LevelFiveRenderAssets.wallRight : LevelFiveRenderAssets.wallFront)) })
+    ], staticObjects: [
+      .init(id: EntityID(), asset: LevelFiveRenderAssets.exitDoor, coordinate: .init(row: 0, column: 28), renderSize: .init(width: 4, height: 4), anchor: .bottomLeft, zPosition: 3),
+      .init(id: EntityID(), asset: LevelFiveRenderAssets.entryDoor, coordinate: .init(row: 8, column: 0), renderSize: .init(width: 4, height: 4), anchor: .bottomLeft, zPosition: 3),
+      .init(id: EntityID(), asset: LevelFiveRenderAssets.chest, coordinate: .init(row: 52, column: 8), renderSize: .init(width: 4, height: 4), anchor: .bottomLeft, zPosition: 3),
+      .init(id: EntityID(), asset: LevelFiveRenderAssets.smoke, coordinate: .init(row: 55, column: 16), renderSize: .init(width: 4, height: 4), anchor: .bottomLeft, zPosition: 4),
+      .init(id: EntityID(), asset: LevelFiveRenderAssets.smoke, coordinate: .init(row: 26, column: 43), renderSize: .init(width: 4, height: 4), anchor: .bottomLeft, zPosition: 4)
+    ])
+  }
+}
+
+@MainActor final class LevelFiveSimulation: LevelOneSimulation {
+  override var levelID: LevelID { .levelFive }
+  override var levelName: String { "Level 5" }
+  init(configuration: GameConfiguration = .init(reducedMotion: false, controlHintsEnabled: true), seed: UInt64 = 5, entryPosition: LevelEntryPosition = .bottom, carryover: PlayerCarryoverState? = nil) throws {
+    try super.init(configuration: configuration, seed: seed, entryPosition: entryPosition, carryover: carryover, startOverride: entryPosition == .top ? .init(row: 5, column: 23) : .init(row: 8, column: 7), entities: [])
+    level = LevelFiveDefinition.make()
+    presentationDefinition = LevelFivePresentationDefinition.make(from: level)
+    var rng = SeededRandomNumberGenerator(seed: seed ^ 0x55)
+    entities = try SpawnService.spawn(in: level, requirements: [.init(kind: .mine, count: 3), .init(kind: .cabbage, count: 2), .init(kind: .coin, count: 10)], protectedRegions: [CollisionProfile.player.region(at: player.position)], using: &rng)
+    try validateInitialPlayerFootprint()
+  }
+  override func update(deltaTime: TimeInterval) {
+    super.update(deltaTime: deltaTime)
+    guard outcome == nil else { return }
+    let region = CollisionProfile.player.region(at: player.position)
+    if region.intersects(level.entryRegion) {
+      cancelAllInput()
+      let carry = PlayerCarryoverState(characterID: player.id, health: player.health, score: player.score, completedLevelIDs: completedLevelIDs)
+      onLevelTransition?(LevelTransitionRequest(sourceLevelID: .levelFive, destinationLevelID: .levelFour, destinationEntry: .top, carryover: carry, reason: .returnedBackward))
+    } else if region.intersects(level.exitRegion) {
+      if !completedLevelIDs.contains(.levelFive) { player.score += 100; completedLevelIDs.insert(.levelFive); emit(.levelCompleted(points: 100), at: player.position) }
       setOutcome(.won)
     }
   }
