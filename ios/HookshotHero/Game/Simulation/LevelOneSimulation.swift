@@ -1825,9 +1825,17 @@ enum LevelFourRenderAnimations {
 
 extension LevelAssetManifest {
   static let levelFour = LevelAssetManifest(
-    textureAssetIDs: Set(LevelOneTextureCatalog.entries.keys).filter { id in
-      !id.rawValue.hasPrefix("level-two.") && !id.rawValue.hasPrefix("level-three.")
-    },
+    textureAssetIDs: Set([
+      LevelFourRenderAssets.floor, LevelFourRenderAssets.wallFront,
+      LevelFourRenderAssets.wallLeft, LevelFourRenderAssets.wallRight,
+      LevelFourRenderAssets.doorOpen, LevelFourRenderAssets.doorClosed,
+      LevelFourRenderAssets.doorOpenSide, LevelFourRenderAssets.doorClosedRight,
+      EnemyArchetype.minotaur.asset,
+    ])
+      .union(sharedPlayerTextureAssetIDs)
+      .union((0..<4).flatMap { row in
+        (0..<3).map { RenderAssetID(rawValue: "enemy.minotaur.\(row)-\($0)") }
+      }),
     animationIDs: Set([
       LevelOneRenderAnimations.lidiaWalk(.up), LevelOneRenderAnimations.lidiaWalk(.down),
       LevelOneRenderAnimations.lidiaWalk(.left), LevelOneRenderAnimations.lidiaWalk(.right),
