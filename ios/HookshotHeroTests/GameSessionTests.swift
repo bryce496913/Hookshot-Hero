@@ -646,3 +646,23 @@ final class LevelFourLoadingTests: XCTestCase {
       simulation.renderSnapshot.entities.contains { $0.asset == EnemyArchetype.minotaur.asset })
   }
 }
+
+@MainActor final class LevelFiveLoadingTests: XCTestCase {
+  func testLevelFiveGeometryMatchesJavaDesign() throws {
+    let level = LevelFiveDefinition.make()
+    XCTAssertEqual(level.displayName, "Level 5")
+    XCTAssertEqual(level.grid, .init(rows: 60, columns: 60))
+    XCTAssertEqual(LevelFiveDefinition.wallAnchors.count, 52)
+    XCTAssertEqual(LevelFiveDefinition.lavaAnchors.count, 61)
+    XCTAssertEqual(level.chestAnchor, .init(row: 52, column: 8))
+    XCTAssertEqual(level.entryRegion, .init(rows: 8..<12, columns: 0..<4))
+  }
+
+  func testLevelFiveCanBeConstructedAndUsesItsManifest() throws {
+    let simulation = try LevelFiveSimulation(seed: 496_913)
+    XCTAssertEqual(simulation.levelID, .levelFive)
+    XCTAssertEqual(simulation.presentationDefinition.levelID, .levelFive)
+    XCTAssertTrue(LevelAssetManifest.levelFive.textureAssetIDs.contains(LevelFiveRenderAssets.lava))
+    XCTAssertEqual(simulation.renderSnapshot.entities.filter { $0.asset == LevelOneRenderAssets.coin }.count, 10)
+  }
+}

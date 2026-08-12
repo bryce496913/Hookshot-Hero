@@ -2,6 +2,7 @@ import SwiftUI
 
 struct MainMenuView: View {
     let play: () -> Void
+    let debugPlayLevel: (LevelID) -> Void
     let settings: () -> Void
     let help: () -> Void
 
@@ -34,6 +35,15 @@ struct MainMenuView: View {
                     .accessibilityIdentifier("settingsButton")
                 menuButton("Help", systemImage: "questionmark.circle", style: .secondary, action: help)
                     .accessibilityIdentifier("helpButton")
+                #if DEBUG
+                NavigationLink {
+                    DebugLevelSelectView(playLevel: debugPlayLevel)
+                } label: {
+                    Label("Debug Level Select", systemImage: "hammer")
+                }
+                .buttonStyle(AppSecondaryButtonStyle())
+                .accessibilityIdentifier("debugLevelSelectButton")
+                #endif
                 Spacer(minLength: 20)
             }
             .padding(.horizontal, 32)
@@ -56,3 +66,33 @@ struct MainMenuView: View {
         }
     }
 }
+
+#if DEBUG
+struct DebugLevelSelectView: View {
+    let playLevel: (LevelID) -> Void
+    private let levels: [(String, LevelID)] = [
+        ("Level 1", .levelOne), ("Level 2", .levelTwo), ("Level 3", .levelThree),
+        ("Level 4", .levelFour), ("Level 5", .levelFive),
+    ]
+
+    var body: some View {
+        ZStack {
+            AppTheme.Colors.background.ignoresSafeArea()
+            ScrollView {
+                VStack(spacing: 14) {
+                    Text("Debug Level Select").appTextStyle(.h1).accessibilityAddTraits(.isHeader)
+                    Text("Start directly in any implemented level.")
+                        .appTextStyle(.paragraph).foregroundStyle(AppTheme.Colors.text.opacity(0.7))
+                    ForEach(levels, id: \.1) { level in
+                        Button(level.0) { playLevel(level.1) }
+                            .buttonStyle(AppPrimaryButtonStyle())
+                            .accessibilityIdentifier("debug\(level.0.replacingOccurrences(of: " ", with: ""))Button")
+                    }
+                }.padding(24)
+            }
+        }
+        .navigationTitle("Levels")
+        .appNavigationStyle()
+    }
+}
+#endif

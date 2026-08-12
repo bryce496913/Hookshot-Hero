@@ -64,6 +64,7 @@ struct AppGameLoadingLogger: GameLoadingLogging {
   func startGame(levelID: LevelID) {
     startGame(levelID: levelID, isRetry: false, requestID: .init(rawValue: UUID()))
   }
+  func setGameConfiguration(_ configuration: GameConfiguration) { gameConfiguration = configuration }
   private func startGame(levelID: LevelID, isRetry: Bool, requestID: GameLoadingRequestID) {
     endActiveSession(expectedID: activeSession?.identifier)
     loadingRequestID = requestID
