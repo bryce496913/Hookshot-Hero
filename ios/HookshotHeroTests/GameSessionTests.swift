@@ -620,3 +620,29 @@ final class LevelTwoSpawnAndEnemyTests: XCTestCase {
     XCTAssertEqual(EnemyArchetype.flyingTerror.footprint.rowOffsets, -3..<5)
   }
 }
+
+@MainActor
+final class LevelFourLoadingTests: XCTestCase {
+  func testLevelFourManifestContainsOnlyItsRequiredCombatAndDoorAssets() {
+    let manifest = LevelAssetManifest.levelFour
+
+    XCTAssertTrue(manifest.textureAssetIDs.contains(LevelFourRenderAssets.doorOpenSide))
+    XCTAssertTrue(manifest.textureAssetIDs.contains(LevelFourRenderAssets.doorClosedRight))
+    XCTAssertTrue(manifest.textureAssetIDs.contains(EnemyArchetype.minotaur.asset))
+    XCTAssertTrue(
+      manifest.textureAssetIDs.contains(RenderAssetID(rawValue: "enemy.minotaur.3-2")))
+    XCTAssertFalse(manifest.textureAssetIDs.contains(LevelOneRenderAssets.chestClosed))
+    XCTAssertFalse(manifest.textureAssetIDs.contains(EnemyArchetype.skeleton.asset))
+    XCTAssertFalse(manifest.textureAssetIDs.contains(EnemyArchetype.flyingTerror.asset))
+  }
+
+  func testLevelFourSimulationCanBeConstructedAtBottomEntry() throws {
+    let simulation = try LevelFourSimulation(seed: 496_913)
+
+    XCTAssertEqual(simulation.levelID, .levelFour)
+    XCTAssertEqual(simulation.player.position, GridPosition(row: 50, column: 27))
+    XCTAssertEqual(simulation.presentationDefinition.levelID, .levelFour)
+    XCTAssertTrue(
+      simulation.renderSnapshot.entities.contains { $0.asset == EnemyArchetype.minotaur.asset })
+  }
+}
