@@ -2,7 +2,16 @@ import Combine
 import Foundation
 
 struct LevelID: RawRepresentable, Codable, Hashable, Sendable { let rawValue: String }
-extension LevelID { static let levelOne = Self(rawValue: "level-1"); static let levelTwo = Self(rawValue: "level-2"); static let levelThree = Self(rawValue: "level-3"); static let levelFour = Self(rawValue: "level-4"); static let levelFive = Self(rawValue: "level-5") }
+extension LevelID {
+  static let levelOne = Self(rawValue: "level-1")
+  static let levelTwo = Self(rawValue: "level-2")
+  static let levelThree = Self(rawValue: "level-3")
+  static let levelFour = Self(rawValue: "level-4")
+  static let levelFive = Self(rawValue: "level-5")
+}
+extension LevelID {
+  var displayName: String { rawValue.split(separator: "-").last.map { "Level \($0)" } ?? rawValue }
+}
 struct MissionID: RawRepresentable, Codable, Hashable, Sendable { let rawValue: String }
 struct UnlockID: RawRepresentable, Codable, Hashable, Sendable { let rawValue: String }
 struct GameConfiguration: Equatable, Sendable {
@@ -13,7 +22,9 @@ enum GameOutcome: Equatable, Sendable { case won, lost }
 enum GameSessionState: Equatable, Sendable {
   case loading, initialized, running
   case dialogue(String)
-  case paused, transitioning(LevelID), won, lost, disposed
+  case paused
+  case transitioning(LevelID)
+  case won, lost, disposed
 }
 enum PauseReason: Equatable, Sendable { case user, applicationLifecycle }
 
@@ -39,7 +50,8 @@ enum PauseReason: Equatable, Sendable { case user, applicationLifecycle }
   init(
     identifier: UUID = UUID(), missionID: MissionID? = nil,
     configuration: GameConfiguration = .init(reducedMotion: false, controlHintsEnabled: true),
-    simulation: any GameSimulation, runtime suppliedRuntime: GameLevelRuntime? = nil, publishesDiagnosticPosition: Bool = false
+    simulation: any GameSimulation, runtime suppliedRuntime: GameLevelRuntime? = nil,
+    publishesDiagnosticPosition: Bool = false
   ) {
     self.identifier = identifier
     self.missionID = missionID
@@ -48,7 +60,11 @@ enum PauseReason: Equatable, Sendable { case user, applicationLifecycle }
       self.runtime = suppliedRuntime
     } else {
       let textureCatalog = TextureCatalog(entries: LevelOneTextureCatalog.entries)
-      self.runtime = .init(simulation: simulation, presentation: simulation.presentationDefinition, textureCatalog: textureCatalog, animationCatalog: LevelOneAnimationCatalog(textureCatalog: textureCatalog), assetManifest: .levelOne)
+      self.runtime = .init(
+        simulation: simulation, presentation: simulation.presentationDefinition,
+        textureCatalog: textureCatalog,
+        animationCatalog: LevelOneAnimationCatalog(textureCatalog: textureCatalog),
+        assetManifest: .levelOne)
     }
     self.publishesDiagnosticPosition = publishesDiagnosticPosition
     self.uiSnapshot = simulation.uiSnapshot
@@ -60,7 +76,10 @@ enum PauseReason: Equatable, Sendable { case user, applicationLifecycle }
     configuration: GameConfiguration = .init(reducedMotion: false, controlHintsEnabled: true),
     runtime: GameLevelRuntime, publishesDiagnosticPosition: Bool = false
   ) {
-    self.init(identifier: identifier, missionID: missionID, configuration: configuration, simulation: runtime.simulation, runtime: runtime, publishesDiagnosticPosition: publishesDiagnosticPosition)
+    self.init(
+      identifier: identifier, missionID: missionID, configuration: configuration,
+      simulation: runtime.simulation, runtime: runtime,
+      publishesDiagnosticPosition: publishesDiagnosticPosition)
   }
 
   var score: Int { simulation.finalStatus.score }
@@ -196,7 +215,9 @@ enum PauseReason: Equatable, Sendable { case user, applicationLifecycle }
   }
 
   func runtimeSceneDidAttach(generation: Int, levelID: LevelID) {
-    guard case .transitioning(let targetLevelID) = state, generation == runtimeGeneration, levelID == targetLevelID, levelID == runtime.presentation.levelID else { return }
+    guard case .transitioning(let targetLevelID) = state, generation == runtimeGeneration,
+      levelID == targetLevelID, levelID == runtime.presentation.levelID
+    else { return }
     pauseReason = nil
     runtime.simulation.setPaused(false)
     state = .running
