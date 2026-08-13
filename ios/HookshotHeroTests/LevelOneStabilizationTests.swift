@@ -270,7 +270,7 @@ final class LevelOneStabilizationTests: XCTestCase {
       characterID: EntityID(), health: 4, score: 250, completedLevelIDs: [.levelOne, .levelTwo])
     let simulation = try LevelThreeSimulation(seed: 496_913, carryover: carryover)
     XCTAssertEqual(simulation.levelID, .levelThree)
-    XCTAssertEqual(simulation.player.position, .init(row: 50, column: 27))
+    XCTAssertEqual(simulation.player.position, .init(row: 50, column: 29))
     XCTAssertEqual(simulation.player.health, 4)
     XCTAssertEqual(simulation.player.score, 250)
     XCTAssertEqual(simulation.entities.count, 15)

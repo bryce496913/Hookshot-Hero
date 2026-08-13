@@ -78,7 +78,7 @@ Gameplay now has three distinct channels:
 
 Level One builds floor, lava, walls, and doors as static descriptors. Its player, chest (open or closed), coins, cabbages, mines, grapple, and future effects cross the shared boundary as stable-ID generic descriptors with extensible `RenderAssetID` and animation identifiers. `TextureCatalog` caches full textures and sheet slices, preserves nearest-neighbor filtering, and reports typed missing/invalid resources. `GameScene` caches grid/layout data, never reads static geometry from a dynamic snapshot, and passes the frame's single captured snapshot through synchronization helpers. Direction buttons use SwiftUI's semantic `.disabled` state as well as cancelling physical hold state, so VoiceOver and Switch Control receive the same availability as gameplay.
 
-Level 3 now uses footprint-safe door entry anchors, construction-time initial-footprint validation, level-specific asset manifests, animated smoke texture descriptors, and a temporary Results boundary instead of advancing to Level 4. Forward transitions persist the completed source level, while reverse transitions do not create completion records.
+Levels 3 through 5 use footprint-safe named entry anchors, construction-time initial-footprint validation, complete level-scoped asset manifests, and forward and reverse runtime transitions. Levels 2, 3, and 5 share enemy patrol, seek, contact-damage, grapple-combat, health-rendering, and defeat behavior. Forward transitions persist the completed source level, while reverse transitions do not create completion records.
 
 ## Runtime loading and renderer correction pass
 
@@ -134,7 +134,7 @@ Local validation remains intentionally Xcode-based. Run the full Xcode 26 sequen
 
 ## Level 2 Runtime Conversion
 
-Level 2 is now implemented in the shared runtime path. A normal production playthrough still starts at Level 1, and the Level 1 top exit emits a transition request rather than a terminal results outcome. The router validates the Level 2 runtime, then installs it into the same `GameSession` so health, score, session ID, and elapsed playthrough time transfer. Level 2 can return to Level 1 through the bottom entrance; the returned Level 1 runtime uses the top entry start. Level 2's top exit is the current playable-content boundary: it awards the Level 2 completion bonus and presents results while preserving Level 3 as the intended next destination identifier. Level 3 gameplay remains unimplemented.
+Levels 1 through 5 are implemented in the shared runtime path. A normal production playthrough starts at Level 1, and each connected exit emits a transition request that installs the destination in the same `GameSession`, preserving health, score, character identity, completion state, and elapsed playthrough time. Reverse doors use named destination entrances, including Level 5's return to Level 4's right-side door. Level 4 restores its defeated boss and open exits from carryover completion state. Level 5 is the current playable-content boundary while later Java levels are converted.
 
 Conversion flow:
 

@@ -110,7 +110,9 @@ final class GameSessionTests: XCTestCase {
     XCTAssertTrue(session.initializeWorld())
     XCTAssertTrue(session.start())
 
-    let scene = GameScene(size: CGSize(width: 100, height: 100), session: session, runtime: session.runtime, generation: session.runtimeGeneration)
+    let scene = GameScene(
+      size: CGSize(width: 100, height: 100), session: session, runtime: session.runtime,
+      generation: session.runtimeGeneration)
     let view = SKView()
     scene.didMove(to: view)
     XCTAssertEqual(session.state, .running)
@@ -232,7 +234,9 @@ final class GameSessionTests: XCTestCase {
     let session = GameSession(simulation: simulation)
     _ = session.initializeWorld()
     _ = session.start()
-    let scene = GameScene(size: .init(width: 100, height: 100), session: session, runtime: session.runtime, generation: session.runtimeGeneration)
+    let scene = GameScene(
+      size: .init(width: 100, height: 100), session: session, runtime: session.runtime,
+      generation: session.runtimeGeneration)
     XCTAssertEqual(simulation.presentationRequests, 1)
     scene.update(1)
     XCTAssertEqual(simulation.renderRequests, 1)
@@ -246,12 +250,13 @@ final class GameSessionTests: XCTestCase {
     XCTAssertEqual(simulation.renderRequests, 2)
   }
 
-
   func testLevelTransitionWaitsForReplacementSceneBeforeRunningLevelTwo() throws {
     let session = GameSession(levelID: .levelOne, seed: 42)
     XCTAssertTrue(session.initializeWorld())
     XCTAssertTrue(session.start())
-    let oldScene = GameScene(size: .init(width: 100, height: 100), session: session, runtime: session.runtime, generation: session.runtimeGeneration)
+    let oldScene = GameScene(
+      size: .init(width: 100, height: 100), session: session, runtime: session.runtime,
+      generation: session.runtimeGeneration)
     let view = SKView()
     oldScene.didMove(to: view)
     XCTAssertEqual(oldScene.levelID, .levelOne)
@@ -299,8 +304,14 @@ final class GameSessionTests: XCTestCase {
     XCTAssertTrue(replacementScene.staticAssetIDs.contains(LevelTwoRenderAssets.entryDoor))
     XCTAssertTrue(replacementScene.staticAssetIDs.contains(LevelTwoRenderAssets.smoke))
     XCTAssertFalse(replacementScene.staticAssetIDs.contains(LevelOneRenderAssets.exitDoor))
-    XCTAssertTrue(session.simulation.renderSnapshot.entities.contains { $0.asset == EnemyArchetype.skeleton.asset })
-    XCTAssertTrue(session.simulation.renderSnapshot.entities.contains { $0.asset == EnemyArchetype.flyingTerror.asset })
+    XCTAssertTrue(
+      session.simulation.renderSnapshot.entities.contains {
+        $0.asset == EnemyArchetype.skeleton.asset
+      })
+    XCTAssertTrue(
+      session.simulation.renderSnapshot.entities.contains {
+        $0.asset == EnemyArchetype.flyingTerror.asset
+      })
   }
 
   private func running() -> GameSession {
@@ -339,11 +350,11 @@ final class GameSessionTests: XCTestCase {
   var renderSnapshot: GameRenderSnapshot {
     renderRequests += 1
     return .init(
-        player: .init(
-          id: EntityID(), asset: LevelOneRenderAssets.lidia, coordinate: .init(row: 50, column: 27),
-          renderSize: .init(width: 5.4, height: 4.4), anchor: .center, zPosition: 8,
-          orientation: .right, animation: nil, opacity: 1, isHidden: false), entities: [],
-        grapple: nil, effects: [])
+      player: .init(
+        id: EntityID(), asset: LevelOneRenderAssets.lidia, coordinate: .init(row: 50, column: 27),
+        renderSize: .init(width: 5.4, height: 4.4), anchor: .center, zPosition: 8,
+        orientation: .right, animation: nil, opacity: 1, isHidden: false), entities: [],
+      grapple: nil, effects: [])
   }
   func update(deltaTime: TimeInterval) {}
   func continueDialogue() { dialogueContinuations += 1 }
@@ -559,7 +570,11 @@ final class LevelTwoDefinitionTests: XCTestCase {
     XCTAssertEqual(level.entryAnchor, GridPosition(row: 56, column: 27))
     XCTAssertEqual(level.boundary.topExitRegion.columns, 27..<33)
     XCTAssertEqual(level.boundary.bottomDoorRegion.columns, 27..<33)
-    XCTAssertEqual(LevelTwoDefinition.internalWallAnchors, [4,8,12,16,20,24,28,32,36,40].map{GridPosition(row:16,column:$0)} + [8,12].map{GridPosition(row:24,column:$0)} + [20,24].flatMap{r in [36,40].map{GridPosition(row:r,column:$0)}})
+    XCTAssertEqual(
+      LevelTwoDefinition.internalWallAnchors,
+      [4, 8, 12, 16, 20, 24, 28, 32, 36, 40].map { GridPosition(row: 16, column: $0) }
+        + [8, 12].map { GridPosition(row: 24, column: $0) }
+        + [20, 24].flatMap { r in [36, 40].map { GridPosition(row: r, column: $0) } })
     XCTAssertEqual(LevelTwoDefinition.lavaAnchors.count, 63)
     XCTAssertTrue((0..<level.grid.rows).contains(level.exitAnchor.row))
     XCTAssertFalse(level.isBlocked(CollisionProfile.player.region(at: level.start)))
@@ -570,29 +585,52 @@ final class LevelTwoDefinitionTests: XCTestCase {
     let presentation = LevelTwoPresentationDefinition.make(from: level)
     let walls = try XCTUnwrap(presentation.tileLayers.first { $0.id.rawValue == "walls" })
 
-    XCTAssertTrue(walls.tiles.contains { $0.coordinate == GridPosition(row: 0, column: 0) && $0.sizeInCells == LogicalRenderSize(width: 60, height: 4) })
-    XCTAssertTrue(walls.tiles.contains { $0.coordinate == GridPosition(row: 56, column: 0) && $0.sizeInCells == LogicalRenderSize(width: 60, height: 4) })
+    XCTAssertTrue(
+      walls.tiles.contains {
+        $0.coordinate == GridPosition(row: 0, column: 0)
+          && $0.sizeInCells == LogicalRenderSize(width: 60, height: 4)
+      })
+    XCTAssertTrue(
+      walls.tiles.contains {
+        $0.coordinate == GridPosition(row: 56, column: 0)
+          && $0.sizeInCells == LogicalRenderSize(width: 60, height: 4)
+      })
 
-    let exitDoor = try XCTUnwrap(presentation.staticObjects.first { $0.asset == LevelTwoRenderAssets.exitDoor })
-    let entryDoor = try XCTUnwrap(presentation.staticObjects.first { $0.asset == LevelTwoRenderAssets.entryDoor })
+    let exitDoor = try XCTUnwrap(
+      presentation.staticObjects.first { $0.asset == LevelTwoRenderAssets.exitDoor })
+    let entryDoor = try XCTUnwrap(
+      presentation.staticObjects.first { $0.asset == LevelTwoRenderAssets.entryDoor })
     XCTAssertEqual(exitDoor.coordinate, GridPosition(row: 0, column: 28))
     XCTAssertEqual(exitDoor.renderSize, LogicalRenderSize(width: 4, height: 4))
     XCTAssertEqual(entryDoor.coordinate, GridPosition(row: 56, column: 28))
     XCTAssertEqual(entryDoor.renderSize, LogicalRenderSize(width: 4, height: 4))
 
     let smokeObjects = presentation.staticObjects.filter { $0.asset == LevelTwoRenderAssets.smoke }
-    XCTAssertEqual(smokeObjects.map(\.coordinate), [GridPosition(row: 39, column: 5), GridPosition(row: 55, column: 50)])
+    XCTAssertEqual(
+      smokeObjects.map(\.coordinate),
+      [GridPosition(row: 39, column: 5), GridPosition(row: 55, column: 50)])
     XCTAssertTrue(smokeObjects.allSatisfy { $0.anchor == .bottomLeft })
   }
 
   func testLevelTwoManifestDoesNotPreflightUnrelatedFutureLevelAssets() {
-    XCTAssertFalse(LevelAssetManifest.levelTwo.textureAssetIDs.contains(RenderAssetID(rawValue: "level-four.door.open.side")))
-    XCTAssertFalse(LevelAssetManifest.levelTwo.textureAssetIDs.contains(RenderAssetID(rawValue: "enemy.minotaur")))
-    XCTAssertTrue(LevelAssetManifest.levelTwo.textureAssetIDs.contains(LevelTwoRenderAssets.entryDoor))
-    XCTAssertTrue(LevelAssetManifest.levelTwo.textureAssetIDs.contains(EnemyArchetype.skeleton.asset))
-    XCTAssertTrue(LevelAssetManifest.levelTwo.textureAssetIDs.contains(EnemyArchetype.flyingTerror.asset))
-    XCTAssertTrue(LevelAssetManifest.levelTwo.animationIDs.contains(LevelTwoRenderAnimations.enemy(.skeleton, .right)))
-    XCTAssertTrue(LevelAssetManifest.levelTwo.animationIDs.contains(LevelTwoRenderAnimations.enemy(.flyingTerror, .right)))
+    XCTAssertFalse(
+      LevelAssetManifest.levelTwo.textureAssetIDs.contains(
+        RenderAssetID(rawValue: "level-four.door.open.side")))
+    XCTAssertFalse(
+      LevelAssetManifest.levelTwo.textureAssetIDs.contains(
+        RenderAssetID(rawValue: "enemy.minotaur")))
+    XCTAssertTrue(
+      LevelAssetManifest.levelTwo.textureAssetIDs.contains(LevelTwoRenderAssets.entryDoor))
+    XCTAssertTrue(
+      LevelAssetManifest.levelTwo.textureAssetIDs.contains(EnemyArchetype.skeleton.asset))
+    XCTAssertTrue(
+      LevelAssetManifest.levelTwo.textureAssetIDs.contains(EnemyArchetype.flyingTerror.asset))
+    XCTAssertTrue(
+      LevelAssetManifest.levelTwo.animationIDs.contains(
+        LevelTwoRenderAnimations.enemy(.skeleton, .right)))
+    XCTAssertTrue(
+      LevelAssetManifest.levelTwo.animationIDs.contains(
+        LevelTwoRenderAnimations.enemy(.flyingTerror, .right)))
   }
 
 }
@@ -645,6 +683,20 @@ final class LevelFourLoadingTests: XCTestCase {
     XCTAssertTrue(
       simulation.renderSnapshot.entities.contains { $0.asset == EnemyArchetype.minotaur.asset })
   }
+
+  func testReturningFromLevelFiveUsesRightEntryAndRestoresDefeatedBoss() throws {
+    let carryover = PlayerCarryoverState(
+      characterID: EntityID(), health: 4, score: 500,
+      completedLevelIDs: [.levelOne, .levelTwo, .levelThree, .levelFour])
+    let simulation = try LevelFourSimulation(entryPosition: .right, carryover: carryover)
+
+    XCTAssertEqual(simulation.player.position, .init(row: 29, column: 52))
+    XCTAssertFalse(
+      simulation.renderSnapshot.entities.contains { $0.asset == EnemyArchetype.minotaur.asset })
+    XCTAssertTrue(
+      simulation.renderSnapshot.entities.contains { $0.asset == LevelFourRenderAssets.doorOpenSide }
+    )
+  }
 }
 
 @MainActor final class LevelFiveLoadingTests: XCTestCase {
@@ -663,6 +715,45 @@ final class LevelFourLoadingTests: XCTestCase {
     XCTAssertEqual(simulation.levelID, .levelFive)
     XCTAssertEqual(simulation.presentationDefinition.levelID, .levelFive)
     XCTAssertTrue(LevelAssetManifest.levelFive.textureAssetIDs.contains(LevelFiveRenderAssets.lava))
-    XCTAssertEqual(simulation.renderSnapshot.entities.filter { $0.asset == LevelOneRenderAssets.coin }.count, 10)
+    XCTAssertEqual(
+      simulation.renderSnapshot.entities.filter { $0.asset == LevelOneRenderAssets.coin }.count, 10)
+    XCTAssertTrue(
+      simulation.renderSnapshot.entities.contains { $0.asset == EnemyArchetype.skeleton.asset })
+    XCTAssertTrue(
+      simulation.renderSnapshot.entities.contains { $0.asset == EnemyArchetype.flyingTerror.asset })
+    XCTAssertEqual(
+      simulation.presentationDefinition.staticObjects.filter {
+        $0.asset == LevelFiveRenderAssets.chest
+      }.count, 0)
+  }
+
+  func testLevelFiveChestAndRightDoorReturn() throws {
+    let simulation = try LevelFiveSimulation(seed: 496_913)
+    simulation.player.position = simulation.level.chestAnchor
+    simulation.update(deltaTime: 0.01)
+    XCTAssertTrue(simulation.chestOpen)
+    XCTAssertEqual(simulation.player.score, 100)
+    XCTAssertTrue(
+      simulation.renderSnapshot.entities.contains { $0.asset == LevelOneRenderAssets.chestOpen })
+
+    var transition: LevelTransitionRequest?
+    simulation.onLevelTransition = { transition = $0 }
+    simulation.player.position = .init(row: 9, column: 3)
+    simulation.update(deltaTime: 0.01)
+    XCTAssertEqual(transition?.destinationLevelID, .levelFour)
+    XCTAssertEqual(transition?.destinationEntry, .right)
+  }
+
+  func testLevelFiveTopEntryAndEnemySimulationAreActive() throws {
+    let simulation = try LevelFiveSimulation(seed: 496_913, entryPosition: .top)
+    XCTAssertEqual(simulation.player.position, .init(row: 5, column: 29))
+    let before = simulation.enemies.map(\.position)
+    simulation.update(deltaTime: 0.7)
+    XCTAssertNotEqual(simulation.enemies.map(\.position), before)
+
+    simulation.player.position = simulation.enemies[0].position
+    let health = simulation.player.health
+    simulation.update(deltaTime: 0.01)
+    XCTAssertEqual(simulation.player.health, health - 1)
   }
 }
