@@ -792,7 +792,7 @@ final class LevelFourLoadingTests: XCTestCase {
     XCTAssertEqual(LevelSixDefinition.wallAnchors.count, 54)
     XCTAssertEqual(LevelSixDefinition.lavaAnchors.count, 49)
     XCTAssertEqual(LevelSixDefinition.bottomStart, .init(row: 50, column: 27))
-    XCTAssertEqual(LevelSixDefinition.topStart, .init(row: 5, column: 23))
+    XCTAssertEqual(LevelSixDefinition.topStart, .init(row: 5, column: 53))
     XCTAssertEqual(level.entryAnchor, .init(row: 56, column: 27))
     XCTAssertEqual(level.exitAnchor, .init(row: 0, column: 51))
     XCTAssertEqual(level.entryRegion, .init(rows: 56..<60, columns: 27..<33))
@@ -838,6 +838,71 @@ final class LevelFourLoadingTests: XCTestCase {
     XCTAssertEqual(first.enemies.map(\.health), [3, 5])
     XCTAssertTrue(first.renderSnapshot.entities.contains { $0.asset == EnemyArchetype.skeleton.asset && $0.health != nil })
     XCTAssertTrue(first.renderSnapshot.entities.contains { $0.asset == EnemyArchetype.flyingTerror.asset && $0.health != nil })
+  }
+
+  func testSpawnsAvoidPlayerAndChestRenderFootprintsFromBothEntries() throws {
+    for entry in [LevelEntryPosition.bottom, .top] {
+      for seed in [UInt64(1), 42, 496_913, UInt64.max] {
+        let simulation = try LevelSixSimulation(seed: seed, entryPosition: entry)
+        let protectedRegions =
+          [CollisionProfile.player.region(at: simulation.player.position)]
+          + simulation.chestStates.map(\.definition.spawnExclusionRegion)
+
+        for entity in simulation.entities {
+          let footprint = CollisionProfile.footprint(for: entity.kind).region(at: entity.position)
+          XCTAssertFalse(
+            protectedRegions.contains { $0.intersects(footprint) },
+            "Seed \(seed), entry \(entry), and \(entity.kind) must not overlap protected art")
+        }
+      }
+    }
+  }
+
+  func testOpenedChestsRemainOpenedAfterLeavingAndReentering() throws {
+    let firstVisit = try LevelSixSimulation(seed: 496_913)
+    firstVisit.player.position = .init(row: 4, column: 24)
+    firstVisit.activateChestAndExit()
+    firstVisit.player.position = .init(row: 44, column: 8)
+    firstVisit.activateChestAndExit()
+    XCTAssertEqual(firstVisit.player.score, 200)
+
+    var transition: LevelTransitionRequest?
+    firstVisit.onLevelTransition = { transition = $0 }
+    firstVisit.player.position = .init(row: 55, column: 29)
+    firstVisit.update(deltaTime: 0.01)
+    let carryover = try XCTUnwrap(transition?.carryover)
+
+    let returning = try LevelSixSimulation(
+      seed: 42, entryPosition: .bottom, carryover: carryover)
+    XCTAssertEqual(returning.chestStates.map(\.isOpened), [true, true])
+    returning.player.position = .init(row: 4, column: 24)
+    returning.activateChestAndExit()
+    returning.player.position = .init(row: 44, column: 8)
+    returning.activateChestAndExit()
+    XCTAssertEqual(returning.player.score, 200)
+  }
+
+  func testLevelFiveChestRenderFootprintAndOpenedStateArePreserved() throws {
+    let firstVisit = try LevelFiveSimulation(seed: 496_913)
+    let chestRegion = try XCTUnwrap(firstVisit.chestStates.first).definition.spawnExclusionRegion
+    XCTAssertEqual(chestRegion, .init(rows: 52..<56, columns: 8..<12))
+    XCTAssertTrue(firstVisit.entities.allSatisfy {
+      !CollisionProfile.footprint(for: $0.kind).region(at: $0.position).intersects(chestRegion)
+    })
+
+    firstVisit.player.position = .init(row: 52, column: 4)
+    firstVisit.activateChestAndExit()
+    var transition: LevelTransitionRequest?
+    firstVisit.onLevelTransition = { transition = $0 }
+    firstVisit.player.position = .init(row: 9, column: 4)
+    firstVisit.update(deltaTime: 0.01)
+
+    let carryover = try XCTUnwrap(transition?.carryover)
+    let returning = try LevelFiveSimulation(seed: 42, carryover: carryover)
+    XCTAssertEqual(returning.chestStates.map(\.isOpened), [true])
+    returning.player.position = .init(row: 52, column: 4)
+    returning.activateChestAndExit()
+    XCTAssertEqual(returning.player.score, 100)
   }
 
   func testBackwardAndForwardDestinationsStayOnJavaBranch() throws {
