@@ -1,6 +1,6 @@
-# Hookshot Hero for iOS — playable Level 1
+# Hookshot Hero for iOS — playable Levels 1–5
 
-The native SwiftUI/SpriteKit conversion now provides a complete, playable **Level 1 vertical slice** while the Java game remains the behavioral reference. Level 2 is explicitly deferred.
+The native SwiftUI/SpriteKit conversion now provides playable **Levels 1 through 5** while the Java game remains the behavioral reference. Level 5 is the current conversion boundary.
 
 ## Current gameplay
 
@@ -43,8 +43,6 @@ The repository intentionally has no CI workflow. The commands above are the requ
 * Java-parity fire and smoke emitters (the stabilization includes only basic programmatic explosion feedback).
 * Optional bouncing balls.
 * Mission-mode guide.
-* Transition into Level 2.
-* Approved final app icon (the empty catalog slot remains a distribution blocker).
 
 Levels 2 through 5 are registered native gameplay levels. Level 5 reproduces the Java maze, lava, side entry, top exit, chest, smoke emitters, and deterministic consumable placement. In DEBUG builds, the main menu also exposes a direct level-select screen for development and testing.
 
@@ -130,7 +128,7 @@ simulation update
 
 Session observation now starts only after runtime construction, preflight, session initialization, and session start succeed. Failure handling cancels any observation even when no active session exists, clears ownership, and prevents stale callbacks from failed sessions from mutating navigation.
 
-Local validation remains intentionally Xcode-based. Run the full Xcode 26 sequence locally: `xcodebuild -version`, `-showdestinations`, Debug build, build-for-testing, test-without-building for both `HookshotHeroTests` and `HookshotHeroUITests`, analyze, Release simulator build, unsigned device archive, `plutil -lint` for both property lists, `git diff --check`, `git status --short`, and manual review of `git grep -n "for .* in .*\\.keys"`, `git grep -n "try!"`, and `git grep -n "try?"`. The repository intentionally contains no CI workflows. The final app icon remains a manual distribution blocker; do not add generated artwork as part of runtime validation.
+Local validation remains intentionally Xcode-based. Run the full Xcode 26 sequence locally: `xcodebuild -version`, `-showdestinations`, Debug build, build-for-testing, test-without-building for both `HookshotHeroTests` and `HookshotHeroUITests`, analyze, Release simulator build, unsigned device archive, `plutil -lint` for both property lists, `git diff --check`, `git status --short`, and manual review of `git grep -n "for .* in .*\\.keys"`, `git grep -n "try!"`, and `git grep -n "try?"`. The repository intentionally contains no CI workflows. The populated app icon catalog is included in runtime and archive validation.
 
 ## Level 2 Runtime Conversion
 
@@ -163,7 +161,7 @@ Intentional Java corrections:
 - Contact damage uses the shared cooldown instead of frame repetition.
 - Completion rewards cannot be farmed repeatedly during one session.
 
-Local validation in this container is limited because `xcodebuild` and `xcrun` are not installed. The repository intentionally contains no CI workflows. App icon approval remains a manual distribution blocker for archive/distribution.
+Local validation in this container is limited because `xcodebuild` and `xcrun` are not installed. The repository intentionally contains no CI workflows.
 
 ## iOS visual theme
 
