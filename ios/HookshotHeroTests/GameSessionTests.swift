@@ -644,6 +644,10 @@ final class LevelTwoSpawnAndEnemyTests: XCTestCase {
     XCTAssertEqual(first.entities.filter { $0.kind == .cabbage }.count, 2)
     XCTAssertEqual(first.entities.filter { $0.kind == .coin }.count, 10)
     XCTAssertEqual(first.entities.map(\.position), second.entities.map(\.position))
+    XCTAssertEqual(
+      Set(first.renderSnapshot.entities.map(\.asset))
+        .intersection([EnemyArchetype.skeleton.asset, EnemyArchetype.flyingTerror.asset]),
+      Set([EnemyArchetype.skeleton.asset, EnemyArchetype.flyingTerror.asset]))
   }
 
   func testLevelTwoEnemyConstants() throws {
@@ -656,6 +660,21 @@ final class LevelTwoSpawnAndEnemyTests: XCTestCase {
     XCTAssertEqual(EnemyArchetype.flyingTerror.patrolInterval, 0.3)
     XCTAssertEqual(EnemyArchetype.flyingTerror.seekInterval, 0.3)
     XCTAssertEqual(EnemyArchetype.flyingTerror.footprint.rowOffsets, -3..<5)
+  }
+}
+
+@MainActor
+final class LevelThreeLoadingTests: XCTestCase {
+  func testLevelThreeManifestAndSceneContainDynamicAssets() throws {
+    let simulation = try LevelThreeSimulation(seed: 496_913)
+    let renderedAssets = Set(simulation.renderSnapshot.entities.map(\.asset))
+
+    XCTAssertTrue(
+      LevelAssetManifest.levelThree.textureAssetIDs.contains(LevelOneRenderAssets.chestClosed))
+    XCTAssertTrue(
+      LevelAssetManifest.levelThree.textureAssetIDs.contains(LevelOneRenderAssets.chestOpen))
+    XCTAssertTrue(renderedAssets.contains(EnemyArchetype.skeleton.asset))
+    XCTAssertTrue(renderedAssets.contains(EnemyArchetype.flyingTerror.asset))
   }
 }
 
@@ -747,13 +766,20 @@ final class LevelFourLoadingTests: XCTestCase {
   func testLevelFiveTopEntryAndEnemySimulationAreActive() throws {
     let simulation = try LevelFiveSimulation(seed: 496_913, entryPosition: .top)
     XCTAssertEqual(simulation.player.position, .init(row: 5, column: 29))
+    for enemy in simulation.enemies {
+      let enemyRegion = enemy.archetype.footprint.region(at: enemy.position)
+      for entry in [GridPosition(row: 5, column: 29), .init(row: 8, column: 7)] {
+        XCTAssertFalse(enemyRegion.intersects(CollisionProfile.player.region(at: entry)))
+      }
+    }
     let before = simulation.enemies.map(\.position)
-    simulation.update(deltaTime: 0.7)
+    for _ in 0..<7 { simulation.update(deltaTime: 0.1) }
     XCTAssertNotEqual(simulation.enemies.map(\.position), before)
 
-    simulation.player.position = simulation.enemies[0].position
-    let health = simulation.player.health
-    simulation.update(deltaTime: 0.01)
-    XCTAssertEqual(simulation.player.health, health - 1)
+    let contactSimulation = try LevelFiveSimulation(seed: 496_913, entryPosition: .top)
+    contactSimulation.player.position = contactSimulation.enemies[0].position
+    let health = contactSimulation.player.health
+    contactSimulation.update(deltaTime: 0.01)
+    XCTAssertEqual(contactSimulation.player.health, health - 1)
   }
 }

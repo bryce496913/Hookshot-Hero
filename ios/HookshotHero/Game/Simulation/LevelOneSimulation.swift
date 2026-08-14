@@ -749,7 +749,8 @@ extension LevelAssetManifest {
       LevelThreeRenderAssets.wallLeft, LevelThreeRenderAssets.wallRight,
       LevelThreeRenderAssets.exitDoor,
       LevelThreeRenderAssets.entryDoor, LevelThreeRenderAssets.smoke, LevelOneRenderAssets.mine,
-      LevelOneRenderAssets.cabbage,
+      LevelOneRenderAssets.cabbage, LevelOneRenderAssets.chestClosed,
+      LevelOneRenderAssets.chestOpen,
     ])
     .union(sharedPlayerTextureAssetIDs)
     .union(sharedCoinTextureAssetIDs)
@@ -954,8 +955,10 @@ struct DefaultGameSimulationFactory: GameSimulationFactory {
     let grapple =
       player.hookshot.phase != .idle && player.hookshot.head != nil
       ? GrappleRenderSnapshot(origin: player.position, head: player.hookshot.head!) : nil
+    let chestSnapshots = chestEnabled ? [chest] : []
     return .init(
-      player: playerRender, entities: world + [chest], grapple: grapple, effects: effectEvents)
+      player: playerRender, entities: world + chestSnapshots + enemyRenderSnapshots,
+      grapple: grapple, effects: effectEvents)
   }
   func update(deltaTime raw: TimeInterval) {
     guard outcome == nil else { return }
@@ -1150,6 +1153,18 @@ struct DefaultGameSimulationFactory: GameSimulationFactory {
             ? 0 : Int(enemy.animationTime / 0.08) % (enemy.archetype == .skeleton ? 9 : 10)),
         opacity: 1, isHidden: false,
         health: .init(current: enemy.health, maximum: enemy.maximumHealth))
+    }
+  }
+  func validateEnemyFootprints(entryPositions: [GridPosition]) throws {
+    let entryRegions = entryPositions.map { CollisionProfile.player.region(at: $0) }
+    for enemy in enemies {
+      let region = enemy.archetype.footprint.region(at: enemy.position)
+      guard region.cells.allSatisfy(level.isInside),
+        enemy.archetype == .flyingTerror || !level.isBlocked(region),
+        !entryRegions.contains(where: region.intersects)
+      else {
+        throw GameLoadingError.invalidInitialState(levelID)
+      }
     }
   }
   func updateEnemySystem(_ rawDeltaTime: TimeInterval) {
@@ -1500,12 +1515,12 @@ enum LevelTwoPresentationDefinition {
           coordinate: .init(row: 56, column: 28), renderSize: .init(width: 4, height: 4),
           anchor: .bottomLeft, zPosition: 3),
         .init(
-          id: EntityID(), asset: LevelTwoRenderAssets.smoke, LevelOneRenderAssets.mine,
-          LevelOneRenderAssets.cabbage, coordinate: .init(row: 39, column: 5),
+          id: EntityID(), asset: LevelTwoRenderAssets.smoke,
+          coordinate: .init(row: 39, column: 5),
           renderSize: .init(width: 4, height: 4), anchor: .bottomLeft, zPosition: 4),
         .init(
-          id: EntityID(), asset: LevelTwoRenderAssets.smoke, LevelOneRenderAssets.mine,
-          LevelOneRenderAssets.cabbage, coordinate: .init(row: 55, column: 50),
+          id: EntityID(), asset: LevelTwoRenderAssets.smoke,
+          coordinate: .init(row: 55, column: 50),
           renderSize: .init(width: 4, height: 4), anchor: .bottomLeft, zPosition: 4),
       ])
   }
@@ -1536,6 +1551,9 @@ enum LevelTwoPresentationDefinition {
         facing: .right, health: 5, maximumHealth: 5, behaviorState: .patrol, decisionAccumulator: 0,
         animationTime: 0),
     ]
+    try validateEnemyFootprints(entryPositions: [
+      .init(row: 5, column: 27), .init(row: 50, column: 27),
+    ])
     try validateInitialPlayerFootprint()
     var rng = streams.itemSpawn
     entities = try SpawnService.spawn(
@@ -1702,18 +1720,16 @@ enum LevelThreePresentationDefinition {
           coordinate: .init(row: 56, column: 28), renderSize: .init(width: 4, height: 4),
           anchor: .bottomLeft, zPosition: 3),
         .init(
-          id: EntityID(), asset: LevelThreeRenderAssets.smoke, LevelOneRenderAssets.mine,
-          LevelOneRenderAssets.cabbage, coordinate: .init(row: 9, column: 5),
+          id: EntityID(), asset: LevelThreeRenderAssets.smoke,
+          coordinate: .init(row: 9, column: 5),
           renderSize: .init(width: 4, height: 4), anchor: .bottomLeft, zPosition: 4,
           animationID: LevelThreeRenderAnimations.smokeLoop),
         .init(
-          id: EntityID(), asset: LevelThreeRenderAssets.smoke, LevelOneRenderAssets.mine,
-          LevelOneRenderAssets.cabbage,
+          id: EntityID(), asset: LevelThreeRenderAssets.smoke,
           coordinate: .init(row: 56, column: 20), renderSize: .init(width: 4, height: 4),
           anchor: .bottomLeft, zPosition: 4, animationID: LevelThreeRenderAnimations.smokeLoop),
         .init(
-          id: EntityID(), asset: LevelThreeRenderAssets.smoke, LevelOneRenderAssets.mine,
-          LevelOneRenderAssets.cabbage,
+          id: EntityID(), asset: LevelThreeRenderAssets.smoke,
           coordinate: .init(row: 42, column: 49), renderSize: .init(width: 4, height: 4),
           anchor: .bottomLeft, zPosition: 4, animationID: LevelThreeRenderAnimations.smokeLoop),
       ])
@@ -1744,6 +1760,9 @@ enum LevelThreePresentationDefinition {
         facing: .left, health: 5, maximumHealth: 5, behaviorState: .patrol, decisionAccumulator: 0,
         animationTime: 0),
     ]
+    try validateEnemyFootprints(entryPositions: [
+      .init(row: 5, column: 29), .init(row: 50, column: 29),
+    ])
     try validateInitialPlayerFootprint()
     var rng = SeededRandomNumberGenerator(seed: seed ^ 0x33)
     entities = try SpawnService.spawn(
@@ -2247,7 +2266,7 @@ enum LevelFivePresentationDefinition {
     presentationDefinition = LevelFivePresentationDefinition.make(from: level)
     enemies = [
       .init(
-        id: EntityID(), archetype: .skeleton, position: .init(row: 6, column: 29), facing: .down,
+        id: EntityID(), archetype: .skeleton, position: .init(row: 28, column: 20), facing: .down,
         health: 3, maximumHealth: 3, behaviorState: .patrol, decisionAccumulator: 0,
         animationTime: 0),
       .init(
@@ -2255,6 +2274,9 @@ enum LevelFivePresentationDefinition {
         facing: .left, health: 5, maximumHealth: 5, behaviorState: .patrol, decisionAccumulator: 0,
         animationTime: 0),
     ]
+    try validateEnemyFootprints(entryPositions: [
+      .init(row: 5, column: 29), .init(row: 8, column: 7),
+    ])
     var rng = SeededRandomNumberGenerator(seed: seed ^ 0x55)
     entities = try SpawnService.spawn(
       in: level,
