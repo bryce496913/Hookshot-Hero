@@ -1,6 +1,6 @@
-# Hookshot Hero for iOS — playable Levels 1–5
+# Hookshot Hero for iOS — playable Levels 1–6
 
-The native SwiftUI/SpriteKit conversion now provides playable **Levels 1 through 5** while the Java game remains the behavioral reference. Level 5 is the current conversion boundary.
+The native SwiftUI/SpriteKit conversion now provides playable **Levels 1 through 6** while the Java game remains the behavioral reference. Level 4 now preserves Java's branch: its right door leads to Level 5 and its top door leads to Level 6. Level 5 ends at the future Level 7 boundary; Level 6 ends at the future Level 8 boundary.
 
 ## Current gameplay
 
@@ -44,13 +44,13 @@ The repository intentionally has no CI workflow. The commands above are the requ
 * Optional bouncing balls.
 * Mission-mode guide.
 
-Levels 2 through 5 are registered native gameplay levels. Level 5 reproduces the Java maze, lava, side entry, top exit, chest, smoke emitters, and deterministic consumable placement. In DEBUG builds, the main menu also exposes a direct level-select screen for development and testing.
+Levels 2 through 6 are registered native gameplay levels. Levels 5 and 6 each reproduce their Java maze, lava, doors, smoke emitters, Skeleton, Flying Terror, three mines, two cabbages, and ten coins. Level 5 has one side-view chest; Level 6 has independent side- and front-view chests. In DEBUG builds, the scrollable direct level selector includes Level 6.
 
 See [Conversion decisions](Documentation/ConversionDecisions.md), [Responsibility map](Documentation/ResponsibilityMap.md), and [Temporary assets](Resources/TemporaryAssets.md).
 
 ## Shared simulation and UI publication boundary
 
-The gameplay dependency direction is `AppRouter → GameSimulationFactory → GameSimulation → GameSession → GameplayView / GameScene`. `DefaultGameSimulationFactory` creates the concrete simulation for Levels 1 through 5; unsupported identifiers fail with `GameLoadingError.unsupportedLevel`.
+The gameplay dependency direction is `AppRouter → GameSimulationFactory → GameSimulation → GameSession → GameplayView / GameScene`. `DefaultGameSimulationFactory` creates the concrete simulation for Levels 1 through 6; unsupported identifiers fail with `GameLoadingError.unsupportedLevel`.
 
 The simulation is authoritative for health, score, entities, timing, and outcomes. Every Level 1 score source—coins, grapple-destroyed mines, the chest, and level completion—mutates the simulation player. `GameSession` has no score-award API and reads the final authoritative status for routing and immutable results.
 
@@ -76,7 +76,7 @@ Gameplay now has three distinct channels:
 
 Level One builds floor, lava, walls, and doors as static descriptors. Its player, chest (open or closed), coins, cabbages, mines, grapple, and future effects cross the shared boundary as stable-ID generic descriptors with extensible `RenderAssetID` and animation identifiers. `TextureCatalog` caches full textures and sheet slices, preserves nearest-neighbor filtering, and reports typed missing/invalid resources. `GameScene` caches grid/layout data, never reads static geometry from a dynamic snapshot, and passes the frame's single captured snapshot through synchronization helpers. Direction buttons use SwiftUI's semantic `.disabled` state as well as cancelling physical hold state, so VoiceOver and Switch Control receive the same availability as gameplay.
 
-Levels 3 through 5 use footprint-safe named entry anchors, construction-time initial-footprint validation, complete level-scoped asset manifests, and forward and reverse runtime transitions. Levels 2, 3, and 5 share enemy patrol, seek, contact-damage, grapple-combat, health-rendering, and defeat behavior. Forward transitions persist the completed source level, while reverse transitions do not create completion records.
+Levels 3 through 6 use footprint-safe named entry anchors, construction-time initial-footprint validation, complete level-scoped asset manifests, and forward and reverse runtime transitions. Levels 2, 3, and 5 share enemy patrol, seek, contact-damage, grapple-combat, health-rendering, and defeat behavior. Forward transitions persist the completed source level, while reverse transitions do not create completion records.
 
 ## Runtime loading and renderer correction pass
 
@@ -132,7 +132,7 @@ Local validation remains intentionally Xcode-based. Run the full Xcode 26 sequen
 
 ## Level 2 Runtime Conversion
 
-Levels 1 through 5 are implemented in the shared runtime path. A normal production playthrough starts at Level 1, and each connected exit emits a transition request that installs the destination in the same `GameSession`, preserving health, score, character identity, completion state, and elapsed playthrough time. Reverse doors use named destination entrances, including Level 5's return to Level 4's right-side door. Level 4 restores its defeated boss and open exits from carryover completion state. Level 5 is the current playable-content boundary while later Java levels are converted.
+Levels 1 through 6 are implemented in the shared runtime path. A normal production playthrough starts at Level 1, and each connected exit emits a transition request that installs the destination in the same `GameSession`, preserving health, score, character identity, completion state, and elapsed playthrough time. Reverse doors use named destination entrances, including Level 5's return to Level 4's right-side door. Level 4 restores its defeated boss and open exits from carryover completion state. Levels 5 and 6 are parallel playable-content boundaries while Java Levels 7 and 8 remain deferred.
 
 Conversion flow:
 
@@ -178,3 +178,12 @@ Theme color values are exact:
 Typography is exposed through `AppTextStyle` with exact base sizes: `h1 = 16`, `h2 = 14`, `h3 = 12`, and `paragraph = 10`. Weights are semantic (`h1` bold, `h2` semibold, `h3` medium, `paragraph` regular) and use the rounded system design. No custom binary font file is included. Views should use `.appTextStyle(_:)` instead of arbitrary local font sizes; remaining custom system sizes are limited to SF Symbol icon presentation and fixed gameplay artwork dimensions such as the existing HUD heart image.
 
 Reusable styling helpers are defined beside the theme: `.appTextStyle(_:)`, `.appScreenBackground()`, `.appSurface(cornerRadius:)`, `.appNavigationStyle()`, `AppPrimaryButtonStyle`, `AppSecondaryButtonStyle`, and `AppHighlightButtonStyle`. Button styles preserve semantic SwiftUI `Button` behavior, a minimum 44-point hit target, visible pressed states, and visible disabled states. Dynamic Type is supported by using SwiftUI fonts at the required base sizes with flexible stacks, wrapping, scrolling settings/help content, and full-width actions so primary controls remain visible instead of clipping.
+
+
+## Levels 5 and 6 Java parity and deliberate corrections
+
+Level 5 retains 52 internal wall anchors and 61 lava anchors. Its visible left doorway (rows 8–11, columns 0–3) returns to Level 4's right entry, intentionally correcting Java's contradictory `GetEntryGrid`. Its chest interacts at row 52, column 4 but renders with `ChestSide` at row 52, column 8. Footprint-safe player starts remain row 8, column 7 and row 5, column 29 rather than placing Lidia partly in walls. Its emitters remain at rows/columns 55/16 and 26/43.
+
+Level 6 contains 54 internal wall anchors and 49 lava anchors. The bottom doorway (rows 56–59, columns 27–32) returns to Level 4's top entry; the upper-right exit (rows 0–3, columns 51–56) completes current content for the future Level 8 route. Java's player starts at row/column 50/27 and 5/23 are valid. Chests at 4/24 (`ChestSide`) and 44/8 (`ChestFront`) independently award 100 score and up to two health. Emitters are at 13/21 and 39/53. Java's overlapping enemy-at-exit defect is corrected with deterministic, footprint-safe Skeleton 22/53 and Flying Terror 10/52 starts.
+
+Native corrections shared by both levels include full-footprint deterministic item spawning, independent random streams for items and each enemy, bounded enemy movement, stable entity identity, two-phase render cleanup, a maximum health of five, time-based damage cooldowns, and deduplicated completion rewards. Audio remains deferred. Xcode validation must be performed on macOS; this repository's Linux editing environment does not provide `xcodebuild` or Simulator runtimes.

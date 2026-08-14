@@ -197,6 +197,16 @@ enum LevelOneTextureCatalog {
     add(.init(rawValue: "level-five.door.closed.left"), "DoorGreyClosedLeftSide.png")
     add(.init(rawValue: "level-five.chest.side"), "ChestSide.png")
     add(.init(rawValue: "level-five.smoke"), "smoke1.png")
+    add(.init(rawValue: "level-six.floor"), "floor.png")
+    add(.init(rawValue: "level-six.lava"), "lava.png")
+    add(.init(rawValue: "level-six.wall.front"), "wallGreyFront.png")
+    add(.init(rawValue: "level-six.wall.left"), "wallGreyLeftSide.png")
+    add(.init(rawValue: "level-six.wall.right"), "wallGreyRightSide.png")
+    add(.init(rawValue: "level-six.door.open"), "DoorGreyOpen.png")
+    add(.init(rawValue: "level-six.door.closed"), "DoorGreyClosed.png")
+    add(.init(rawValue: "level-six.chest.side"), "ChestSide.png")
+    add(.init(rawValue: "level-six.chest.front"), "ChestFront.png")
+    add(.init(rawValue: "level-six.smoke"), "smoke1.png")
     add(
       .init(rawValue: "enemy.minotaur"), "minotaur.png",
       .init(x: 0, y: 0, width: 48, height: 64, sheetWidth: 144, sheetHeight: 256))

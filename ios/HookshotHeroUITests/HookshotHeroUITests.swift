@@ -45,6 +45,18 @@ final class HookshotHeroUITests: XCTestCase {
     levelSelect.tap()
     app.buttons["debugLevel5Button"].tap()
     XCTAssertTrue(app.otherElements["gameplayHUD"].waitForExistence(timeout: 5))
+    XCTAssertTrue(app.staticTexts["Level 5"].exists)
+  }
+  func testDebugLevelSelectStartsLevelSixWithControls() {
+    launch()
+    app.buttons["debugLevelSelectButton"].tap()
+    app.buttons["debugLevel6Button"].tap()
+    XCTAssertTrue(app.otherElements["gameplayHUD"].waitForExistence(timeout: 5))
+    XCTAssertTrue(app.staticTexts["Level 6"].exists)
+    XCTAssertTrue(app.staticTexts["healthValue"].exists)
+    XCTAssertTrue(app.staticTexts["scoreValue"].exists)
+    XCTAssertTrue(app.buttons["moveUpButton"].isEnabled)
+    XCTAssertTrue(app.buttons["grappleButton"].isEnabled)
   }
   func testForcedWinAndResultsReturn() {
     assertForcedResult("--force-game-outcome=win", title: "Victory")
