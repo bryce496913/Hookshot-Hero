@@ -37,11 +37,7 @@ struct AppEnvironment {
           forcedOutcome: outcome,
           levelSeed: ProcessInfo.processInfo.environment["HOOKSHOT_LEVEL_SEED"].flatMap(
             UInt64.init),
-          startConfiguration: .init(
-            initialLevelID: ProcessInfo.processInfo.environment["HOOKSHOT_START_LEVEL"] == "level-3"
-              ? .levelThree
-              : (ProcessInfo.processInfo.environment["HOOKSHOT_START_LEVEL"] == "level-2"
-                ? .levelTwo : .levelOne))
+          startConfiguration: .init(initialLevelID: debugStartLevel())
         )
       }
     #endif
@@ -62,5 +58,13 @@ struct AppEnvironment {
         levelSeed: ProcessInfo.processInfo.environment["HOOKSHOT_LEVEL_SEED"].flatMap(UInt64.init),
         startConfiguration: .current)
     }
+  }
+
+  private static func debugStartLevel() -> LevelID {
+    let requested = ProcessInfo.processInfo.environment["HOOKSHOT_START_LEVEL"].map {
+      LevelID(rawValue: $0)
+    }
+    let implemented: Set<LevelID> = [.levelOne, .levelTwo, .levelThree, .levelFour, .levelFive, .levelSix]
+    return requested.flatMap { implemented.contains($0) ? $0 : nil } ?? .levelOne
   }
 }

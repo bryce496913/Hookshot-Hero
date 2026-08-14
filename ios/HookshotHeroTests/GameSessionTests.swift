@@ -725,7 +725,7 @@ final class LevelFourLoadingTests: XCTestCase {
     XCTAssertEqual(level.grid, .init(rows: 60, columns: 60))
     XCTAssertEqual(LevelFiveDefinition.wallAnchors.count, 52)
     XCTAssertEqual(LevelFiveDefinition.lavaAnchors.count, 61)
-    XCTAssertEqual(level.chestAnchor, .init(row: 52, column: 8))
+    XCTAssertEqual(level.chestAnchor, .init(row: 52, column: 4))
     XCTAssertEqual(level.entryRegion, .init(rows: 8..<12, columns: 0..<4))
   }
 
@@ -753,7 +753,7 @@ final class LevelFourLoadingTests: XCTestCase {
     XCTAssertTrue(simulation.chestOpen)
     XCTAssertEqual(simulation.player.score, 100)
     XCTAssertTrue(
-      simulation.renderSnapshot.entities.contains { $0.asset == LevelOneRenderAssets.chestOpen })
+      simulation.renderSnapshot.entities.contains { $0.asset == LevelFiveRenderAssets.chest })
 
     var transition: LevelTransitionRequest?
     simulation.onLevelTransition = { transition = $0 }
@@ -781,5 +781,83 @@ final class LevelFourLoadingTests: XCTestCase {
     let health = contactSimulation.player.health
     contactSimulation.update(deltaTime: 0.01)
     XCTAssertEqual(contactSimulation.player.health, health - 1)
+  }
+}
+
+@MainActor final class LevelSixLoadingTests: XCTestCase {
+  func testGeometryMatchesEveryJavaGroupAndCounts() throws {
+    let level = LevelSixDefinition.make()
+    XCTAssertEqual(level.grid, .init(rows: 60, columns: 60))
+    XCTAssertEqual(level.displayName, "Level 6")
+    XCTAssertEqual(LevelSixDefinition.wallAnchors.count, 54)
+    XCTAssertEqual(LevelSixDefinition.lavaAnchors.count, 49)
+    XCTAssertEqual(LevelSixDefinition.bottomStart, .init(row: 50, column: 27))
+    XCTAssertEqual(LevelSixDefinition.topStart, .init(row: 5, column: 23))
+    XCTAssertEqual(level.entryAnchor, .init(row: 56, column: 27))
+    XCTAssertEqual(level.exitAnchor, .init(row: 0, column: 51))
+    XCTAssertEqual(level.entryRegion, .init(rows: 56..<60, columns: 27..<33))
+    XCTAssertEqual(level.exitRegion, .init(rows: 0..<4, columns: 51..<57))
+    for anchor in [GridPosition(row: 20, column: 8), .init(row: 48, column: 48), .init(row: 12, column: 4), .init(row: 32, column: 20), .init(row: 24, column: 36), .init(row: 52, column: 8), .init(row: 44, column: 16), .init(row: 52, column: 32), .init(row: 16, column: 36), .init(row: 4, column: 48), .init(row: 24, column: 24)] {
+      XCTAssertTrue(LevelSixDefinition.wallAnchors.contains(anchor))
+    }
+    for anchor in [GridPosition(row: 4, column: 8), .init(row: 16, column: 28), .init(row: 28, column: 48), .init(row: 48, column: 28), .init(row: 28, column: 52), .init(row: 24, column: 4), .init(row: 40, column: 8), .init(row: 48, column: 12), .init(row: 44, column: 4), .init(row: 52, column: 24), .init(row: 32, column: 48)] {
+      XCTAssertTrue(LevelSixDefinition.lavaAnchors.contains(anchor))
+    }
+  }
+
+  func testTwoChestsRenderAndOpenIndependently() throws {
+    let simulation = try LevelSixSimulation(seed: 496_913)
+    XCTAssertEqual(simulation.chestStates.count, 2)
+    XCTAssertEqual(simulation.chestStates.map(\.definition.interactionAnchor), [.init(row: 4, column: 24), .init(row: 44, column: 8)])
+    XCTAssertEqual(simulation.chestStates.map(\.definition.renderAnchor), [.init(row: 4, column: 24), .init(row: 44, column: 8)])
+    XCTAssertEqual(simulation.renderSnapshot.entities.filter { [LevelSixRenderAssets.chestSide, LevelSixRenderAssets.chestFront].contains($0.asset) }.count, 2)
+    simulation.player.health = 2
+    simulation.player.position = .init(row: 4, column: 24)
+    simulation.activateChestAndExit()
+    XCTAssertEqual(simulation.player.score, 100)
+    XCTAssertEqual(simulation.player.health, 4)
+    XCTAssertEqual(simulation.chestStates.map(\.isOpened), [true, false])
+    simulation.activateChestAndExit()
+    XCTAssertEqual(simulation.player.score, 100)
+    simulation.player.position = .init(row: 44, column: 8)
+    simulation.activateChestAndExit()
+    XCTAssertEqual(simulation.player.score, 200)
+    XCTAssertEqual(simulation.player.health, 5)
+    XCTAssertEqual(simulation.chestStates.map(\.isOpened), [true, true])
+  }
+
+  func testDeterministicSpawnsAndSafeCorrectedEnemies() throws {
+    let first = try LevelSixSimulation(seed: 496_913)
+    let second = try LevelSixSimulation(seed: 496_913)
+    XCTAssertEqual(first.entities.map(\.kind).filter { $0 == .mine }.count, 3)
+    XCTAssertEqual(first.entities.map(\.kind).filter { $0 == .cabbage }.count, 2)
+    XCTAssertEqual(first.entities.map(\.kind).filter { $0 == .coin }.count, 10)
+    XCTAssertEqual(first.entities.map(\.position), second.entities.map(\.position))
+    XCTAssertEqual(first.enemies.map(\.position), [.init(row: 22, column: 53), .init(row: 10, column: 52)])
+    XCTAssertEqual(first.enemies.map(\.position), second.enemies.map(\.position))
+    XCTAssertEqual(first.enemies.map(\.health), [3, 5])
+    XCTAssertTrue(first.renderSnapshot.entities.contains { $0.asset == EnemyArchetype.skeleton.asset && $0.health != nil })
+    XCTAssertTrue(first.renderSnapshot.entities.contains { $0.asset == EnemyArchetype.flyingTerror.asset && $0.health != nil })
+  }
+
+  func testBackwardAndForwardDestinationsStayOnJavaBranch() throws {
+    let returning = try LevelSixSimulation(seed: 496_913)
+    var request: LevelTransitionRequest?
+    returning.onLevelTransition = { request = $0 }
+    returning.player.position = .init(row: 55, column: 29)
+    returning.update(deltaTime: 0.01)
+    XCTAssertEqual(request?.destinationLevelID, .levelFour)
+    XCTAssertEqual(request?.destinationEntry, .top)
+    XCTAssertEqual(request?.reason, .returnedBackward)
+
+    let completing = try LevelSixSimulation(seed: 496_913)
+    completing.player.position = .init(row: 4, column: 53)
+    completing.input.send(.move(.up))
+    completing.update(deltaTime: 0.01)
+    XCTAssertEqual(completing.outcome, .won)
+    XCTAssertEqual(completing.player.score, 100)
+    XCTAssertTrue(completing.completedLevelIDs.contains(.levelSix))
+    completing.update(deltaTime: 1)
+    XCTAssertEqual(completing.player.score, 100)
   }
 }
