@@ -972,6 +972,11 @@ struct DefaultGameSimulationFactory: GameSimulationFactory {
         .init(levelID: levelID, interactionAnchor: definition.interactionAnchor))
     }
   }
+  func makeCarryoverState() -> PlayerCarryoverState {
+    PlayerCarryoverState(
+      characterID: player.id, health: player.health, score: player.score,
+      completedLevelIDs: completedLevelIDs, worldState: worldState)
+  }
   var levelID: LevelID { .levelOne }
   var levelName: String { level.displayName }
   var finalStatus: PlayerStatusSnapshot { .init(health: player.health, score: player.score) }
@@ -1359,13 +1364,10 @@ struct DefaultGameSimulationFactory: GameSimulationFactory {
     }
     publishStatusIfChanged()
     cancelAllInput()
-    let carry = PlayerCarryoverState(
-      characterID: player.id, health: player.health, score: player.score,
-      completedLevelIDs: completedLevelIDs, worldState: worldState)
     onLevelTransition?(
       LevelTransitionRequest(
         sourceLevelID: .levelOne, destinationLevelID: .levelTwo, destinationEntry: .bottom,
-        carryover: carry, reason: .completedForward))
+        carryover: makeCarryoverState(), reason: .completedForward))
   }
   func checkLoss() {
     if player.health <= 0 {
@@ -1646,17 +1648,12 @@ enum LevelTwoPresentationDefinition {
   }
   private func checkDoors() {
     let region = CollisionProfile.player.region(at: player.position)
-    let carry = {
-      PlayerCarryoverState(
-        characterID: self.player.id, health: self.player.health, score: self.player.score,
-        completedLevelIDs: self.completedLevelIDs, worldState: self.worldState)
-    }
     if region.intersects(level.entryRegion) {
       cancelAllInput()
       onLevelTransition?(
         .init(
           sourceLevelID: .levelTwo, destinationLevelID: .levelOne, destinationEntry: .top,
-          carryover: carry(), reason: .returnedBackward))
+          carryover: makeCarryoverState(), reason: .returnedBackward))
     } else if region.intersects(level.exitRegion) {
       if !completedLevelIDs.contains(.levelTwo) {
         player.score += 100
@@ -1667,7 +1664,7 @@ enum LevelTwoPresentationDefinition {
       onLevelTransition?(
         .init(
           sourceLevelID: .levelTwo, destinationLevelID: .levelThree, destinationEntry: .bottom,
-          carryover: carry()))
+          carryover: makeCarryoverState()))
     }
   }
 }
@@ -1863,9 +1860,7 @@ enum LevelThreePresentationDefinition {
       onLevelTransition?(
         .init(
           sourceLevelID: .levelThree, destinationLevelID: .levelTwo, destinationEntry: .top,
-          carryover: .init(
-            characterID: player.id, health: player.health, score: player.score,
-            completedLevelIDs: completedLevelIDs, worldState: worldState),
+          carryover: makeCarryoverState(),
           reason: .returnedBackward))
     } else if region.intersects(level.exitRegion) {
       if !completedLevelIDs.contains(.levelThree) {
@@ -1877,9 +1872,7 @@ enum LevelThreePresentationDefinition {
       onLevelTransition?(
         .init(
           sourceLevelID: .levelThree, destinationLevelID: .levelFour, destinationEntry: .bottom,
-          carryover: .init(
-            characterID: player.id, health: player.health, score: player.score,
-            completedLevelIDs: completedLevelIDs)))
+          carryover: makeCarryoverState()))
     }
   }
 }
@@ -2138,13 +2131,10 @@ enum LevelFourPresentationDefinition {
     let region = CollisionProfile.player.region(at: player.position)
     if region.intersects(level.entryRegion) {
       cancelAllInput()
-      let carry = PlayerCarryoverState(
-        characterID: player.id, health: player.health, score: player.score,
-        completedLevelIDs: completedLevelIDs, worldState: worldState)
       onLevelTransition?(
         LevelTransitionRequest(
           sourceLevelID: .levelFour, destinationLevelID: .levelThree, destinationEntry: .top,
-          carryover: carry, reason: .returnedBackward))
+          carryover: makeCarryoverState(), reason: .returnedBackward))
     } else if boss == nil
       && (region.intersects(level.exitRegion)
         || region.intersects(LevelFourDefinition.rightExitRegion))
@@ -2156,22 +2146,16 @@ enum LevelFourPresentationDefinition {
       }
       if region.intersects(LevelFourDefinition.rightExitRegion) {
         cancelAllInput()
-        let carry = PlayerCarryoverState(
-          characterID: player.id, health: player.health, score: player.score,
-          completedLevelIDs: completedLevelIDs, worldState: worldState)
         onLevelTransition?(
           LevelTransitionRequest(
             sourceLevelID: .levelFour, destinationLevelID: .levelFive, destinationEntry: .bottom,
-            carryover: carry))
+            carryover: makeCarryoverState()))
       } else {
         cancelAllInput()
-        let carry = PlayerCarryoverState(
-          characterID: player.id, health: player.health, score: player.score,
-          completedLevelIDs: completedLevelIDs, worldState: worldState)
         onLevelTransition?(
           LevelTransitionRequest(
             sourceLevelID: .levelFour, destinationLevelID: .levelSix, destinationEntry: .bottom,
-            carryover: carry))
+            carryover: makeCarryoverState()))
       }
     }
   }
@@ -2392,9 +2376,7 @@ enum LevelFivePresentationDefinition {
       onLevelTransition?(
         .init(
           sourceLevelID: .levelFive, destinationLevelID: .levelFour, destinationEntry: .right,
-          carryover: .init(
-            characterID: player.id, health: player.health, score: player.score,
-            completedLevelIDs: completedLevelIDs, worldState: worldState),
+          carryover: makeCarryoverState(),
           reason: .returnedBackward))
     } else if region.intersects(level.exitRegion) {
       if !completedLevelIDs.contains(.levelFive) {
@@ -2555,7 +2537,10 @@ enum LevelSixPresentationDefinition {
     let region = CollisionProfile.player.region(at: player.position)
     if region.intersects(level.entryRegion) {
       cancelAllInput()
-      onLevelTransition?(.init(sourceLevelID: .levelSix, destinationLevelID: .levelFour, destinationEntry: .top, carryover: .init(characterID: player.id, health: player.health, score: player.score, completedLevelIDs: completedLevelIDs, worldState: worldState), reason: .returnedBackward))
+      onLevelTransition?(
+        .init(
+          sourceLevelID: .levelSix, destinationLevelID: .levelFour, destinationEntry: .top,
+          carryover: makeCarryoverState(), reason: .returnedBackward))
     } else if region.intersects(level.exitRegion) {
       if !completedLevelIDs.contains(.levelSix) {
         player.score += 100
