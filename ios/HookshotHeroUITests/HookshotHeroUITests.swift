@@ -19,6 +19,7 @@ final class HookshotHeroUITests: XCTestCase {
     XCTAssertTrue(app.otherElements["gameplayHUD"].waitForExistence(timeout: 5))
     XCTAssertTrue(app.staticTexts["healthValue"].exists)
     XCTAssertTrue(app.staticTexts["scoreValue"].exists)
+    XCTAssertTrue(app.otherElements["movementJoystick"].exists)
     XCTAssertTrue(app.buttons["moveUpButton"].exists)
     XCTAssertTrue(app.buttons["grappleButton"].exists)
     app.buttons["moveUpButton"].tap()
@@ -119,6 +120,45 @@ final class HookshotHeroUITests: XCTestCase {
     XCTAssertLessThan(released.last ?? 27, 26)
     Thread.sleep(forTimeInterval: 0.4)
     XCTAssertEqual(position(coordinate), released)
+  }
+  func testJoystickDragHoldDirectionChangeAndRelease() {
+    launch()
+    app.buttons["playButton"].tap()
+    let coordinate = app.staticTexts["playerPosition"]
+    XCTAssertTrue(coordinate.waitForExistence(timeout: 5))
+    let joystick = app.otherElements["movementJoystick"]
+    XCTAssertTrue(joystick.waitForExistence(timeout: 5))
+
+    joystick.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5))
+      .press(
+        forDuration: 0.7,
+        thenDragTo: joystick.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.05)))
+    let afterUp = position(coordinate)
+    XCTAssertLessThan(afterUp.first ?? 50, 50)
+    Thread.sleep(forTimeInterval: 0.35)
+    XCTAssertEqual(position(coordinate), afterUp)
+
+    joystick.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5))
+      .press(
+        forDuration: 0.2,
+        thenDragTo: joystick.coordinate(withNormalizedOffset: CGVector(dx: 0.95, dy: 0.7)))
+    XCTAssertGreaterThan(position(coordinate).last ?? 27, afterUp.last ?? 27)
+  }
+
+  func testPauseAndDialogueDisableJoystick() {
+    launch()
+    app.buttons["playButton"].tap()
+    let joystick = app.otherElements["movementJoystick"]
+    XCTAssertTrue(joystick.waitForExistence(timeout: 5))
+    app.buttons["pauseButton"].tap()
+    XCTAssertFalse(joystick.isEnabled)
+    app.buttons["overlayResumeButton"].tap()
+    XCTAssertTrue(joystick.isEnabled)
+
+    for _ in 0..<2 { app.buttons["moveRightButton"].tap() }
+    for _ in 0..<5 { app.buttons["moveUpButton"].tap() }
+    XCTAssertTrue(app.staticTexts["chestDialogue"].waitForExistence(timeout: 5))
+    XCTAssertFalse(joystick.isEnabled)
   }
   func testPausedDirectionControlsAreSemanticallyDisabledAndReenable() {
     launch()
