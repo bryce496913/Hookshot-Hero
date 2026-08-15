@@ -2,6 +2,23 @@ import CoreGraphics
 import XCTest
 @testable import HookshotHero
 
+@MainActor
+final class RecordingGameControlHaptics: GameControlHaptics {
+  enum Event: Equatable {
+    case directionEngaged
+    case directionChanged
+    case grappleAimingDirectionChanged
+    case grappleFired
+  }
+
+  private(set) var events: [Event] = []
+  func directionEngaged() { events.append(.directionEngaged) }
+  func directionChanged() { events.append(.directionChanged) }
+  func grappleAimingDirectionChanged() { events.append(.grappleAimingDirectionChanged) }
+  func grappleFired() { events.append(.grappleFired) }
+}
+
+@MainActor
 final class VirtualJoystickControllerTests: XCTestCase {
   private let radius: CGFloat = 40
 
@@ -26,19 +43,23 @@ final class VirtualJoystickControllerTests: XCTestCase {
   }
 
   func testEnteringAndHoldingDirectionBeginsExactlyOnce() {
-    var controller = VirtualJoystickController()
+    let haptics = RecordingGameControlHaptics()
+    var controller = VirtualJoystickController(haptics: haptics)
     XCTAssertEqual(
       controller.update(displacement: .init(dx: 30, dy: 0), usableRadius: radius),
       [.beginMove(.right)])
     XCTAssertEqual(controller.update(displacement: .init(dx: 35, dy: 2), usableRadius: radius), [])
+    XCTAssertEqual(haptics.events, [.directionEngaged])
   }
 
   func testDirectionSwitchEndsOldBeforeBeginningNew() {
-    var controller = VirtualJoystickController()
+    let haptics = RecordingGameControlHaptics()
+    var controller = VirtualJoystickController(haptics: haptics)
     _ = controller.update(displacement: .init(dx: 30, dy: 0), usableRadius: radius)
     XCTAssertEqual(
       controller.update(displacement: .init(dx: 0, dy: 30), usableRadius: radius),
       [.endMove(.right), .beginMove(.down)])
+    XCTAssertEqual(haptics.events, [.directionEngaged, .directionChanged])
   }
 
   func testReturningToDeadZoneEndsAndCenters() {
@@ -67,12 +88,23 @@ final class VirtualJoystickControllerTests: XCTestCase {
     XCTAssertEqual(controller.state, VirtualJoystickState())
   }
 
+  func testDisabledJoystickProducesNoHaptics() {
+    let haptics = RecordingGameControlHaptics()
+    var controller = VirtualJoystickController(haptics: haptics)
+
+    XCTAssertEqual(
+      controller.update(
+        displacement: .init(dx: 30, dy: 0), usableRadius: radius, isEnabled: false), [])
+    XCTAssertTrue(haptics.events.isEmpty)
+  }
+
   private func direction(_ x: CGFloat, _ y: CGFloat) -> GridDirection? {
     VirtualJoystickController.direction(
       for: CGVector(dx: x, dy: y), usableRadius: radius)
   }
 }
 
+@MainActor
 final class GrappleGestureControllerTests: XCTestCase {
   func testTapAndTinyMovementFireNormalGrapple() {
     var tap = GrappleGestureController()
@@ -99,23 +131,41 @@ final class GrappleGestureControllerTests: XCTestCase {
   }
 
   func testReleaseEmitsExactlyOnce() {
-    var controller = GrappleGestureController()
+    let haptics = RecordingGameControlHaptics()
+    var controller = GrappleGestureController(haptics: haptics)
     controller.begin(isEnabled: true)
     controller.update(translation: .init(width: -30, height: 0), isEnabled: true)
     XCTAssertEqual(controller.end(isEnabled: true), .fireHookInDirection(.left))
     XCTAssertNil(controller.end(isEnabled: true))
+    XCTAssertEqual(
+      haptics.events, [.grappleAimingDirectionChanged, .grappleFired])
   }
 
   func testCancelAndDisabledStateEmitNothing() {
-    var cancelled = GrappleGestureController()
+    let haptics = RecordingGameControlHaptics()
+    var cancelled = GrappleGestureController(haptics: haptics)
     cancelled.begin(isEnabled: true)
     cancelled.cancel()
     XCTAssertNil(cancelled.end(isEnabled: true))
 
-    var disabled = GrappleGestureController()
+    var disabled = GrappleGestureController(haptics: haptics)
     disabled.begin(isEnabled: false)
     disabled.update(translation: .init(width: 40, height: 0), isEnabled: false)
     XCTAssertNil(disabled.end(isEnabled: false))
+    XCTAssertTrue(haptics.events.isEmpty)
+  }
+
+  func testAimHapticOnlyOccursWhenCardinalDirectionChanges() {
+    let haptics = RecordingGameControlHaptics()
+    var controller = GrappleGestureController(haptics: haptics)
+    controller.begin(isEnabled: true)
+
+    controller.update(translation: .init(width: 30, height: 0), isEnabled: true)
+    controller.update(translation: .init(width: 36, height: 2), isEnabled: true)
+    controller.update(translation: .init(width: 0, height: -30), isEnabled: true)
+
+    XCTAssertEqual(
+      haptics.events, [.grappleAimingDirectionChanged, .grappleAimingDirectionChanged])
   }
 
   private func command(x: CGFloat, y: CGFloat) -> GameCommand? {

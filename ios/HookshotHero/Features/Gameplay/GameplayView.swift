@@ -127,14 +127,19 @@ struct GameControlsView: View {
   let compact: Bool
   let inputController: GameInputController
   let diagnosticPosition: GridPosition?
+  private let haptics: any GameControlHaptics = UIKitGameControlHaptics()
   var body: some View {
     HStack(alignment: .center, spacing: compact ? 12 : 24) {
       dockControl(hint: "Move", identifier: "moveControlHint") {
-        VirtualJoystickView(input: inputController, isEnabled: canMove, size: compact ? 116 : 124)
+        VirtualJoystickView(
+          input: inputController, isEnabled: canMove, size: compact ? 116 : 124,
+          haptics: haptics)
       }
       Spacer(minLength: compact ? 12 : 32)
       dockControl(hint: "Grapple", identifier: "grappleControlHint") {
-        GrappleControlView(input: inputController, isEnabled: canGrapple, size: compact ? 80 : 88)
+        GrappleControlView(
+          input: inputController, isEnabled: canGrapple, size: compact ? 80 : 88,
+          haptics: haptics)
       }
     }
     .frame(maxWidth: .infinity, minHeight: compact ? 128 : 140)
@@ -174,9 +179,15 @@ struct GrappleGestureState: Equatable {
   var selectedDirection: GridDirection?
 }
 
-struct GrappleGestureController: Equatable {
+@MainActor
+struct GrappleGestureController {
   static let aimThreshold: CGFloat = 24
   private(set) var state = GrappleGestureState()
+  private let haptics: any GameControlHaptics
+
+  init(haptics: any GameControlHaptics = UIKitGameControlHaptics()) {
+    self.haptics = haptics
+  }
 
   mutating func begin(isEnabled: Bool) {
     guard isEnabled else { return }
@@ -192,10 +203,15 @@ struct GrappleGestureController: Equatable {
       state.selectedDirection = nil
       return
     }
+    let direction: GridDirection
     if abs(translation.width) > abs(translation.height) {
-      state.selectedDirection = translation.width < 0 ? .left : .right
+      direction = translation.width < 0 ? .left : .right
     } else {
-      state.selectedDirection = translation.height < 0 ? .up : .down
+      direction = translation.height < 0 ? .up : .down
+    }
+    if direction != state.selectedDirection {
+      state.selectedDirection = direction
+      haptics.grappleAimingDirectionChanged()
     }
   }
 
@@ -206,6 +222,7 @@ struct GrappleGestureController: Equatable {
     }
     let command = state.selectedDirection.map(GameCommand.fireHookInDirection) ?? .fireHook
     state = GrappleGestureState()
+    haptics.grappleFired()
     return command
   }
 
@@ -217,8 +234,20 @@ struct GrappleControlView: View {
   @ObservedObject var input: GameInputController
   let isEnabled: Bool
   let size: CGFloat
-  @State private var controller = GrappleGestureController()
+  let haptics: any GameControlHaptics
+  @State private var controller: GrappleGestureController
   @GestureState private var gestureIsActive = false
+
+  init(
+    input: GameInputController, isEnabled: Bool, size: CGFloat,
+    haptics: any GameControlHaptics = UIKitGameControlHaptics()
+  ) {
+    self.input = input
+    self.isEnabled = isEnabled
+    self.size = size
+    self.haptics = haptics
+    _controller = State(initialValue: GrappleGestureController(haptics: haptics))
+  }
 
   var body: some View {
     Button(action: fireFacingForward) {
@@ -278,9 +307,17 @@ struct GrappleControlView: View {
     controller.state.selectedDirection.map { "Aiming \($0.rawValue)" }
       ?? (controller.state.isPressed ? "Pressed" : "Ready")
   }
-  private func fireFacingForward() { if isEnabled { input.send(.fireHook) } }
+  private func fireFacingForward() {
+    if isEnabled {
+      haptics.grappleFired()
+      input.send(.fireHook)
+    }
+  }
   private func fire(_ direction: GridDirection) {
-    if isEnabled { input.send(.fireHookInDirection(direction)) }
+    if isEnabled {
+      haptics.grappleFired()
+      input.send(.fireHookInDirection(direction))
+    }
   }
   private func cancel() { controller.cancel() }
 }
@@ -290,9 +327,15 @@ struct VirtualJoystickState: Equatable {
   var activeDirection: GridDirection?
 }
 
-struct VirtualJoystickController: Equatable {
+@MainActor
+struct VirtualJoystickController {
   static let deadZone: CGFloat = 0.22
   private(set) var state = VirtualJoystickState()
+  private let haptics: any GameControlHaptics
+
+  init(haptics: any GameControlHaptics = UIKitGameControlHaptics()) {
+    self.haptics = haptics
+  }
 
   static func direction(for displacement: CGVector, usableRadius: CGFloat) -> GridDirection? {
     guard usableRadius > 0,
@@ -304,13 +347,23 @@ struct VirtualJoystickController: Equatable {
     return displacement.dy < 0 ? .up : .down
   }
 
-  mutating func update(displacement raw: CGVector, usableRadius: CGFloat) -> [GameCommand] {
+  mutating func update(
+    displacement raw: CGVector, usableRadius: CGFloat, isEnabled: Bool = true
+  ) -> [GameCommand] {
+    guard isEnabled else { return cancel() }
     let length = hypot(raw.dx, raw.dy)
     let scale = length > usableRadius && length > 0 ? usableRadius / length : 1
     let clamped = CGVector(dx: raw.dx * scale, dy: raw.dy * scale)
     let direction = Self.direction(for: clamped, usableRadius: usableRadius)
     state.displacement = direction == nil ? .zero : clamped
     guard direction != state.activeDirection else { return [] }
+    if direction != nil {
+      if state.activeDirection == nil {
+        haptics.directionEngaged()
+      } else {
+        haptics.directionChanged()
+      }
+    }
     var commands: [GameCommand] = []
     if let old = state.activeDirection { commands.append(.endMove(old)) }
     if let direction { commands.append(.beginMove(direction)) }
@@ -331,7 +384,17 @@ struct VirtualJoystickView: View {
   @ObservedObject var input: GameInputController
   let isEnabled: Bool
   let size: CGFloat
-  @State private var controller = VirtualJoystickController()
+  @State private var controller: VirtualJoystickController
+
+  init(
+    input: GameInputController, isEnabled: Bool, size: CGFloat,
+    haptics: any GameControlHaptics = UIKitGameControlHaptics()
+  ) {
+    self.input = input
+    self.isEnabled = isEnabled
+    self.size = size
+    _controller = State(initialValue: VirtualJoystickController(haptics: haptics))
+  }
 
   var body: some View {
     ZStack {
@@ -401,7 +464,10 @@ struct VirtualJoystickView: View {
   }
 
   private func update(_ displacement: CGVector) {
-    dispatch(controller.update(displacement: displacement, usableRadius: (size - Self.knobSize) / 2))
+    dispatch(
+      controller.update(
+        displacement: displacement, usableRadius: (size - Self.knobSize) / 2,
+        isEnabled: isEnabled))
   }
   private func cancel() {
     dispatch(controller.cancel())
