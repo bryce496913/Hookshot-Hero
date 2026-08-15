@@ -76,6 +76,7 @@ struct DebugLevelSelectView: View {
     private let levels: [(String, LevelID)] = [
         ("Level 1", .levelOne), ("Level 2", .levelTwo), ("Level 3", .levelThree),
         ("Level 4", .levelFour), ("Level 5", .levelFive), ("Level 6", .levelSix),
+        ("Level 7", .levelSeven),
     ]
 
     var body: some View {

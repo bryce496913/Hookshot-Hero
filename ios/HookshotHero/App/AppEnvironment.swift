@@ -64,7 +64,7 @@ struct AppEnvironment {
     let requested = ProcessInfo.processInfo.environment["HOOKSHOT_START_LEVEL"].map {
       LevelID(rawValue: $0)
     }
-    let implemented: Set<LevelID> = [.levelOne, .levelTwo, .levelThree, .levelFour, .levelFive, .levelSix]
+    let implemented: Set<LevelID> = [.levelOne, .levelTwo, .levelThree, .levelFour, .levelFive, .levelSix, .levelSeven]
     return requested.flatMap { implemented.contains($0) ? $0 : nil } ?? .levelOne
   }
 }
