@@ -67,6 +67,18 @@ final class CrossLevelCarryoverTests: XCTestCase {
     try assertChestCannotRewardAgain(in: revisitedLevelSix, expected: branchState, index: 1)
   }
 
+  func testMakeSimulationRejectsUnsupportedLevelID() {
+    let unsupported = LevelID(rawValue: "level-test-unsupported")
+    let carryover = PlayerCarryoverState(
+      characterID: EntityID(), health: 2, score: 37, completedLevelIDs: [])
+
+    XCTAssertThrowsError(
+      try makeSimulation(levelID: unsupported, entryPosition: .bottom, carryover: carryover)
+    ) {
+      XCTAssertEqual($0 as? GameLoadingError, .unsupportedLevel(unsupported))
+    }
+  }
+
   private func makeForwardChain() throws -> (LevelFourSimulation, ExpectedState) {
     let characterID = EntityID()
     var expected = ExpectedState(
@@ -141,6 +153,8 @@ final class CrossLevelCarryoverTests: XCTestCase {
       try LevelFiveSimulation(seed: seed, entryPosition: entryPosition, carryover: carryover)
     case .levelSix:
       try LevelSixSimulation(seed: seed, entryPosition: entryPosition, carryover: carryover)
+    default:
+      throw GameLoadingError.unsupportedLevel(levelID)
     }
   }
 
