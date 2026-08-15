@@ -62,17 +62,10 @@ struct LevelChestDefinition: Identifiable, Sendable {
   var spawnExclusionRegion: GridRegion {
     let height = Int(ceil(renderSize.height))
     let width = Int(ceil(renderSize.width))
-    switch renderAnchorPoint {
-    case .bottomLeft:
-      return .init(
-        rows: renderAnchor.row..<renderAnchor.row + height,
-        columns: renderAnchor.column..<renderAnchor.column + width)
-    case .center:
-      let firstRow = renderAnchor.row - height / 2
-      let firstColumn = renderAnchor.column - width / 2
-      return .init(
-        rows: firstRow..<firstRow + height, columns: firstColumn..<firstColumn + width)
-    }
+    let firstRow = renderAnchor.row - Int(Double(height) * renderAnchorPoint.y)
+    let firstColumn = renderAnchor.column - Int(Double(width) * renderAnchorPoint.x)
+    return .init(
+      rows: firstRow..<firstRow + height, columns: firstColumn..<firstColumn + width)
   }
 }
 struct LevelChestState: Identifiable, Sendable {
