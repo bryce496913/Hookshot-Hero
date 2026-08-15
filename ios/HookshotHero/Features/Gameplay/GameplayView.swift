@@ -49,7 +49,7 @@ struct GameplayView: View {
       }
       if session.configuration.controlHintsEnabled {
         Text(
-          "Move with the joystick. Tap Grapple to fire in the direction you're facing."
+          "Move with the joystick. Tap Grapple to fire facing forward; drag and release to aim."
         ).appTextStyle(.paragraph).foregroundStyle(AppTheme.Colors.text.opacity(0.7))
           .multilineTextAlignment(.center).accessibilityIdentifier("controlHint")
       }
@@ -126,10 +126,8 @@ struct GameControlsView: View {
   var body: some View {
     HStack(spacing: 24) {
       VirtualJoystickView(input: inputController, isEnabled: canMove)
-      Button("Grapple") { inputController.send(.fireHook) }
-        .appTextStyle(.h3).frame(minWidth: 96, minHeight: 60)
-        .buttonStyle(AppHighlightButtonStyle()).disabled(!canGrapple)
-        .accessibilityLabel("Fire grapple").accessibilityIdentifier("grappleButton")
+      Spacer(minLength: 0)
+      GrappleControlView(input: inputController, isEnabled: canGrapple)
     }
     .frame(maxWidth: .infinity).accessibilityElement(children: .contain)
     #if DEBUG
@@ -142,6 +140,122 @@ struct GameControlsView: View {
       }
     #endif
   }
+}
+
+struct GrappleGestureState: Equatable {
+  var isPressed = false
+  var selectedDirection: GridDirection?
+}
+
+struct GrappleGestureController: Equatable {
+  static let aimThreshold: CGFloat = 24
+  private(set) var state = GrappleGestureState()
+
+  mutating func begin(isEnabled: Bool) {
+    guard isEnabled else { return }
+    state = .init(isPressed: true, selectedDirection: nil)
+  }
+
+  mutating func update(translation: CGSize, isEnabled: Bool) {
+    guard isEnabled, state.isPressed else {
+      cancel()
+      return
+    }
+    guard hypot(translation.width, translation.height) >= Self.aimThreshold else {
+      state.selectedDirection = nil
+      return
+    }
+    if abs(translation.width) > abs(translation.height) {
+      state.selectedDirection = translation.width < 0 ? .left : .right
+    } else {
+      state.selectedDirection = translation.height < 0 ? .up : .down
+    }
+  }
+
+  mutating func end(isEnabled: Bool) -> GameCommand? {
+    guard isEnabled, state.isPressed else {
+      cancel()
+      return nil
+    }
+    let command = state.selectedDirection.map(GameCommand.fireHookInDirection) ?? .fireHook
+    state = GrappleGestureState()
+    return command
+  }
+
+  mutating func cancel() { state = GrappleGestureState() }
+}
+
+struct GrappleControlView: View {
+  private static let controlSize: CGFloat = 88
+  @Environment(\.scenePhase) private var scenePhase
+  @ObservedObject var input: GameInputController
+  let isEnabled: Bool
+  @State private var controller = GrappleGestureController()
+  @GestureState private var gestureIsActive = false
+
+  var body: some View {
+    Button(action: fireFacingForward) {
+      ZStack {
+        Circle().fill(
+          AppTheme.Colors.highlight.opacity(controller.state.isPressed ? 0.72 : 1))
+        Circle().stroke(
+          AppTheme.Colors.text.opacity(controller.state.isPressed ? 0.9 : 0.45),
+          lineWidth: controller.state.isPressed ? 4 : 2)
+        VStack(spacing: 2) {
+          Image(systemName: directionSymbol)
+            .font(.system(size: 27, weight: .bold))
+          Text(controller.state.selectedDirection == nil ? "Grapple" : "Aim")
+            .appTextStyle(.paragraph)
+        }
+        .foregroundStyle(AppTheme.Colors.text)
+      }
+      .frame(width: Self.controlSize, height: Self.controlSize)
+      .contentShape(Circle())
+    }
+    .buttonStyle(.plain)
+    .opacity(isEnabled ? 1 : 0.42)
+    .disabled(!isEnabled)
+    .highPriorityGesture(grappleGesture)
+    .accessibilityLabel("Fire grapple")
+    .accessibilityValue(accessibilityValue)
+    .accessibilityIdentifier("grappleButton")
+    .accessibilityAction(named: Text("Grapple Up")) { fire(.up) }
+    .accessibilityAction(named: Text("Grapple Down")) { fire(.down) }
+    .accessibilityAction(named: Text("Grapple Left")) { fire(.left) }
+    .accessibilityAction(named: Text("Grapple Right")) { fire(.right) }
+    .onChange(of: isEnabled) { _, enabled in if !enabled { cancel() } }
+    .onChange(of: input.cancellationGeneration) { _, _ in cancel() }
+    .onChange(of: scenePhase) { _, phase in if phase != .active { cancel() } }
+    .onChange(of: gestureIsActive) { oldValue, active in
+      if oldValue, !active, controller.state.isPressed { cancel() }
+    }
+    .onDisappear(perform: cancel)
+  }
+
+  private var grappleGesture: some Gesture {
+    DragGesture(minimumDistance: 0, coordinateSpace: .local)
+      .updating($gestureIsActive) { _, active, _ in active = true }
+      .onChanged { value in
+        if !controller.state.isPressed { controller.begin(isEnabled: isEnabled) }
+        controller.update(translation: value.translation, isEnabled: isEnabled)
+      }
+      .onEnded { _ in
+        if let command = controller.end(isEnabled: isEnabled) { input.send(command) }
+      }
+  }
+
+  private var directionSymbol: String {
+    controller.state.selectedDirection.map { "arrow.\($0.rawValue)" } ?? "arrow.up.right.circle"
+  }
+  private var accessibilityValue: String {
+    controller.state.selectedDirection.map { "Aiming \($0.rawValue)" }
+      ?? (controller.state.isPressed ? "Pressed" : "Ready")
+  }
+  private func fireFacingForward() { if isEnabled { input.send(.fireHook) } }
+  private func fire(_ direction: GridDirection) {
+    if isEnabled { input.send(.fireHookInDirection(direction)) }
+  }
+  private func cancel() { controller.cancel() }
 }
 
 struct VirtualJoystickState: Equatable {

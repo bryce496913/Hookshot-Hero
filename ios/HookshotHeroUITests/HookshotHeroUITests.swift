@@ -145,6 +145,29 @@ final class HookshotHeroUITests: XCTestCase {
     XCTAssertGreaterThan(position(coordinate).last ?? 27, afterUp.last ?? 27)
   }
 
+  func testTapDragAndPauseCancellationForGrapple() {
+    launch()
+    app.buttons["playButton"].tap()
+    let grapple = app.buttons["grappleButton"]
+    XCTAssertTrue(grapple.waitForExistence(timeout: 5))
+
+    grapple.tap()
+    XCTAssertTrue(waitForDisabled(grapple))
+    XCTAssertTrue(waitForEnabled(grapple))
+
+    grapple.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5))
+      .press(
+        forDuration: 0.1,
+        thenDragTo: grapple.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.05)))
+    XCTAssertTrue(waitForDisabled(grapple))
+    XCTAssertTrue(waitForEnabled(grapple))
+
+    app.buttons["pauseButton"].tap()
+    XCTAssertFalse(grapple.isEnabled)
+    app.buttons["overlayResumeButton"].tap()
+    XCTAssertTrue(grapple.isEnabled)
+  }
+
   func testPauseAndDialogueDisableJoystick() {
     launch()
     app.buttons["playButton"].tap()
@@ -202,6 +225,22 @@ final class HookshotHeroUITests: XCTestCase {
     while Date() < deadline {
       if position(element) == expected { return true }
       RunLoop.current.run(until: Date().addingTimeInterval(0.05))
+    }
+    return false
+  }
+  private func waitForEnabled(_ element: XCUIElement) -> Bool {
+    let deadline = Date().addingTimeInterval(3)
+    while Date() < deadline {
+      if element.isEnabled { return true }
+      RunLoop.current.run(until: Date().addingTimeInterval(0.05))
+    }
+    return false
+  }
+  private func waitForDisabled(_ element: XCUIElement) -> Bool {
+    let deadline = Date().addingTimeInterval(1)
+    while Date() < deadline {
+      if !element.isEnabled { return true }
+      RunLoop.current.run(until: Date().addingTimeInterval(0.02))
     }
     return false
   }

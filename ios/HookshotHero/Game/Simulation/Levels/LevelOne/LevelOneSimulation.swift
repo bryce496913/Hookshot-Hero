@@ -215,6 +215,9 @@ import Foundation
       attemptMove(d)
     case .endMove(let d): if player.movementDirection == d { player.movementDirection = nil }
     case .fireHook: fireHook()
+    case .fireHookInDirection(let direction):
+      player.facing = direction
+      fireHook()
     }
   }
   private func updateHeldMovement(_ dt: Double) {

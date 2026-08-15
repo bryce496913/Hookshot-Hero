@@ -41,6 +41,7 @@ enum GameCommand: Equatable, Sendable {
   case beginMove(GridDirection)
   case endMove(GridDirection)
   case fireHook
+  case fireHookInDirection(GridDirection)
 }
 enum EntityKind: Equatable, Sendable { case coin, cabbage, mine }
 struct EntityID: Hashable, Codable, Sendable {
