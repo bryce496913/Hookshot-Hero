@@ -33,6 +33,14 @@ struct SettingsView: View {
                     }
                     .tint(AppTheme.Colors.accent)
                     .accessibilityIdentifier("controlHintsToggle")
+                    Picker("Control Layout", selection: $store.settings.controlLayout) {
+                        ForEach(ControlLayout.allCases, id: \.self) { layout in
+                            Text(layout.displayName).tag(layout)
+                        }
+                    }
+                    .pickerStyle(.segmented)
+                    .accessibilityLabel("Control Layout")
+                    .accessibilityIdentifier("controlLayoutPicker")
                 }
                 .padding(16)
                 .appSurface()

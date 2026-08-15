@@ -39,6 +39,22 @@ final class HookshotHeroUITests: XCTestCase {
     app.switches["reducedMotionToggle"].tap()
     app.buttons["settingsDoneButton"].tap()
   }
+  func testLeftHandedLayoutSwapsControlsWithoutChangingAccessibilityIdentity() {
+    launch()
+    app.buttons["settingsButton"].tap()
+    XCTAssertTrue(app.otherElements["controlLayoutPicker"].waitForExistence(timeout: 5))
+    app.buttons["Left-Handed"].tap()
+    app.buttons["settingsDoneButton"].tap()
+    app.buttons["playButton"].tap()
+
+    let joystick = app.otherElements["movementJoystick"]
+    let grapple = app.buttons["grappleButton"]
+    XCTAssertTrue(joystick.waitForExistence(timeout: 5))
+    XCTAssertTrue(grapple.waitForExistence(timeout: 5))
+    XCTAssertGreaterThan(joystick.frame.minX, grapple.frame.minX)
+    XCTAssertEqual(joystick.label, "Movement joystick")
+    XCTAssertEqual(grapple.label, "Fire grapple")
+  }
   func testDebugLevelSelectIsReachableAndStartsLevelFive() {
     launch()
     let levelSelect = app.buttons["debugLevelSelectButton"]

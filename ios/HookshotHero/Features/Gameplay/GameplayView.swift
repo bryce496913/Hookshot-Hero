@@ -27,11 +27,16 @@ import UIKit
 
 struct GameplayView: View {
   @ObservedObject var session: GameSession
+  let controlLayout: ControlLayout
   let returnToMenu: () -> Void
   @State private var scene: GameScene
   @StateObject private var announcementCoordinator = FeedbackAnnouncementCoordinator()
-  init(session: GameSession, returnToMenu: @escaping () -> Void) {
+  init(
+    session: GameSession, controlLayout: ControlLayout = .standard,
+    returnToMenu: @escaping () -> Void
+  ) {
     self.session = session
+    self.controlLayout = controlLayout
     self.returnToMenu = returnToMenu
     _scene = State(
       initialValue: GameScene(
@@ -54,8 +59,10 @@ struct GameplayView: View {
         GameControlsView(
           canMove: session.uiSnapshot.canMove, canGrapple: session.uiSnapshot.canGrapple,
           showsHints: session.configuration.controlHintsEnabled, compact: compact,
+          controlLayout: controlLayout,
           inputController: session.simulation.inputController,
           diagnosticPosition: session.uiSnapshot.diagnosticPlayerPosition)
+          .id(controlLayout)
       }
       .padding(.horizontal, compact ? 8 : 12)
       .padding(.bottom, compact ? 4 : 8)
@@ -66,6 +73,9 @@ struct GameplayView: View {
         scene = GameScene(session: session, runtime: session.runtime, generation: generation)
       }.onChange(of: session.uiSnapshot.feedback) { _, feedback in
         announcementCoordinator.update(feedback: feedback)
+      }.onChange(of: controlLayout) { _, _ in
+        // A layout update must never carry a held movement or in-progress gesture to the new side.
+        session.simulation.cancelAllInput()
       }.onDisappear { session.simulation.cancelAllInput() }.overlay {
         if session.isPaused { pauseOverlay }
         if case .transitioning(let levelID) = session.state {
@@ -125,22 +135,15 @@ struct GameControlsView: View {
   let canGrapple: Bool
   let showsHints: Bool
   let compact: Bool
+  let controlLayout: ControlLayout
   let inputController: GameInputController
   let diagnosticPosition: GridPosition?
   private let haptics: any GameControlHaptics = UIKitGameControlHaptics()
   var body: some View {
     HStack(alignment: .center, spacing: compact ? 12 : 24) {
-      dockControl(hint: "Move", identifier: "moveControlHint") {
-        VirtualJoystickView(
-          input: inputController, isEnabled: canMove, size: compact ? 116 : 124,
-          haptics: haptics)
-      }
+      leadingControl
       Spacer(minLength: compact ? 12 : 32)
-      dockControl(hint: "Grapple", identifier: "grappleControlHint") {
-        GrappleControlView(
-          input: inputController, isEnabled: canGrapple, size: compact ? 80 : 88,
-          haptics: haptics)
-      }
+      trailingControl
     }
     .frame(maxWidth: .infinity, minHeight: compact ? 128 : 140)
     .padding(.horizontal, compact ? 10 : 16)
@@ -159,6 +162,30 @@ struct GameControlsView: View {
         }
       }
     #endif
+  }
+
+  @ViewBuilder private var leadingControl: some View {
+    if controlLayout.joystickIsLeading { joystickControl } else { grappleControl }
+  }
+
+  @ViewBuilder private var trailingControl: some View {
+    if controlLayout.joystickIsLeading { grappleControl } else { joystickControl }
+  }
+
+  private var joystickControl: some View {
+    dockControl(hint: "Move", identifier: "moveControlHint") {
+      VirtualJoystickView(
+        input: inputController, isEnabled: canMove, size: compact ? 116 : 124,
+        haptics: haptics)
+    }
+  }
+
+  private var grappleControl: some View {
+    dockControl(hint: "Grapple", identifier: "grappleControlHint") {
+      GrappleControlView(
+        input: inputController, isEnabled: canGrapple, size: compact ? 80 : 88,
+        haptics: haptics)
+    }
   }
 
   private func dockControl<Control: View>(

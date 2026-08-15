@@ -20,7 +20,10 @@ struct RootView: View {
                 switch route {
                 case .gameplay:
                     if let session = router.activeSession {
-                        GameplayView(session: session, returnToMenu: router.returnToMenu)
+                        GameplayView(
+                            session: session,
+                            controlLayout: settingsStore.settings.controlLayout,
+                            returnToMenu: router.returnToMenu)
                     } else {
                         ContentUnavailableView {
                             Label("Session unavailable", systemImage: "exclamationmark.triangle")
