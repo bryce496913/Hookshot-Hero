@@ -1,14 +1,34 @@
 import Foundation
 
+enum ControlLayout: String, Codable, CaseIterable, Sendable {
+    case standard
+    case leftHanded
+
+    var displayName: String {
+        switch self {
+        case .standard: "Standard"
+        case .leftHanded: "Left-Handed"
+        }
+    }
+
+    var joystickIsLeading: Bool { self == .standard }
+}
+
 struct GameSettings: Codable, Equatable, Sendable {
     var reducedMotion: Bool
     var controlHintsEnabled: Bool
+    var controlLayout: ControlLayout
 
-    static let defaults = GameSettings(reducedMotion: false, controlHintsEnabled: true)
+    static let defaults = GameSettings(
+        reducedMotion: false, controlHintsEnabled: true, controlLayout: .standard)
 
-    init(reducedMotion: Bool = false, controlHintsEnabled: Bool = true) {
+    init(
+        reducedMotion: Bool = false, controlHintsEnabled: Bool = true,
+        controlLayout: ControlLayout = .standard
+    ) {
         self.reducedMotion = reducedMotion
         self.controlHintsEnabled = controlHintsEnabled
+        self.controlLayout = controlLayout
     }
 
     init(from decoder: Decoder) throws {
@@ -22,6 +42,11 @@ struct GameSettings: Codable, Equatable, Sendable {
         catch {
             controlHintsEnabled = Self.defaults.controlHintsEnabled
             AppLog.persistence.error("Malformed control-hints setting; field default used: \(error.localizedDescription, privacy: .public)")
+        }
+        do { controlLayout = try values.decodeIfPresent(ControlLayout.self, forKey: .controlLayout) ?? Self.defaults.controlLayout }
+        catch {
+            controlLayout = Self.defaults.controlLayout
+            AppLog.persistence.error("Malformed control-layout setting; field default used: \(error.localizedDescription, privacy: .public)")
         }
     }
 }
