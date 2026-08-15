@@ -38,26 +38,28 @@ struct GameplayView: View {
         session: session, runtime: session.runtime, generation: session.runtimeGeneration))
   }
   var body: some View {
-    VStack(spacing: 8) {
-      hud
-      ZStack {
-        SpriteView(scene: scene).id(scene.runtimeGeneration).aspectRatio(1, contentMode: .fit)
-          .background(AppTheme.Colors.background).accessibilityHidden(true).accessibilityIdentifier(
-            "gameBoard")
-        GameplayFeedbackOverlay(
-          feedback: session.uiSnapshot.feedback, reducedMotion: session.configuration.reducedMotion)
+    GeometryReader { geometry in
+      let compact = geometry.size.height < 700 || geometry.size.width < 360
+      VStack(spacing: compact ? 5 : 8) {
+        hud
+        ZStack {
+          SpriteView(scene: scene).id(scene.runtimeGeneration).aspectRatio(1, contentMode: .fit)
+            .background(AppTheme.Colors.background).accessibilityHidden(true)
+            .accessibilityIdentifier("gameBoard")
+          GameplayFeedbackOverlay(
+            feedback: session.uiSnapshot.feedback,
+            reducedMotion: session.configuration.reducedMotion)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        GameControlsView(
+          canMove: session.uiSnapshot.canMove, canGrapple: session.uiSnapshot.canGrapple,
+          showsHints: session.configuration.controlHintsEnabled, compact: compact,
+          inputController: session.simulation.inputController,
+          diagnosticPosition: session.uiSnapshot.diagnosticPlayerPosition)
       }
-      if session.configuration.controlHintsEnabled {
-        Text(
-          "Move with the joystick. Tap Grapple to fire facing forward; drag and release to aim."
-        ).appTextStyle(.paragraph).foregroundStyle(AppTheme.Colors.text.opacity(0.7))
-          .multilineTextAlignment(.center).accessibilityIdentifier("controlHint")
-      }
-      GameControlsView(
-        canMove: session.uiSnapshot.canMove, canGrapple: session.uiSnapshot.canGrapple,
-        inputController: session.simulation.inputController,
-        diagnosticPosition: session.uiSnapshot.diagnosticPlayerPosition)
-    }.padding(.horizontal, 8).padding(.bottom, 4).background(AppTheme.Colors.background)
+      .padding(.horizontal, compact ? 8 : 12)
+      .padding(.bottom, compact ? 4 : 8)
+    }.background(AppTheme.Colors.background)
       .navigationBarBackButtonHidden().appNavigationStyle().onAppear {
         announcementCoordinator.update(feedback: session.uiSnapshot.feedback)
       }.onChange(of: session.runtimeGeneration) { _, generation in
@@ -121,15 +123,28 @@ struct GameplayView: View {
 struct GameControlsView: View {
   let canMove: Bool
   let canGrapple: Bool
+  let showsHints: Bool
+  let compact: Bool
   let inputController: GameInputController
   let diagnosticPosition: GridPosition?
   var body: some View {
-    HStack(spacing: 24) {
-      VirtualJoystickView(input: inputController, isEnabled: canMove)
-      Spacer(minLength: 0)
-      GrappleControlView(input: inputController, isEnabled: canGrapple)
+    HStack(alignment: .center, spacing: compact ? 12 : 24) {
+      dockControl(hint: "Move", identifier: "moveControlHint") {
+        VirtualJoystickView(input: inputController, isEnabled: canMove, size: compact ? 116 : 124)
+      }
+      Spacer(minLength: compact ? 12 : 32)
+      dockControl(hint: "Grapple", identifier: "grappleControlHint") {
+        GrappleControlView(input: inputController, isEnabled: canGrapple, size: compact ? 80 : 88)
+      }
     }
-    .frame(maxWidth: .infinity).accessibilityElement(children: .contain)
+    .frame(maxWidth: .infinity, minHeight: compact ? 128 : 140)
+    .padding(.horizontal, compact ? 10 : 16)
+    .background(AppTheme.Colors.surface.opacity(0.42), in: RoundedRectangle(cornerRadius: 24))
+    .overlay(
+      RoundedRectangle(cornerRadius: 24).stroke(AppTheme.Colors.accent.opacity(0.18), lineWidth: 1)
+    )
+    .accessibilityElement(children: .contain)
+    .accessibilityIdentifier("gameControlDock")
     #if DEBUG
       .overlay {
         if let position = diagnosticPosition {
@@ -139,6 +154,18 @@ struct GameControlsView: View {
         }
       }
     #endif
+  }
+
+  private func dockControl<Control: View>(
+    hint: String, identifier: String, @ViewBuilder control: () -> Control
+  ) -> some View {
+    VStack(spacing: 2) {
+      control()
+      if showsHints {
+        Text(hint).appTextStyle(.paragraph).foregroundStyle(AppTheme.Colors.text.opacity(0.62))
+          .lineLimit(1).accessibilityIdentifier(identifier)
+      }
+    }
   }
 }
 
@@ -186,10 +213,10 @@ struct GrappleGestureController: Equatable {
 }
 
 struct GrappleControlView: View {
-  private static let controlSize: CGFloat = 88
   @Environment(\.scenePhase) private var scenePhase
   @ObservedObject var input: GameInputController
   let isEnabled: Bool
+  let size: CGFloat
   @State private var controller = GrappleGestureController()
   @GestureState private var gestureIsActive = false
 
@@ -209,7 +236,7 @@ struct GrappleControlView: View {
         }
         .foregroundStyle(AppTheme.Colors.text)
       }
-      .frame(width: Self.controlSize, height: Self.controlSize)
+      .frame(width: size, height: size)
       .contentShape(Circle())
     }
     .buttonStyle(.plain)
@@ -298,13 +325,12 @@ struct VirtualJoystickController: Equatable {
 }
 
 struct VirtualJoystickView: View {
-  private static let baseSize: CGFloat = 124
   private static let knobSize: CGFloat = 54
-  private static let usableRadius = (baseSize - knobSize) / 2
   @Environment(\.scenePhase) private var scenePhase
   @Environment(\.accessibilityReduceMotion) private var reduceMotion
   @ObservedObject var input: GameInputController
   let isEnabled: Bool
+  let size: CGFloat
   @State private var controller = VirtualJoystickController()
 
   var body: some View {
@@ -323,7 +349,7 @@ struct VirtualJoystickView: View {
         .overlay(Circle().stroke(AppTheme.Colors.text.opacity(0.35), lineWidth: 1))
         .offset(x: controller.state.displacement.dx, y: controller.state.displacement.dy)
     }
-    .frame(width: Self.baseSize, height: Self.baseSize)
+    .frame(width: size, height: size)
     .contentShape(Circle())
     .opacity(isEnabled ? 1 : 0.42)
     .gesture(
@@ -332,8 +358,8 @@ struct VirtualJoystickView: View {
           guard isEnabled else { return }
           update(
             CGVector(
-              dx: value.location.x - Self.baseSize / 2,
-              dy: value.location.y - Self.baseSize / 2))
+              dx: value.location.x - size / 2,
+              dy: value.location.y - size / 2))
         }
         .onEnded { _ in cancel() }
     )
@@ -375,7 +401,7 @@ struct VirtualJoystickView: View {
   }
 
   private func update(_ displacement: CGVector) {
-    dispatch(controller.update(displacement: displacement, usableRadius: Self.usableRadius))
+    dispatch(controller.update(displacement: displacement, usableRadius: (size - Self.knobSize) / 2))
   }
   private func cancel() {
     dispatch(controller.cancel())
@@ -386,10 +412,10 @@ struct VirtualJoystickView: View {
   private func symbol(for direction: GridDirection) -> String { "arrow.\(direction.rawValue)" }
   private func markerOffset(for direction: GridDirection) -> CGSize {
     switch direction {
-    case .up: .init(width: 0, height: -47)
-    case .down: .init(width: 0, height: 47)
-    case .left: .init(width: -47, height: 0)
-    case .right: .init(width: 47, height: 0)
+    case .up: .init(width: 0, height: -(size / 2 - 15))
+    case .down: .init(width: 0, height: size / 2 - 15)
+    case .left: .init(width: -(size / 2 - 15), height: 0)
+    case .right: .init(width: size / 2 - 15, height: 0)
     }
   }
 }
