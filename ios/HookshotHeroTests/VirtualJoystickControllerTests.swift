@@ -72,3 +72,56 @@ final class VirtualJoystickControllerTests: XCTestCase {
       for: CGVector(dx: x, dy: y), usableRadius: radius)
   }
 }
+
+final class GrappleGestureControllerTests: XCTestCase {
+  func testTapAndTinyMovementFireNormalGrapple() {
+    var tap = GrappleGestureController()
+    tap.begin(isEnabled: true)
+    XCTAssertEqual(tap.end(isEnabled: true), .fireHook)
+
+    var tinyMovement = GrappleGestureController()
+    tinyMovement.begin(isEnabled: true)
+    tinyMovement.update(translation: .init(width: 12, height: -8), isEnabled: true)
+    XCTAssertEqual(tinyMovement.end(isEnabled: true), .fireHook)
+  }
+
+  func testCardinalDragsSelectExplicitDirections() {
+    XCTAssertEqual(command(x: 0, y: -30), .fireHookInDirection(.up))
+    XCTAssertEqual(command(x: 0, y: 30), .fireHookInDirection(.down))
+    XCTAssertEqual(command(x: -30, y: 0), .fireHookInDirection(.left))
+    XCTAssertEqual(command(x: 30, y: 0), .fireHookInDirection(.right))
+  }
+
+  func testDiagonalDragUsesDominantAxisWithVerticalTieBreak() {
+    XCTAssertEqual(command(x: 40, y: -30), .fireHookInDirection(.right))
+    XCTAssertEqual(command(x: 30, y: -40), .fireHookInDirection(.up))
+    XCTAssertEqual(command(x: 30, y: 30), .fireHookInDirection(.down))
+  }
+
+  func testReleaseEmitsExactlyOnce() {
+    var controller = GrappleGestureController()
+    controller.begin(isEnabled: true)
+    controller.update(translation: .init(width: -30, height: 0), isEnabled: true)
+    XCTAssertEqual(controller.end(isEnabled: true), .fireHookInDirection(.left))
+    XCTAssertNil(controller.end(isEnabled: true))
+  }
+
+  func testCancelAndDisabledStateEmitNothing() {
+    var cancelled = GrappleGestureController()
+    cancelled.begin(isEnabled: true)
+    cancelled.cancel()
+    XCTAssertNil(cancelled.end(isEnabled: true))
+
+    var disabled = GrappleGestureController()
+    disabled.begin(isEnabled: false)
+    disabled.update(translation: .init(width: 40, height: 0), isEnabled: false)
+    XCTAssertNil(disabled.end(isEnabled: false))
+  }
+
+  private func command(x: CGFloat, y: CGFloat) -> GameCommand? {
+    var controller = GrappleGestureController()
+    controller.begin(isEnabled: true)
+    controller.update(translation: .init(width: x, height: y), isEnabled: true)
+    return controller.end(isEnabled: true)
+  }
+}

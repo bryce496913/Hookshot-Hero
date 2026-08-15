@@ -429,6 +429,20 @@ final class LevelOneConversionTests: XCTestCase {
     )
   }
 
+  func testExplicitGrappleDirectionChangesFacingWithoutMovingPlayer() throws {
+    let simulation = try LevelOneSimulation(seed: 1)
+    let startingPosition = simulation.player.position
+
+    simulation.input.send(.fireHookInDirection(.left))
+    simulation.update(deltaTime: 0)
+
+    XCTAssertEqual(simulation.player.facing, .left)
+    XCTAssertEqual(simulation.player.position, startingPosition)
+    XCTAssertEqual(simulation.player.hookshot.direction, .left)
+    XCTAssertEqual(simulation.player.hookshot.phase, .extending)
+    XCTAssertEqual(HookshotState.maximumRange, 19)
+  }
+
   func testLegacySpriteSheetDimensionsProduceCorrectSlices() {
     XCTAssertEqual(
       SpriteSheet.normalizedRect(
