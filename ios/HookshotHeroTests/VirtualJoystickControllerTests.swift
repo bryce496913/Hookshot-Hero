@@ -175,3 +175,26 @@ final class GrappleGestureControllerTests: XCTestCase {
     return controller.end(isEnabled: true)
   }
 }
+
+@MainActor
+final class ConcurrentTouchControlTests: XCTestCase {
+  func testMovementRemainsEngagedWhileGrappleAimsAndFires() {
+    let haptics = RecordingGameControlHaptics()
+    var joystick = VirtualJoystickController(haptics: haptics)
+    var grapple = GrappleGestureController(haptics: haptics)
+
+    XCTAssertEqual(
+      joystick.update(displacement: .init(dx: -30, dy: 0), usableRadius: 40),
+      [.beginMove(.left)])
+
+    grapple.begin(isEnabled: true)
+    grapple.update(translation: .init(width: 0, height: -30), isEnabled: true)
+    XCTAssertEqual(grapple.end(isEnabled: true), .fireHookInDirection(.up))
+
+    XCTAssertEqual(joystick.state.activeDirection, .left)
+    XCTAssertEqual(joystick.cancel(), [.endMove(.left)])
+    XCTAssertEqual(
+      haptics.events,
+      [.directionEngaged, .grappleAimingDirectionChanged, .grappleFired])
+  }
+}
