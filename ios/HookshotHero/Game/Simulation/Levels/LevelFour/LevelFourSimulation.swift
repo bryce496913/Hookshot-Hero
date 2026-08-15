@@ -23,12 +23,14 @@ import Foundation
         id: EntityID(UUID(uuid: (0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 4, 1))),
         asset: open ? LevelFourRenderAssets.doorOpen : LevelFourRenderAssets.doorClosed,
         coordinate: .init(row: 0, column: 28), renderSize: .init(width: 4, height: 4),
-        anchor: .bottomLeft, zPosition: 3),
+        anchor: .bottomLeft, zPosition: 3, orientation: .none, animation: nil, opacity: 1,
+        isHidden: false),
       RenderEntitySnapshot(
         id: EntityID(UUID(uuid: (0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 4, 2))),
         asset: open ? LevelFourRenderAssets.doorOpenSide : LevelFourRenderAssets.doorClosedRight,
         coordinate: .init(row: 28, column: 56), renderSize: .init(width: 4, height: 4),
-        anchor: .bottomLeft, zPosition: 3),
+        anchor: .bottomLeft, zPosition: 3, orientation: .none, animation: nil, opacity: 1,
+        isHidden: false),
     ]
     return .init(
       player: s.player, entities: s.entities + doors + (bossRender.map { [$0] } ?? []),
