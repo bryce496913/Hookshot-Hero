@@ -17,6 +17,7 @@ public class StartMenu{
     private JButton easyModeButton;
     private JButton normalModeButton;
     private JButton missionModeButton;
+    private JButton levelSelectButton;
     private JButton helpButton;
     private JButton quitButton;
     private Image mainImage;
@@ -52,11 +53,12 @@ public class StartMenu{
         panel.add(backgroundImageLabel, BorderLayout.CENTER);
 
         // Create a sub-panel with a GridLayout for the buttons
-        JPanel buttonPanel = new JPanel(new GridLayout(5, 1));
+        JPanel buttonPanel = new JPanel(new GridLayout(6, 1));
 
         easyModeButton = new JButton("Single Player Game");
         normalModeButton = new JButton("Double Player Game");
         missionModeButton = new JButton("Quest Game");
+        levelSelectButton = new JButton("Level Select (Debug)");
         helpButton = new JButton("Help");
         quitButton = new JButton("Quit");
 
@@ -103,6 +105,13 @@ public class StartMenu{
             }
         });
 
+        levelSelectButton.addActionListener(new ActionListener() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                showLevelSelect();
+            }
+        });
+
         helpButton.addActionListener(new ActionListener() {
             @Override
             public void actionPerformed(ActionEvent e) {
@@ -130,6 +139,7 @@ public class StartMenu{
         buttonPanel.add(easyModeButton);
         buttonPanel.add(normalModeButton);
         buttonPanel.add(missionModeButton);
+        buttonPanel.add(levelSelectButton);
         buttonPanel.add(helpButton);
         buttonPanel.add(quitButton);
 
@@ -143,6 +153,37 @@ public class StartMenu{
         // Set the main panel as the content pane of the frame
         frame.setContentPane(panel);
         frame.setVisible(true);
+    }
+
+    private void showLevelSelect() {
+        JDialog levelSelectDialog = new JDialog(frame, "Debug Level Select", true);
+        JPanel levelPanel = new JPanel(new GridLayout(0, 1, 4, 4));
+        levelPanel.setBorder(BorderFactory.createEmptyBorder(8, 8, 8, 8));
+
+        for (LevelDefinition levelDefinition : LevelDefinition.values()) {
+            JButton levelButton = new JButton(levelDefinition.GetDisplayName());
+            levelButton.addActionListener(e -> startDebugLevel(levelDefinition, levelSelectDialog));
+            levelPanel.add(levelButton);
+        }
+
+        levelSelectDialog.setContentPane(new JScrollPane(levelPanel));
+        levelSelectDialog.setSize(320, 440);
+        levelSelectDialog.setLocationRelativeTo(frame);
+        levelSelectDialog.setVisible(true);
+    }
+
+    private void startDebugLevel(LevelDefinition levelDefinition, JDialog levelSelectDialog) {
+        stopAudioLoop(startTheme);
+
+        // Debug level selection always starts a clean single-player session.
+        GameOptions.SinglePlayerMode = true;
+        GameOptions.DoublePlayerMode = false;
+        GameOptions.MissionMode = false;
+        Engine.InitializeDebugLevel(GameOptions, levelDefinition);
+
+        levelSelectDialog.dispose();
+        frame.dispose();
+        Engine.createGame(Engine, _fps);
     }
 
     public Image loadImage(String filename) {
