@@ -88,6 +88,22 @@ struct LevelChestDefinition: Identifiable, Sendable {
   let message: String?
   let scoreReward: Int
   let healthReward: Int
+
+  var spawnExclusionRegion: GridRegion {
+    let height = Int(ceil(renderSize.height))
+    let width = Int(ceil(renderSize.width))
+    switch renderAnchorPoint {
+    case .bottomLeft:
+      return .init(
+        rows: renderAnchor.row..<renderAnchor.row + height,
+        columns: renderAnchor.column..<renderAnchor.column + width)
+    case .center:
+      let firstRow = renderAnchor.row - height / 2
+      let firstColumn = renderAnchor.column - width / 2
+      return .init(
+        rows: firstRow..<firstRow + height, columns: firstColumn..<firstColumn + width)
+    }
+  }
 }
 struct LevelChestState: Identifiable, Sendable {
   let definition: LevelChestDefinition
@@ -255,11 +271,19 @@ enum DamageSource: Equatable, Sendable {
 }
 
 enum LevelEntryPosition: Hashable, Sendable { case bottom, top, right }
+struct OpenedChestID: Hashable, Sendable {
+  let levelID: LevelID
+  let interactionAnchor: GridPosition
+}
+struct WorldCarryoverState: Hashable, Sendable {
+  var openedChestIDs: Set<OpenedChestID> = []
+}
 struct PlayerCarryoverState: Hashable, Sendable {
   let characterID: EntityID
   let health: Int
   let score: Int
   let completedLevelIDs: Set<LevelID>
+  var worldState: WorldCarryoverState = .init()
 }
 enum LevelTransitionReason: Hashable, Sendable { case completedForward, returnedBackward }
 struct LevelTransitionRequest: Hashable, Sendable {
@@ -890,6 +914,7 @@ struct DefaultGameSimulationFactory: GameSimulationFactory {
   private var lastPublishedStatus: PlayerStatusSnapshot
   private var lastPublishedUISnapshot: GameplayUISnapshot
   var completedLevelIDs: Set<LevelID> = []
+  var worldState = WorldCarryoverState()
   var onStatusChange: ((PlayerStatusSnapshot) -> Void)?
   var onUISnapshotChange: ((GameplayUISnapshot) -> Void)?
   var onOutcome: ((GameOutcome) -> Void)?
@@ -914,6 +939,7 @@ struct DefaultGameSimulationFactory: GameSimulationFactory {
     player.health = carryover?.health ?? 3
     player.score = carryover?.score ?? 0
     completedLevelIDs = carryover?.completedLevelIDs ?? []
+    worldState = carryover?.worldState ?? .init()
     lastPublishedStatus = .init(health: player.health, score: player.score)
     lastPublishedUISnapshot = .init(
       levelID: .levelOne, levelName: "Level 1", health: 3, maximumHealth: 5, score: 0,
@@ -922,6 +948,7 @@ struct DefaultGameSimulationFactory: GameSimulationFactory {
     var rng = SeededRandomNumberGenerator(seed: seed)
     entities = try fixture ?? SpawnService.spawn(in: level, using: &rng)
     chestStates = [Self.standardChest(at: level.chestAnchor, message: Self.chestMessage)]
+    restoreOpenedChestStates()
     try validateInitialPlayerFootprint()
   }
   static func standardChest(at anchor: GridPosition, message: String) -> LevelChestState {
@@ -936,6 +963,13 @@ struct DefaultGameSimulationFactory: GameSimulationFactory {
     let region = CollisionProfile.player.region(at: player.position)
     guard !level.isBlocked(region), !level.overlapsLava(region) else {
       throw GameLoadingError.invalidInitialState(levelID)
+    }
+  }
+  func restoreOpenedChestStates() {
+    for index in chestStates.indices {
+      let definition = chestStates[index].definition
+      chestStates[index].isOpened = worldState.openedChestIDs.contains(
+        .init(levelID: levelID, interactionAnchor: definition.interactionAnchor))
     }
   }
   var levelID: LevelID { .levelOne }
@@ -1302,6 +1336,8 @@ struct DefaultGameSimulationFactory: GameSimulationFactory {
       guard outcome == nil else { return }
       chestStates[index].isOpened = true
       let chest = chestStates[index].definition
+      worldState.openedChestIDs.insert(
+        .init(levelID: levelID, interactionAnchor: chest.interactionAnchor))
       player.score += chest.scoreReward
       let gain = min(chest.healthReward, player.maximumHealth - player.health)
       player.health += gain
@@ -1325,7 +1361,7 @@ struct DefaultGameSimulationFactory: GameSimulationFactory {
     cancelAllInput()
     let carry = PlayerCarryoverState(
       characterID: player.id, health: player.health, score: player.score,
-      completedLevelIDs: completedLevelIDs)
+      completedLevelIDs: completedLevelIDs, worldState: worldState)
     onLevelTransition?(
       LevelTransitionRequest(
         sourceLevelID: .levelOne, destinationLevelID: .levelTwo, destinationEntry: .bottom,
@@ -1613,7 +1649,7 @@ enum LevelTwoPresentationDefinition {
     let carry = {
       PlayerCarryoverState(
         characterID: self.player.id, health: self.player.health, score: self.player.score,
-        completedLevelIDs: self.completedLevelIDs)
+        completedLevelIDs: self.completedLevelIDs, worldState: self.worldState)
     }
     if region.intersects(level.entryRegion) {
       cancelAllInput()
@@ -1787,6 +1823,7 @@ enum LevelThreePresentationDefinition {
     level = LevelThreeDefinition.make()
     presentationDefinition = LevelThreePresentationDefinition.make(from: level)
     chestStates = [Self.standardChest(at: level.chestAnchor, message: "You made it!")]
+    restoreOpenedChestStates()
     enemies = [
       .init(
         id: EntityID(), archetype: .skeleton, position: .init(row: 16, column: 29), facing: .right,
@@ -1828,7 +1865,8 @@ enum LevelThreePresentationDefinition {
           sourceLevelID: .levelThree, destinationLevelID: .levelTwo, destinationEntry: .top,
           carryover: .init(
             characterID: player.id, health: player.health, score: player.score,
-            completedLevelIDs: completedLevelIDs), reason: .returnedBackward))
+            completedLevelIDs: completedLevelIDs, worldState: worldState),
+          reason: .returnedBackward))
     } else if region.intersects(level.exitRegion) {
       if !completedLevelIDs.contains(.levelThree) {
         player.score += 100
@@ -2102,7 +2140,7 @@ enum LevelFourPresentationDefinition {
       cancelAllInput()
       let carry = PlayerCarryoverState(
         characterID: player.id, health: player.health, score: player.score,
-        completedLevelIDs: completedLevelIDs)
+        completedLevelIDs: completedLevelIDs, worldState: worldState)
       onLevelTransition?(
         LevelTransitionRequest(
           sourceLevelID: .levelFour, destinationLevelID: .levelThree, destinationEntry: .top,
@@ -2120,7 +2158,7 @@ enum LevelFourPresentationDefinition {
         cancelAllInput()
         let carry = PlayerCarryoverState(
           characterID: player.id, health: player.health, score: player.score,
-          completedLevelIDs: completedLevelIDs)
+          completedLevelIDs: completedLevelIDs, worldState: worldState)
         onLevelTransition?(
           LevelTransitionRequest(
             sourceLevelID: .levelFour, destinationLevelID: .levelFive, destinationEntry: .bottom,
@@ -2129,7 +2167,7 @@ enum LevelFourPresentationDefinition {
         cancelAllInput()
         let carry = PlayerCarryoverState(
           characterID: player.id, health: player.health, score: player.score,
-          completedLevelIDs: completedLevelIDs)
+          completedLevelIDs: completedLevelIDs, worldState: worldState)
         onLevelTransition?(
           LevelTransitionRequest(
             sourceLevelID: .levelFour, destinationLevelID: .levelSix, destinationEntry: .bottom,
@@ -2316,6 +2354,7 @@ enum LevelFivePresentationDefinition {
           renderAnchorPoint: .bottomLeft, message: "You made it!", scoreReward: 100,
           healthReward: 2), isOpened: false)
     ]
+    restoreOpenedChestStates()
     enemies = [
       .init(
         id: EntityID(), archetype: .skeleton, position: .init(row: 28, column: 20), facing: .down,
@@ -2339,6 +2378,7 @@ enum LevelFivePresentationDefinition {
       protectedRegions: [
         CollisionProfile.player.region(at: player.position),
         CollisionProfile.chest.region(at: level.chestAnchor),
+        chestStates[0].definition.spawnExclusionRegion,
       ] + enemies.map { $0.archetype.footprint.region(at: $0.position) }, using: &rng)
     try validateInitialPlayerFootprint()
   }
@@ -2354,7 +2394,8 @@ enum LevelFivePresentationDefinition {
           sourceLevelID: .levelFive, destinationLevelID: .levelFour, destinationEntry: .right,
           carryover: .init(
             characterID: player.id, health: player.health, score: player.score,
-            completedLevelIDs: completedLevelIDs), reason: .returnedBackward))
+            completedLevelIDs: completedLevelIDs, worldState: worldState),
+          reason: .returnedBackward))
     } else if region.intersects(level.exitRegion) {
       if !completedLevelIDs.contains(.levelFive) {
         player.score += 100
@@ -2399,7 +2440,7 @@ enum LevelSixDefinition {
       .init(row: 24, column: 24),
     ]
   static let bottomStart = GridPosition(row: 50, column: 27)
-  static let topStart = GridPosition(row: 5, column: 23)
+  static let topStart = GridPosition(row: 5, column: 53)
   static func make() -> LevelDefinition {
     let boundary = LevelBoundaryGeometry(
       topWallRegions: [.init(rows: 0..<4, columns: 0..<51), .init(rows: 0..<4, columns: 57..<60)],
@@ -2493,6 +2534,7 @@ enum LevelSixPresentationDefinition {
       .init(definition: .init(id: EntityID(), interactionAnchor: .init(row: 4, column: 24), renderAnchor: .init(row: 4, column: 24), closedAsset: LevelSixRenderAssets.chestSide, openedAsset: LevelSixRenderAssets.chestSide, renderSize: .init(width: 4, height: 4), renderAnchorPoint: .bottomLeft, message: "You made it!", scoreReward: 100, healthReward: 2), isOpened: false),
       .init(definition: .init(id: EntityID(), interactionAnchor: .init(row: 44, column: 8), renderAnchor: .init(row: 44, column: 8), closedAsset: LevelSixRenderAssets.chestFront, openedAsset: LevelSixRenderAssets.chestFront, renderSize: .init(width: 4, height: 4), renderAnchorPoint: .bottomLeft, message: "You made it!", scoreReward: 100, healthReward: 2), isOpened: false),
     ]
+    restoreOpenedChestStates()
     enemies = [
       .init(id: EntityID(), archetype: .skeleton, position: .init(row: 22, column: 53), facing: .left, health: 3, maximumHealth: 3, behaviorState: .patrol, decisionAccumulator: 0, animationTime: 0),
       .init(id: EntityID(), archetype: .flyingTerror, position: .init(row: 10, column: 52), facing: .left, health: 5, maximumHealth: 5, behaviorState: .patrol, decisionAccumulator: 0, animationTime: 0),
@@ -2500,9 +2542,10 @@ enum LevelSixPresentationDefinition {
     try validateEnemyFootprints(entryPositions: [LevelSixDefinition.bottomStart, LevelSixDefinition.topStart])
     var rng = SeededRandomNumberGenerator(seed: seed ^ 0x66)
     let chestRegions = chestStates.flatMap {
-      [CollisionProfile.chest.region(at: $0.definition.interactionAnchor), CollisionProfile.chest.region(at: $0.definition.renderAnchor)]
+      [CollisionProfile.chest.region(at: $0.definition.interactionAnchor),
+        $0.definition.spawnExclusionRegion]
     }
-    entities = try SpawnService.spawn(in: level, requirements: [.init(kind: .mine, count: 3), .init(kind: .cabbage, count: 2), .init(kind: .coin, count: 10)], protectedRegions: chestRegions + enemies.map { $0.archetype.footprint.region(at: $0.position) }, using: &rng)
+    entities = try SpawnService.spawn(in: level, requirements: [.init(kind: .mine, count: 3), .init(kind: .cabbage, count: 2), .init(kind: .coin, count: 10)], protectedRegions: [CollisionProfile.player.region(at: player.position)] + chestRegions + enemies.map { $0.archetype.footprint.region(at: $0.position) }, using: &rng)
     try validateInitialPlayerFootprint()
   }
   override func update(deltaTime: TimeInterval) {
@@ -2512,7 +2555,7 @@ enum LevelSixPresentationDefinition {
     let region = CollisionProfile.player.region(at: player.position)
     if region.intersects(level.entryRegion) {
       cancelAllInput()
-      onLevelTransition?(.init(sourceLevelID: .levelSix, destinationLevelID: .levelFour, destinationEntry: .top, carryover: .init(characterID: player.id, health: player.health, score: player.score, completedLevelIDs: completedLevelIDs), reason: .returnedBackward))
+      onLevelTransition?(.init(sourceLevelID: .levelSix, destinationLevelID: .levelFour, destinationEntry: .top, carryover: .init(characterID: player.id, health: player.health, score: player.score, completedLevelIDs: completedLevelIDs, worldState: worldState), reason: .returnedBackward))
     } else if region.intersects(level.exitRegion) {
       if !completedLevelIDs.contains(.levelSix) {
         player.score += 100
