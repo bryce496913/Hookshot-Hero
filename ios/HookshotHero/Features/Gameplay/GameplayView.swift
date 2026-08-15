@@ -48,9 +48,9 @@ struct GameplayView: View {
           feedback: session.uiSnapshot.feedback, reducedMotion: session.configuration.reducedMotion)
       }
       if session.configuration.controlHintsEnabled {
-        Text("Move with the direction pad. Face a direction and tap Grapple.").appTextStyle(
-          .paragraph
-        ).foregroundStyle(AppTheme.Colors.text.opacity(0.7))
+        Text(
+          "Move with the joystick. Tap Grapple to fire in the direction you're facing."
+        ).appTextStyle(.paragraph).foregroundStyle(AppTheme.Colors.text.opacity(0.7))
           .multilineTextAlignment(.center).accessibilityIdentifier("controlHint")
       }
       GameControlsView(
@@ -125,14 +125,7 @@ struct GameControlsView: View {
   let diagnosticPosition: GridPosition?
   var body: some View {
     HStack(spacing: 24) {
-      VStack(spacing: 2) {
-        DirectionButton(direction: .up, input: inputController, isEnabled: canMove)
-        HStack(spacing: 2) {
-          DirectionButton(direction: .left, input: inputController, isEnabled: canMove)
-          DirectionButton(direction: .down, input: inputController, isEnabled: canMove)
-          DirectionButton(direction: .right, input: inputController, isEnabled: canMove)
-        }
-      }
+      VirtualJoystickView(input: inputController, isEnabled: canMove)
       Button("Grapple") { inputController.send(.fireHook) }
         .appTextStyle(.h3).frame(minWidth: 96, minHeight: 60)
         .buttonStyle(AppHighlightButtonStyle()).disabled(!canGrapple)
@@ -150,132 +143,139 @@ struct GameControlsView: View {
     #endif
   }
 }
-struct DirectionButton: View {
-  let direction: GridDirection
+
+struct VirtualJoystickState: Equatable {
+  var displacement: CGVector = .zero
+  var activeDirection: GridDirection?
+}
+
+struct VirtualJoystickController: Equatable {
+  static let deadZone: CGFloat = 0.22
+  private(set) var state = VirtualJoystickState()
+
+  static func direction(for displacement: CGVector, usableRadius: CGFloat) -> GridDirection? {
+    guard usableRadius > 0,
+      hypot(displacement.dx, displacement.dy) / usableRadius >= deadZone
+    else { return nil }
+    if abs(displacement.dx) > abs(displacement.dy) {
+      return displacement.dx < 0 ? .left : .right
+    }
+    return displacement.dy < 0 ? .up : .down
+  }
+
+  mutating func update(displacement raw: CGVector, usableRadius: CGFloat) -> [GameCommand] {
+    let length = hypot(raw.dx, raw.dy)
+    let scale = length > usableRadius && length > 0 ? usableRadius / length : 1
+    let clamped = CGVector(dx: raw.dx * scale, dy: raw.dy * scale)
+    let direction = Self.direction(for: clamped, usableRadius: usableRadius)
+    state.displacement = direction == nil ? .zero : clamped
+    guard direction != state.activeDirection else { return [] }
+    var commands: [GameCommand] = []
+    if let old = state.activeDirection { commands.append(.endMove(old)) }
+    if let direction { commands.append(.beginMove(direction)) }
+    state.activeDirection = direction
+    return commands
+  }
+
+  mutating func cancel() -> [GameCommand] {
+    defer { state = VirtualJoystickState() }
+    return state.activeDirection.map { [.endMove($0)] } ?? []
+  }
+}
+
+struct VirtualJoystickView: View {
+  private static let baseSize: CGFloat = 124
+  private static let knobSize: CGFloat = 54
+  private static let usableRadius = (baseSize - knobSize) / 2
+  @Environment(\.scenePhase) private var scenePhase
+  @Environment(\.accessibilityReduceMotion) private var reduceMotion
   @ObservedObject var input: GameInputController
   let isEnabled: Bool
+  @State private var controller = VirtualJoystickController()
 
   var body: some View {
-    Button {
-      if isEnabled { input.send(.move(direction)) }
-    } label: {
-      Image(systemName: symbol).frame(width: 52, height: 44).contentShape(Rectangle())
-    }.buttonStyle(
-      DirectionPressButtonStyle(
-        direction: direction, input: input, isEnabled: isEnabled,
-        cancellationGeneration: input.cancellationGeneration)
+    ZStack {
+      Circle().fill(AppTheme.Colors.surface)
+      Circle().stroke(
+        AppTheme.Colors.accent.opacity(controller.state.activeDirection == nil ? 0.45 : 1),
+        lineWidth: controller.state.activeDirection == nil ? 2 : 3)
+      cardinalMarkers
+      Circle()
+        .fill(
+          controller.state.activeDirection == nil
+            ? AppTheme.Colors.text.opacity(0.82) : AppTheme.Colors.accent
+        )
+        .frame(width: Self.knobSize, height: Self.knobSize)
+        .overlay(Circle().stroke(AppTheme.Colors.text.opacity(0.35), lineWidth: 1))
+        .offset(x: controller.state.displacement.dx, y: controller.state.displacement.dy)
+    }
+    .frame(width: Self.baseSize, height: Self.baseSize)
+    .contentShape(Circle())
+    .opacity(isEnabled ? 1 : 0.42)
+    .gesture(
+      DragGesture(minimumDistance: 0, coordinateSpace: .local)
+        .onChanged { value in
+          guard isEnabled else { return }
+          update(
+            CGVector(
+              dx: value.location.x - Self.baseSize / 2,
+              dy: value.location.y - Self.baseSize / 2))
+        }
+        .onEnded { _ in cancel() }
     )
+    .accessibilityElement(children: .ignore)
+    .accessibilityLabel("Movement joystick")
+    .accessibilityIdentifier("movementJoystick")
+    .accessibilityAddTraits(isEnabled ? AccessibilityTraits() : .isStaticText)
+    .overlay { accessibilityButtons }
     .disabled(!isEnabled)
-    .accessibilityLabel("Move \(direction.rawValue)")
-    .accessibilityIdentifier("move\(direction.rawValue.capitalized)Button")
+    .onChange(of: isEnabled) { _, enabled in if !enabled { cancel() } }
+    .onChange(of: input.cancellationGeneration) { _, _ in cancel() }
+    .onChange(of: scenePhase) { _, phase in if phase != .active { cancel() } }
+    .onDisappear(perform: cancel)
+    .animation(reduceMotion ? nil : .easeOut(duration: 0.12), value: controller.state.displacement)
   }
-  private var symbol: String {
-    switch direction {
-    case .up: "arrow.up"
-    case .down: "arrow.down"
-    case .left: "arrow.left"
-    case .right: "arrow.right"
+
+  private var cardinalMarkers: some View {
+    ForEach(GridDirection.allCases, id: \.rawValue) { direction in
+      Image(systemName: symbol(for: direction))
+        .font(.system(size: 10, weight: .bold))
+        .foregroundStyle(
+          controller.state.activeDirection == direction
+            ? AppTheme.Colors.accent : AppTheme.Colors.text.opacity(0.55)
+        )
+        .offset(markerOffset(for: direction))
+        .accessibilityHidden(true)
     }
   }
-}
 
-enum DirectionPressState: Equatable { case idle, pressed, holding }
-enum DirectionPressEvent: Equatable {
-  case moveOnce(GridDirection)
-  case beginHold(GridDirection)
-  case endHold(GridDirection)
-}
-struct DirectionPressController: Equatable {
-  private(set) var state: DirectionPressState = .idle
-  mutating func press(_ direction: GridDirection) -> [DirectionPressEvent] {
-    guard state == .idle else { return [] }
-    state = .pressed
-    return []
-  }
-  mutating func holdThreshold(_ direction: GridDirection) -> [DirectionPressEvent] {
-    guard state == .pressed else { return [] }
-    state = .holding
-    return [.beginHold(direction)]
-  }
-  mutating func release(_ direction: GridDirection) -> [DirectionPressEvent] {
-    defer { state = .idle }
-    switch state {
-    case .pressed: return [.moveOnce(direction)]
-    case .holding: return [.endHold(direction)]
-    case .idle: return []
+  private var accessibilityButtons: some View {
+    ForEach(GridDirection.allCases, id: \.rawValue) { direction in
+      Button("Move \(direction.rawValue.capitalized)") {
+        if isEnabled { input.send(.move(direction)) }
+      }
+      .disabled(!isEnabled)
+      .accessibilityIdentifier("move\(direction.rawValue.capitalized)Button")
+      .frame(width: 1, height: 1).opacity(0.001)
     }
   }
-  mutating func cancel(_ direction: GridDirection) -> [DirectionPressEvent] {
-    defer { state = .idle }
-    return state == .holding ? [.endHold(direction)] : []
-  }
-}
 
-private struct DirectionPressButtonStyle: PrimitiveButtonStyle {
-  let direction: GridDirection
-  let input: GameInputController
-  let isEnabled: Bool
-  let cancellationGeneration: Int
-  func makeBody(configuration: Configuration) -> some View {
-    DirectionPressBody(
-      configuration: configuration, direction: direction, input: input,
-      isEnabled: isEnabled, cancellationGeneration: cancellationGeneration)
-  }
-}
-
-private struct DirectionPressBody: View {
-  let configuration: PrimitiveButtonStyleConfiguration
-  let direction: GridDirection
-  @ObservedObject var input: GameInputController
-  let isEnabled: Bool
-  let cancellationGeneration: Int
-  @State private var controller = DirectionPressController()
-  @State private var holdTask: Task<Void, Never>?
-  var body: some View {
-    configuration.label
-      .foregroundStyle(AppTheme.Colors.text)
-      .background(directionFill, in: RoundedRectangle(cornerRadius: 9, style: .continuous))
-      .overlay(
-        RoundedRectangle(cornerRadius: 9, style: .continuous).stroke(directionBorder, lineWidth: 1)
-      )
-      .contentShape(Rectangle()).gesture(
-        DragGesture(minimumDistance: 0).onChanged { _ in begin() }.onEnded { _ in finish() }
-      )
-      .onChange(of: isEnabled) { _, enabled in if !enabled { cancel() } }.onChange(
-        of: cancellationGeneration
-      ) { _, _ in cancel() }.onDisappear(perform: cancel)
-  }
-  private var directionFill: Color {
-    guard isEnabled else { return AppTheme.Colors.surface.opacity(0.45) }
-    return controller.state == .idle ? AppTheme.Colors.surface : AppTheme.Colors.accent
-  }
-  private var directionBorder: Color { AppTheme.Colors.accent.opacity(isEnabled ? 1 : 0.35) }
-  private func begin() {
-    guard isEnabled, controller.state == .idle else { return }
-    _ = controller.press(direction)
-    holdTask = Task { @MainActor in
-      try? await Task.sleep(for: .milliseconds(300))
-      guard !Task.isCancelled else { return }
-      dispatch(controller.holdThreshold(direction))
-    }
-  }
-  private func finish() {
-    holdTask?.cancel()
-    holdTask = nil
-    dispatch(controller.release(direction))
+  private func update(_ displacement: CGVector) {
+    dispatch(controller.update(displacement: displacement, usableRadius: Self.usableRadius))
   }
   private func cancel() {
-    holdTask?.cancel()
-    holdTask = nil
-    dispatch(controller.cancel(direction))
+    dispatch(controller.cancel())
   }
-  private func dispatch(_ events: [DirectionPressEvent]) {
-    for event in events {
-      switch event {
-      case .moveOnce: configuration.trigger()
-      case .beginHold(let d): input.send(.beginMove(d))
-      case .endHold(let d): input.send(.endMove(d))
-      }
+  private func dispatch(_ commands: [GameCommand]) {
+    commands.forEach(input.send)
+  }
+  private func symbol(for direction: GridDirection) -> String { "arrow.\(direction.rawValue)" }
+  private func markerOffset(for direction: GridDirection) -> CGSize {
+    switch direction {
+    case .up: .init(width: 0, height: -47)
+    case .down: .init(width: 0, height: 47)
+    case .left: .init(width: -47, height: 0)
+    case .right: .init(width: 47, height: 0)
     }
   }
 }

@@ -196,24 +196,6 @@ final class LevelOneStabilizationTests: XCTestCase {
     XCTAssertEqual(statuses.count, 1)
   }
 
-  func testDirectionPressStateMachineSeparatesTapHoldAndCancellation() {
-    var press = DirectionPressController()
-    XCTAssertEqual(press.press(.up), [])
-    XCTAssertEqual(press.release(.up), [.moveOnce(.up)])
-    XCTAssertEqual(press.state, .idle)
-    XCTAssertEqual(press.release(.up), [], "a quick tap cannot dispatch twice")
-    _ = press.press(.left)
-    XCTAssertEqual(press.holdThreshold(.left), [.beginHold(.left)])
-    XCTAssertEqual(press.release(.left), [.endHold(.left)])
-    XCTAssertEqual(press.state, .idle)
-    _ = press.press(.right)
-    XCTAssertEqual(press.cancel(.right), [])
-    XCTAssertEqual(press.cancel(.right), [])
-    _ = press.press(.down)
-    _ = press.holdThreshold(.down)
-    XCTAssertEqual(press.cancel(.down), [.endHold(.down)])
-  }
-
   func testProductionSeed496913SpawnsSafeDeterministicFullFootprints() throws {
     let level = LevelOneDefinition.make()
     var firstRNG = SeededRandomNumberGenerator(seed: 496_913)

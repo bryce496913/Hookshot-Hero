@@ -99,6 +99,7 @@
 		B30000000000000000000030 /* ChestSide.png in Resources */ = {isa = PBXBuildFile; fileRef = B20000000000000000000030; };
 		B30000000000000000000031 /* ChestFront.png in Resources */ = {isa = PBXBuildFile; fileRef = B20000000000000000000031; };
 		D2000000000000000000001A /* CollisionProfiles.swift in Sources */ = {isa = PBXBuildFile; fileRef = D1000000000000000000001A; };
+		E10000000000000000000001 /* VirtualJoystickControllerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = E10000000000000000000002 /* VirtualJoystickControllerTests.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -199,6 +200,7 @@
 		B20000000000000000000031 /* ChestFront.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; name = ChestFront.png; path = "../Java/resources/environment/ChestFront.png"; sourceTree = SOURCE_ROOT; };
 		B20000000000000000000032 /* ChestBack.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; name = ChestBack.png; path = "../Java/resources/environment/ChestBack.png"; sourceTree = SOURCE_ROOT; };
 		D1000000000000000000001A /* CollisionProfiles.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "HookshotHero/Game/Simulation/Shared/CollisionProfiles.swift"; sourceTree = "<group>"; };
+		E10000000000000000000002 /* VirtualJoystickControllerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "HookshotHeroTests/VirtualJoystickControllerTests.swift"; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXContainerItemProxy section */
@@ -241,6 +243,7 @@
 				D1000000000000000000001A /* CollisionProfiles.swift */,
 				A00000000000000000000004 /* AppRouterTests.swift */,
 				D50000000000000000000004 /* AppThemeTests.swift */,
+				E10000000000000000000002 /* VirtualJoystickControllerTests.swift */,
 				C40000000000000000000002 /* LevelOneStabilizationTests.swift */,
 				C50000000000000000000002 /* CrossLevelCarryoverTests.swift */,
 				AA8C1A905D9395F73AD2D105 /* Assets.xcassets */,
@@ -281,7 +284,7 @@
 /* Begin PBXFrameworksBuildPhase section */
 		6C18526817C1377C39321D31 = {isa = PBXFrameworksBuildPhase; buildActionMask = 2147483647; files = (); runOnlyForDeploymentPostprocessing = 0; };
 		F7115B032A300979DADE839B = {isa = PBXSourcesBuildPhase; buildActionMask = 2147483647; files = (A00000000000000000000003 /* AppRouterTests.swift in Sources */, 12A0B74595F885094BF5AB54 /* ProgressionRepositoryTests.swift in Sources */, 1B6FF7C8E62687CB87326931 /* EntityStoreTests.swift in Sources */, 8EE27EF737E30DEF75FBDA25 /* GameSessionTests.swift in Sources */, C70000000000000000000001 /* LevelSevenTests.swift in Sources */, C50000000000000000000001 /* CrossLevelCarryoverTests.swift in Sources */,
-				D50000000000000000000003 /* AppThemeTests.swift in Sources */, C40000000000000000000001 /* LevelOneStabilizationTests.swift in Sources */, 13BBF1CD945A2FDADA696549 /* SettingsTests.swift in Sources */, 5E9B9A1A44E292ED23EF4796 /* SimulationClockTests.swift in Sources */,); runOnlyForDeploymentPostprocessing = 0; };
+				D50000000000000000000003 /* AppThemeTests.swift in Sources */, E10000000000000000000001 /* VirtualJoystickControllerTests.swift in Sources */, C40000000000000000000001 /* LevelOneStabilizationTests.swift in Sources */, 13BBF1CD945A2FDADA696549 /* SettingsTests.swift in Sources */, 5E9B9A1A44E292ED23EF4796 /* SimulationClockTests.swift in Sources */,); runOnlyForDeploymentPostprocessing = 0; };
 		2A960B3687BD5174B1C1D252 = {isa = PBXResourcesBuildPhase; buildActionMask = 2147483647; files = (); runOnlyForDeploymentPostprocessing = 0; };
 		3152BA25849B7B83335DDC55 = {isa = PBXFrameworksBuildPhase; buildActionMask = 2147483647; files = (); runOnlyForDeploymentPostprocessing = 0; };
 		BD2535C6F11B59001D1B25CD = {isa = PBXSourcesBuildPhase; buildActionMask = 2147483647; files = (978D2CAACE297B6553ED40AC /* HookshotHeroUITests.swift in Sources */,); runOnlyForDeploymentPostprocessing = 0; };

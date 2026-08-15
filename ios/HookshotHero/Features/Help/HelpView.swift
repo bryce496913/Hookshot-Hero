@@ -12,8 +12,8 @@ struct HelpView: View {
                         .accessibilityAddTraits(.isHeader)
                     VStack(alignment: .leading, spacing: 10) {
                         Text("Level 1 controls").appTextStyle(.h2)
-                        Text("Direction pad").appTextStyle(.h3).foregroundStyle(AppTheme.Colors.accent)
-                        Text("Use the direction pad to move Lidia one grid cell at a time. Hold a direction to keep moving.")
+                        Text("Joystick").appTextStyle(.h3).foregroundStyle(AppTheme.Colors.accent)
+                        Text("Drag the joystick to move in four directions. Hold it to keep moving, and release it to stop.")
                             .appTextStyle(.paragraph)
                         Text("Grapple").appTextStyle(.h3).foregroundStyle(AppTheme.Colors.highlight)
                         Text("Face a wall and tap Grapple to pull toward it, cross lava safely, collect items, and destroy mines.")
