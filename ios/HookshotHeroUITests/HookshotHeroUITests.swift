@@ -88,6 +88,44 @@ final class HookshotHeroUITests: XCTestCase {
     XCTAssertTrue(app.buttons["pauseButton"].waitForExistence(timeout: 5))
     XCTAssertTrue(app.buttons["pauseButton"].isHittable)
   }
+  func testStandardPhoneControlDockIsSeparatedHittableAndSafe() {
+    launch()
+    app.buttons["playButton"].tap()
+
+    let dock = app.otherElements["gameControlDock"]
+    let board = app.otherElements["gameBoard"]
+    let joystick = app.otherElements["movementJoystick"]
+    let grapple = app.buttons["grappleButton"]
+    let pause = app.buttons["pauseButton"]
+    for element in [dock, board, joystick, grapple, pause] {
+      XCTAssertTrue(element.waitForExistence(timeout: 5))
+      XCTAssertTrue(element.isHittable)
+    }
+
+    XCTAssertGreaterThanOrEqual(joystick.frame.width, 116)
+    XCTAssertGreaterThanOrEqual(joystick.frame.height, 116)
+    XCTAssertGreaterThanOrEqual(grapple.frame.width, 76)
+    XCTAssertGreaterThanOrEqual(grapple.frame.height, 76)
+    XCTAssertFalse(joystick.frame.intersects(grapple.frame))
+    XCTAssertFalse(board.frame.intersects(dock.frame))
+    XCTAssertGreaterThan(grapple.frame.minX - joystick.frame.maxX, 44)
+    XCTAssertGreaterThanOrEqual(app.windows.firstMatch.frame.maxY - dock.frame.maxY, 20)
+  }
+  func testLargestDynamicTypeKeepsBothThumbControlsHittableAndSeparated() {
+    app.launchEnvironment["UIPreferredContentSizeCategoryName"] =
+      "UICTContentSizeCategoryAccessibilityExtraExtraExtraLarge"
+    launch()
+    app.buttons["playButton"].tap()
+
+    let joystick = app.otherElements["movementJoystick"]
+    let grapple = app.buttons["grappleButton"]
+    XCTAssertTrue(joystick.waitForExistence(timeout: 5))
+    XCTAssertTrue(grapple.waitForExistence(timeout: 5))
+    XCTAssertTrue(app.buttons["pauseButton"].isHittable)
+    XCTAssertTrue(joystick.isHittable)
+    XCTAssertTrue(grapple.isHittable)
+    XCTAssertFalse(joystick.frame.intersects(grapple.frame))
+  }
   func testSecondGameStartsClean() {
     launch()
     app.buttons["playButton"].tap()
