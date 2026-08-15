@@ -284,6 +284,127 @@ final class LevelOneStabilizationTests: XCTestCase {
     XCTAssertEqual(transition?.destinationEntry, .top)
   }
 
+  func testLevelThreeChestStateSurvivesLevelFourRoundTripWithoutRewardingTwice() throws {
+    let characterID = EntityID()
+    let earlierChestID = OpenedChestID(
+      levelID: .levelOne, interactionAnchor: LevelOneDefinition.make().chestAnchor)
+    let initial = PlayerCarryoverState(
+      characterID: characterID, health: 2, score: 250,
+      completedLevelIDs: [.levelOne, .levelTwo],
+      worldState: .init(openedChestIDs: [earlierChestID]))
+    let levelThree = try LevelThreeSimulation(seed: 496_913, carryover: initial)
+
+    levelThree.player.position = levelThree.level.chestAnchor
+    levelThree.update(deltaTime: 0.01)
+    let levelThreeChestID = OpenedChestID(
+      levelID: .levelThree, interactionAnchor: levelThree.level.chestAnchor)
+    XCTAssertTrue(levelThree.chestOpen)
+    XCTAssertEqual(levelThree.player.health, 4)
+    XCTAssertEqual(levelThree.player.score, 350)
+    XCTAssertEqual(levelThree.worldState.openedChestIDs, [earlierChestID, levelThreeChestID])
+
+    var forward: LevelTransitionRequest?
+    levelThree.onLevelTransition = { forward = $0 }
+    levelThree.player.position = .init(row: 3, column: 29)
+    levelThree.update(deltaTime: 0.01)
+    let levelFourRequest = try XCTUnwrap(forward)
+    XCTAssertEqual(levelFourRequest.sourceLevelID, .levelThree)
+    XCTAssertEqual(levelFourRequest.destinationLevelID, .levelFour)
+    XCTAssertEqual(levelFourRequest.carryover.characterID, characterID)
+    XCTAssertEqual(levelFourRequest.carryover.health, 4)
+    XCTAssertEqual(levelFourRequest.carryover.score, 450)
+    XCTAssertEqual(
+      levelFourRequest.carryover.completedLevelIDs, [.levelOne, .levelTwo, .levelThree])
+    XCTAssertEqual(
+      levelFourRequest.carryover.worldState.openedChestIDs, [earlierChestID, levelThreeChestID])
+
+    let levelFour = try LevelFourSimulation(carryover: levelFourRequest.carryover)
+    var backward: LevelTransitionRequest?
+    levelFour.onLevelTransition = { backward = $0 }
+    levelFour.player.position = .init(row: 57, column: 29)
+    levelFour.update(deltaTime: 0.01)
+    let returnRequest = try XCTUnwrap(backward)
+    XCTAssertEqual(returnRequest.sourceLevelID, .levelFour)
+    XCTAssertEqual(returnRequest.destinationLevelID, .levelThree)
+    XCTAssertEqual(returnRequest.carryover, levelFourRequest.carryover)
+
+    let restored = try LevelThreeSimulation(
+      entryPosition: returnRequest.destinationEntry, carryover: returnRequest.carryover)
+    XCTAssertTrue(restored.chestOpen)
+    XCTAssertEqual(restored.player.id, characterID)
+    XCTAssertEqual(restored.player.health, 4)
+    XCTAssertEqual(restored.player.score, 450)
+    XCTAssertEqual(restored.completedLevelIDs, [.levelOne, .levelTwo, .levelThree])
+    XCTAssertEqual(restored.worldState, levelFourRequest.carryover.worldState)
+
+    let rewardCount = restored.feedbackEvents.filter {
+      if case .chestReward = $0.kind { true } else { false }
+    }.count
+    restored.player.position = restored.level.chestAnchor
+    restored.update(deltaTime: 0.01)
+    XCTAssertTrue(restored.chestOpen)
+    XCTAssertEqual(restored.player.health, 4)
+    XCTAssertEqual(restored.player.score, 450)
+    XCTAssertEqual(
+      restored.feedbackEvents.filter {
+        if case .chestReward = $0.kind { true } else { false }
+      }.count, rewardCount)
+  }
+
+  func testEveryCurrentTransitionEmitsTheSharedCarryoverSnapshot() throws {
+    let openedChestID = OpenedChestID(
+      levelID: .levelOne, interactionAnchor: LevelOneDefinition.make().chestAnchor)
+    let baseCarryover = PlayerCarryoverState(
+      characterID: EntityID(), health: 4, score: 275,
+      completedLevelIDs: [.levelOne, .levelTwo, .levelThree, .levelFour],
+      worldState: .init(openedChestIDs: [openedChestID]))
+
+    func assertTransition(
+      _ simulation: LevelOneSimulation, at position: GridPosition, to destination: LevelID,
+      file: StaticString = #filePath, line: UInt = #line
+    ) {
+      var request: LevelTransitionRequest?
+      simulation.onLevelTransition = { request = $0 }
+      simulation.player.position = position
+      simulation.update(deltaTime: 0.01)
+      XCTAssertEqual(request?.destinationLevelID, destination, file: file, line: line)
+      XCTAssertEqual(request?.carryover, simulation.makeCarryoverState(), file: file, line: line)
+      XCTAssertEqual(
+        request?.carryover.worldState, baseCarryover.worldState, file: file, line: line)
+    }
+
+    assertTransition(
+      try LevelOneSimulation(carryover: baseCarryover, entities: []),
+      at: .init(row: 3, column: 29), to: .levelTwo)
+    assertTransition(
+      try LevelTwoSimulation(carryover: baseCarryover),
+      at: .init(row: 57, column: 29), to: .levelOne)
+    assertTransition(
+      try LevelTwoSimulation(carryover: baseCarryover),
+      at: .init(row: 3, column: 29), to: .levelThree)
+    assertTransition(
+      try LevelThreeSimulation(carryover: baseCarryover),
+      at: .init(row: 57, column: 29), to: .levelTwo)
+    assertTransition(
+      try LevelThreeSimulation(carryover: baseCarryover),
+      at: .init(row: 3, column: 29), to: .levelFour)
+    assertTransition(
+      try LevelFourSimulation(carryover: baseCarryover),
+      at: .init(row: 57, column: 29), to: .levelThree)
+    assertTransition(
+      try LevelFourSimulation(carryover: baseCarryover),
+      at: .init(row: 29, column: 57), to: .levelFive)
+    assertTransition(
+      try LevelFourSimulation(carryover: baseCarryover),
+      at: .init(row: 3, column: 29), to: .levelSix)
+    assertTransition(
+      try LevelFiveSimulation(carryover: baseCarryover),
+      at: .init(row: 9, column: 3), to: .levelFour)
+    assertTransition(
+      try LevelSixSimulation(carryover: baseCarryover),
+      at: .init(row: 57, column: 29), to: .levelFour)
+  }
+
 }
 
 @MainActor final class AccessibilityAnnouncementTests: XCTestCase {
