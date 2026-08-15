@@ -19,7 +19,18 @@ import XCTest
         $0.row >= 0 && $0.column >= 0 && $0.row + 4 <= 60 && $0.column + 4 <= 60
       })
     XCTAssertEqual(Set(LevelSevenDefinition.lavaAnchors), expectedLava)
-    XCTAssertEqual(LevelSevenDefinition.lavaAnchors.count, expectedLava.count)
+    XCTAssertEqual(LevelSevenDefinition.lavaAnchors.count, 49)
+    XCTAssertEqual(
+      Set(LevelSevenDefinition.lavaAnchors).count, LevelSevenDefinition.lavaAnchors.count)
+  }
+
+  func testLavaAnchorsPreserveDeterministicJavaSourceOrder() {
+    XCTAssertEqual(LevelSevenDefinition.lavaAnchors, expectedOrderedLava)
+
+    let first = LevelSevenDefinition.make()
+    for _ in 0..<10 {
+      XCTAssertEqual(LevelSevenDefinition.make().lava, first.lava)
+    }
   }
 
   func testChestsOpenIndependentlyAndPersistWithoutFarming() throws {
@@ -181,5 +192,30 @@ import XCTest
     add([28], [44])
     add([36, 40], [48])
     return result
+  }
+
+  private var expectedOrderedLava: [GridPosition] {
+    [
+      .init(row: 8, column: 12), .init(row: 8, column: 16), .init(row: 8, column: 20),
+      .init(row: 16, column: 12), .init(row: 16, column: 16), .init(row: 16, column: 20),
+      .init(row: 36, column: 12), .init(row: 36, column: 16), .init(row: 36, column: 20),
+      .init(row: 40, column: 40), .init(row: 40, column: 44),
+      .init(row: 52, column: 32), .init(row: 52, column: 36), .init(row: 52, column: 40),
+      .init(row: 16, column: 48), .init(row: 16, column: 52),
+      .init(row: 28, column: 48), .init(row: 32, column: 48),
+      .init(row: 48, column: 8), .init(row: 52, column: 8),
+      .init(row: 8, column: 32), .init(row: 8, column: 36), .init(row: 8, column: 40),
+      .init(row: 8, column: 44), .init(row: 8, column: 48), .init(row: 8, column: 52),
+      .init(row: 12, column: 32), .init(row: 12, column: 36), .init(row: 12, column: 40),
+      .init(row: 12, column: 44), .init(row: 12, column: 48), .init(row: 12, column: 52),
+      .init(row: 20, column: 4), .init(row: 20, column: 8),
+      .init(row: 24, column: 4), .init(row: 24, column: 8),
+      .init(row: 28, column: 4), .init(row: 28, column: 8),
+      .init(row: 32, column: 40), .init(row: 32, column: 44),
+      .init(row: 36, column: 40), .init(row: 36, column: 44),
+      .init(row: 48, column: 20), .init(row: 48, column: 16),
+      .init(row: 12, column: 28), .init(row: 28, column: 44),
+      .init(row: 48, column: 40), .init(row: 36, column: 48), .init(row: 40, column: 48),
+    ]
   }
 }

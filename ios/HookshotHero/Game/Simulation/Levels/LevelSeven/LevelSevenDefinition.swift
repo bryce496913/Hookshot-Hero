@@ -1,28 +1,32 @@
 import Foundation
 
 enum LevelSevenDefinition {
-  // Java draws (400, 480) twice. A Set deliberately retains one native 4x4 tile.
-  static let lavaAnchors: [GridPosition] = Array(
-    Set(
+  static let lavaAnchors: [GridPosition] = {
+    // Preserve Java source order while retaining one tile for repeated placements, including (400, 480).
+    let javaDerivedPositions =
       [8].flatMap { row in [12, 16, 20].map { GridPosition(row: row, column: $0) } }
-        + [16].flatMap { row in [12, 16, 20].map { GridPosition(row: row, column: $0) } }
-        + [36].flatMap { row in [12, 16, 20].map { GridPosition(row: row, column: $0) } }
-        + [40].flatMap { row in [40, 44].map { GridPosition(row: row, column: $0) } }
-        + [52].flatMap { row in [32, 36, 40].map { GridPosition(row: row, column: $0) } }
-        + [16].flatMap { row in [48, 52].map { GridPosition(row: row, column: $0) } }
-        + [28, 32].map { GridPosition(row: $0, column: 48) }
-        + [48, 52].map { GridPosition(row: $0, column: 8) }
-        + [8, 12].flatMap { row in
-          [32, 36, 40, 44, 48, 52].map { GridPosition(row: row, column: $0) }
-        }
-        + [20, 24, 28].flatMap { row in [4, 8].map { GridPosition(row: row, column: $0) } }
-        + [32, 36, 40].flatMap { row in [40, 44].map { GridPosition(row: row, column: $0) } }
-        + [
-          .init(row: 48, column: 20), .init(row: 48, column: 16), .init(row: 12, column: 28),
-          .init(row: 28, column: 44), .init(row: 48, column: 40),
-          .init(row: 36, column: 48), .init(row: 40, column: 48),
-          .init(row: 48, column: 40),  // duplicate Java draw
-        ]))
+      + [16].flatMap { row in [12, 16, 20].map { GridPosition(row: row, column: $0) } }
+      + [36].flatMap { row in [12, 16, 20].map { GridPosition(row: row, column: $0) } }
+      + [40].flatMap { row in [40, 44].map { GridPosition(row: row, column: $0) } }
+      + [52].flatMap { row in [32, 36, 40].map { GridPosition(row: row, column: $0) } }
+      + [16].flatMap { row in [48, 52].map { GridPosition(row: row, column: $0) } }
+      + [28, 32].map { GridPosition(row: $0, column: 48) }
+      + [48, 52].map { GridPosition(row: $0, column: 8) }
+      + [8, 12].flatMap { row in
+        [32, 36, 40, 44, 48, 52].map { GridPosition(row: row, column: $0) }
+      }
+      + [20, 24, 28].flatMap { row in [4, 8].map { GridPosition(row: row, column: $0) } }
+      + [32, 36, 40].flatMap { row in [40, 44].map { GridPosition(row: row, column: $0) } }
+      + [
+        .init(row: 48, column: 20), .init(row: 48, column: 16), .init(row: 12, column: 28),
+        .init(row: 28, column: 44), .init(row: 48, column: 40),
+        .init(row: 36, column: 48), .init(row: 40, column: 48),
+        .init(row: 48, column: 40),  // duplicate Java draw
+      ]
+
+    var seen: Set<GridPosition> = []
+    return javaDerivedPositions.filter { seen.insert($0).inserted }
+  }()
 
   static let wallAnchors: [GridPosition] =
     [20, 24, 28, 32].flatMap { row in [12, 16, 20].map { .init(row: row, column: $0) } }
