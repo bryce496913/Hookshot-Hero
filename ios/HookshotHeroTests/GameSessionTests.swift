@@ -690,6 +690,15 @@ final class LevelThreeLoadingTests: XCTestCase {
     XCTAssertTrue(renderedAssets.contains(EnemyArchetype.skeleton.asset))
     XCTAssertTrue(renderedAssets.contains(EnemyArchetype.flyingTerror.asset))
   }
+
+  func testLevelThreeEnemiesStartClearOfSolidGeometry() throws {
+    let simulation = try LevelThreeSimulation(seed: 496_913)
+
+    for enemy in simulation.enemies where enemy.archetype != .flyingTerror {
+      let footprint = enemy.archetype.footprint.region(at: enemy.position)
+      XCTAssertFalse(simulation.level.isBlocked(footprint))
+    }
+  }
 }
 
 @MainActor
