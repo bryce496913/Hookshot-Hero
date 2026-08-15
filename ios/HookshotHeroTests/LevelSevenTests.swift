@@ -116,14 +116,24 @@ import XCTest
 
   func testTopExitCompletesCurrentContentOnceWithoutLevelEight() throws {
     let seven = try LevelSevenSimulation(seed: 496_913)
+    var emittedTransition: LevelTransitionRequest?
+    seven.onLevelTransition = { request in
+      emittedTransition = request
+    }
     seven.player.position = .init(row: 3, column: 29)
     seven.update(deltaTime: 0.01)
     XCTAssertEqual(seven.outcome, .won)
     XCTAssertEqual(seven.player.score, 100)
     XCTAssertEqual(seven.completedLevelIDs, [.levelSeven])
+    XCTAssertNil(emittedTransition)
+
+    let scoreAfterCompletion = seven.player.score
+    let completedLevelIDsAfterCompletion = seven.completedLevelIDs
     seven.update(deltaTime: 1)
-    XCTAssertEqual(seven.player.score, 100)
-    XCTAssertNil(seven.onLevelTransition)
+    XCTAssertNil(emittedTransition)
+    XCTAssertEqual(seven.player.score, scoreAfterCompletion)
+    XCTAssertEqual(seven.completedLevelIDs, completedLevelIDsAfterCompletion)
+    XCTAssertEqual(seven.outcome, .won)
   }
 
   private var expectedWalls: Set<GridPosition> {
