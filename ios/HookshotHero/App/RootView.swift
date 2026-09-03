@@ -73,6 +73,13 @@ struct GameLoadingFailureView: View {
                     .appTextStyle(.paragraph)
                     .foregroundStyle(AppTheme.Colors.text.opacity(0.7))
                     .multilineTextAlignment(.center)
+                #if DEBUG
+                Text("Diagnostic code: \(failure.diagnosticCode)")
+                    .appTextStyle(.paragraph)
+                    .foregroundStyle(AppTheme.Colors.text.opacity(0.6))
+                    .multilineTextAlignment(.center)
+                    .accessibilityIdentifier("loadingFailureDiagnosticCode")
+                #endif
                 Button("Retry", action: retry)
                     .buttonStyle(AppPrimaryButtonStyle())
                     .accessibilityIdentifier("retryLevelButton")
