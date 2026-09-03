@@ -57,8 +57,9 @@ public class HookshotHeroesGameEngine extends GameEngine {
     }
 
     // Initialize a fresh single-player world at a selected level for debugging.
-    public void InitializeDebugLevel(GameOptions options, LevelDefinition levelDefinition) {
-        ILevel level = levelDefinition.Create(this, _gameImage, options);
+    public void InitializeDebugLevel(GameOptions options, DebugLevelLaunch debugLaunch) {
+        debugLaunch.ApplyDebugGameState();
+        ILevel level = debugLaunch.GetLevelDefinition().Create(this, _gameImage, options);
         _world = new SinglePlayerWorldBuilder().Build(this, _gameImage, _gameAudio, options, level, null, null);
         _IsInitialized = true;
         _stopWatch.Reset();

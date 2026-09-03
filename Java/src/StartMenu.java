@@ -160,9 +160,9 @@ public class StartMenu{
         JPanel levelPanel = new JPanel(new GridLayout(0, 1, 4, 4));
         levelPanel.setBorder(BorderFactory.createEmptyBorder(8, 8, 8, 8));
 
-        for (LevelDefinition levelDefinition : LevelDefinition.values()) {
-            JButton levelButton = new JButton(levelDefinition.GetDisplayName());
-            levelButton.addActionListener(e -> startDebugLevel(levelDefinition, levelSelectDialog));
+        for (DebugLevelLaunch debugLaunch : DebugLevelLaunch.GetLaunches()) {
+            JButton levelButton = new JButton(debugLaunch.GetDisplayName());
+            levelButton.addActionListener(e -> startDebugLevel(debugLaunch, levelSelectDialog));
             levelPanel.add(levelButton);
         }
 
@@ -172,14 +172,14 @@ public class StartMenu{
         levelSelectDialog.setVisible(true);
     }
 
-    private void startDebugLevel(LevelDefinition levelDefinition, JDialog levelSelectDialog) {
+    private void startDebugLevel(DebugLevelLaunch debugLaunch, JDialog levelSelectDialog) {
         stopAudioLoop(startTheme);
 
         // Debug level selection always starts a clean single-player session.
         GameOptions.SinglePlayerMode = true;
         GameOptions.DoublePlayerMode = false;
         GameOptions.MissionMode = false;
-        Engine.InitializeDebugLevel(GameOptions, levelDefinition);
+        Engine.InitializeDebugLevel(GameOptions, debugLaunch);
 
         levelSelectDialog.dispose();
         frame.dispose();
