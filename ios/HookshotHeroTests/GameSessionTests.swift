@@ -739,6 +739,23 @@ final class LevelFourLoadingTests: XCTestCase {
       simulation.renderSnapshot.entities.contains { $0.asset == LevelFourRenderAssets.doorOpenSide }
     )
   }
+
+  func testRightExitEntersLevelFiveThroughItsLeftDoor() throws {
+    let carryover = PlayerCarryoverState(
+      characterID: EntityID(), health: 4, score: 500,
+      completedLevelIDs: [.levelOne, .levelTwo, .levelThree, .levelFour])
+    let simulation = try LevelFourSimulation(entryPosition: .right, carryover: carryover)
+    var transition: LevelTransitionRequest?
+    simulation.onLevelTransition = { transition = $0 }
+
+    simulation.player.position = .init(row: 29, column: 57)
+    simulation.update(deltaTime: 0.01)
+
+    XCTAssertEqual(transition?.sourceLevelID, .levelFour)
+    XCTAssertEqual(transition?.destinationLevelID, .levelFive)
+    XCTAssertEqual(transition?.destinationEntry, .left)
+    XCTAssertEqual(transition?.reason, .completedForward)
+  }
 }
 
 @MainActor
@@ -873,6 +890,26 @@ final class RenderLayoutContextTests: XCTestCase {
       simulation.presentationDefinition.staticObjects.filter {
         $0.asset == LevelFiveRenderAssets.chest
       }.count, 0)
+  }
+
+  func testLeftEntryUsesFootprintSafeSideStart() throws {
+    let simulation = try LevelFiveSimulation(seed: 496_913, entryPosition: .left)
+
+    XCTAssertEqual(simulation.player.position, .init(row: 8, column: 7))
+  }
+
+  func testBottomEntryRemainsDirectDebugAndTestLaunchAlias() throws {
+    let directLaunch = try LevelFiveSimulation(seed: 496_913, entryPosition: .bottom)
+    let productionEntry = try LevelFiveSimulation(seed: 496_913, entryPosition: .left)
+
+    XCTAssertEqual(directLaunch.player.position, .init(row: 8, column: 7))
+    XCTAssertEqual(directLaunch.player.position, productionEntry.player.position)
+  }
+
+  func testRightEntryFailsRatherThanAliasingLeftDoor() {
+    XCTAssertThrowsError(try LevelFiveSimulation(seed: 496_913, entryPosition: .right)) {
+      XCTAssertEqual($0 as? GameLoadingError, .invalidInitialState(.levelFive))
+    }
   }
 
   func testLevelFiveChestAndRightDoorReturn() throws {

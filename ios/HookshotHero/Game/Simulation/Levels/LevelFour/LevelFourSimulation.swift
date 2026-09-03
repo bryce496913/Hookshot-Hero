@@ -148,7 +148,7 @@ import Foundation
         cancelAllInput()
         onLevelTransition?(
           LevelTransitionRequest(
-            sourceLevelID: .levelFour, destinationLevelID: .levelFive, destinationEntry: .bottom,
+            sourceLevelID: .levelFour, destinationLevelID: .levelFive, destinationEntry: .left,
             carryover: makeCarryoverState()))
       } else {
         cancelAllInput()
