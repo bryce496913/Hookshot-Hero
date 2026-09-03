@@ -125,7 +125,7 @@ import XCTest
     XCTAssertEqual(backward?.carryover.characterID, identity)
   }
 
-  func testTopExitCompletesCurrentContentOnceWithoutLevelEight() throws {
+  func testTopExitTransitionsToLevelEightOnceRewarded() throws {
     let seven = try LevelSevenSimulation(seed: 496_913)
     var emittedTransition: LevelTransitionRequest?
     seven.onLevelTransition = { request in
@@ -133,18 +133,20 @@ import XCTest
     }
     seven.player.position = .init(row: 3, column: 29)
     seven.update(deltaTime: 0.01)
-    XCTAssertEqual(seven.outcome, .won)
+    XCTAssertNil(seven.outcome)
     XCTAssertEqual(seven.player.score, 100)
     XCTAssertEqual(seven.completedLevelIDs, [.levelSeven])
-    XCTAssertNil(emittedTransition)
+    XCTAssertEqual(emittedTransition?.sourceLevelID, .levelSeven)
+    XCTAssertEqual(emittedTransition?.destinationLevelID, .levelEight)
+    XCTAssertEqual(emittedTransition?.destinationEntry, .bottom)
+    XCTAssertEqual(emittedTransition?.reason, .completedForward)
 
     let scoreAfterCompletion = seven.player.score
     let completedLevelIDsAfterCompletion = seven.completedLevelIDs
     seven.update(deltaTime: 1)
-    XCTAssertNil(emittedTransition)
     XCTAssertEqual(seven.player.score, scoreAfterCompletion)
     XCTAssertEqual(seven.completedLevelIDs, completedLevelIDsAfterCompletion)
-    XCTAssertEqual(seven.outcome, .won)
+    XCTAssertNil(seven.outcome)
   }
 
   private var expectedWalls: Set<GridPosition> {

@@ -210,6 +210,8 @@ final class CrossLevelCarryoverTests: XCTestCase {
       try LevelSixSimulation(seed: seed, entryPosition: entryPosition, carryover: carryover)
     case .levelSeven:
       try LevelSevenSimulation(seed: seed, entryPosition: entryPosition, carryover: carryover)
+    case .levelEight:
+      try LevelEightSimulation(seed: seed, entryPosition: entryPosition, carryover: carryover)
     default:
       throw GameLoadingError.unsupportedLevel(levelID)
     }

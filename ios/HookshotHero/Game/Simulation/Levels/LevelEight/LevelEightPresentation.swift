@@ -19,8 +19,11 @@ extension LevelAssetManifest {
       LevelEightRenderAssets.floor, LevelEightRenderAssets.lava, LevelEightRenderAssets.wallFront,
       LevelEightRenderAssets.wallLeft, LevelEightRenderAssets.wallRight,
       LevelEightRenderAssets.exitDoor, LevelEightRenderAssets.bottomDoor,
-      LevelEightRenderAssets.leftDoor, LevelEightRenderAssets.smoke,
-    ]), animationIDs: [])
+      LevelEightRenderAssets.leftDoor, LevelEightRenderAssets.smoke, LevelOneRenderAssets.mine,
+      LevelOneRenderAssets.cabbage,
+    ]).union(sharedPlayerTextureAssetIDs).union(sharedCoinTextureAssetIDs).union(
+      sharedEnemyTextureAssetIDs),
+    animationIDs: LevelAssetManifest.levelSeven.animationIDs)
 }
 
 enum LevelEightPresentationDefinition {

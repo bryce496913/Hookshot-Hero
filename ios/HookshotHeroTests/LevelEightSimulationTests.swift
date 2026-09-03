@@ -102,6 +102,47 @@ import XCTest
     XCTAssertNil(transition)
   }
 
+  func testPhysicalReverseDoorsReturnToTheirIndependentBranchesWithoutReward() throws {
+    for (position, destination) in [
+      (GridPosition(row: 29, column: 1), LevelID.levelSix),
+      (GridPosition(row: 57, column: 29), LevelID.levelSeven),
+    ] {
+      let simulation = try LevelEightSimulation(seed: 8)
+      var transition: LevelTransitionRequest?
+      simulation.onLevelTransition = { transition = $0 }
+      simulation.player.position = position
+      simulation.update(deltaTime: 0.01)
+
+      XCTAssertEqual(transition?.sourceLevelID, .levelEight)
+      XCTAssertEqual(transition?.destinationLevelID, destination)
+      XCTAssertEqual(transition?.destinationEntry, .top)
+      XCTAssertEqual(transition?.reason, .returnedBackward)
+      XCTAssertEqual(transition?.carryover.score, 0)
+      XCTAssertFalse(transition?.carryover.completedLevelIDs.contains(.levelEight) == true)
+      XCTAssertNil(simulation.outcome)
+    }
+  }
+
+  func testRuntimeFactorySupportsBothLevelEightEntriesAndRejectsLevelNine() throws {
+    let factory = DefaultGameLevelRuntimeFactory()
+    let configuration = GameConfiguration(reducedMotion: false, controlHintsEnabled: true)
+    let bottom = try factory.makeRuntime(
+      levelID: .levelEight, configuration: configuration, seed: 8, entryPosition: .bottom,
+      carryover: nil)
+    let left = try factory.makeRuntime(
+      levelID: .levelEight, configuration: configuration, seed: 8, entryPosition: .left,
+      carryover: nil)
+    XCTAssertEqual(
+      bottom.simulation.renderSnapshot.player.coordinate,
+      LevelEightDefinition.fromLevelSevenStart)
+    XCTAssertEqual(
+      left.simulation.renderSnapshot.player.coordinate, LevelEightDefinition.fromLevelSixStart)
+    let levelNine = LevelID(rawValue: "level-9")
+    XCTAssertThrowsError(
+      try factory.makeRuntime(levelID: levelNine, configuration: configuration, seed: 9)
+    ) { XCTAssertEqual($0 as? GameLoadingError, .unsupportedLevel(levelNine)) }
+  }
+
   func testCarryoverRestoresPlayerAndCompletionState() throws {
     let identity = EntityID()
     let carryover = PlayerCarryoverState(

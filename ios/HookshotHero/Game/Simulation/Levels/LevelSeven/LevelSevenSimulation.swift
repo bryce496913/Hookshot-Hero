@@ -83,13 +83,17 @@ import Foundation
           sourceLevelID: .levelSeven, destinationLevelID: .levelFive, destinationEntry: .top,
           carryover: makeCarryoverState(), reason: .returnedBackward))
     } else if region.intersects(level.exitRegion) {
-      // Java continues to Level 8; until that level exists this is the current-content boundary.
       if !completedLevelIDs.contains(.levelSeven) {
         player.score += 100
         completedLevelIDs.insert(.levelSeven)
         emit(.levelCompleted(points: 100), at: player.position)
       }
-      setOutcome(.won)
+      cancelAllInput()
+      onLevelTransition?(
+        .init(
+          sourceLevelID: .levelSeven, destinationLevelID: .levelEight,
+          destinationEntry: .bottom, carryover: makeCarryoverState(),
+          reason: .completedForward))
     }
   }
 }
