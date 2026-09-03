@@ -63,8 +63,12 @@ import Foundation
     flyingRNG = .init(seed: seed ^ 0x7171)
     level = LevelOneDefinition.make()
     presentationDefinition = LevelOnePresentationDefinition.make(from: level)
-    let entryStart = entryPosition == .top ? GridPosition(row: 5, column: 23) : level.start
-    let initial = startOverride ?? entryStart
+    let initial: GridPosition
+    if let startOverride {
+      initial = startOverride
+    } else {
+      initial = try Self.startPosition(for: entryPosition)
+    }
     player = .init(
       id: carryover?.characterID ?? EntityID(), position: initial, lastSafePosition: initial)
     player.health = carryover?.health ?? 3
@@ -81,6 +85,13 @@ import Foundation
     chestStates = [Self.standardChest(at: level.chestAnchor, message: Self.chestMessage)]
     restoreOpenedChestStates()
     try validateInitialPlayerFootprint()
+  }
+  private static func startPosition(for entryPosition: LevelEntryPosition) throws -> GridPosition {
+    switch entryPosition {
+    case .bottom: LevelOneDefinition.make().start
+    case .top: .init(row: 5, column: 23)
+    case .left, .right: throw GameLoadingError.invalidInitialState(.levelOne)
+    }
   }
   static func standardChest(at anchor: GridPosition, message: String) -> LevelChestState {
     .init(

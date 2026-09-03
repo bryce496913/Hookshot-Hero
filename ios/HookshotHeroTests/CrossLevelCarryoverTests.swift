@@ -14,6 +14,61 @@ final class CrossLevelCarryoverTests: XCTestCase {
     var openedChestIDs: Set<OpenedChestID>
   }
 
+  func testEntryDirectionsAreDistinctValues() {
+    XCTAssertEqual(
+      Set<LevelEntryPosition>([.bottom, .top, .left, .right]).count, 4,
+      "Each doorway direction must remain independently representable")
+    XCTAssertNotEqual(LevelEntryPosition.left, .bottom)
+    XCTAssertNotEqual(LevelEntryPosition.left, .top)
+    XCTAssertNotEqual(LevelEntryPosition.left, .right)
+  }
+
+  func testExistingEntryDirectionsKeepTheirStartPositions() throws {
+    XCTAssertEqual(
+      try LevelOneSimulation(entryPosition: .bottom, entities: []).player.position,
+      .init(row: 50, column: 27))
+    XCTAssertEqual(
+      try LevelOneSimulation(entryPosition: .top, entities: []).player.position,
+      .init(row: 5, column: 23))
+    XCTAssertEqual(
+      try LevelFourSimulation(entryPosition: .right).player.position,
+      .init(row: 29, column: 52))
+    XCTAssertEqual(
+      try LevelFiveSimulation(entryPosition: .right).player.position,
+      .init(row: 8, column: 7))
+    XCTAssertEqual(
+      try LevelSixSimulation(entryPosition: .top).player.position, LevelSixDefinition.topStart)
+    XCTAssertEqual(
+      try LevelSevenSimulation(entryPosition: .top).player.position, LevelSevenDefinition.topStart)
+  }
+
+  func testUnsupportedEntryDirectionsFailInsteadOfFallingThrough() {
+    assertInvalidEntry(.left, for: .levelOne) {
+      try LevelOneSimulation(entryPosition: .left, entities: [])
+    }
+    assertInvalidEntry(.left, for: .levelTwo) {
+      try LevelTwoSimulation(entryPosition: .left)
+    }
+    assertInvalidEntry(.left, for: .levelThree) {
+      try LevelThreeSimulation(entryPosition: .left)
+    }
+    assertInvalidEntry(.left, for: .levelFour) {
+      try LevelFourSimulation(entryPosition: .left)
+    }
+    assertInvalidEntry(.left, for: .levelFive) {
+      try LevelFiveSimulation(entryPosition: .left)
+    }
+    assertInvalidEntry(.left, for: .levelSix) {
+      try LevelSixSimulation(entryPosition: .left)
+    }
+    assertInvalidEntry(.left, for: .levelSeven) {
+      try LevelSevenSimulation(entryPosition: .left)
+    }
+    assertInvalidEntry(.right, for: .levelSeven) {
+      try LevelSevenSimulation(entryPosition: .right)
+    }
+  }
+
   func testForwardAndReverseMainPathPreservesCarryoverAndPreventsChestFarming() throws {
     let (levelFour, forwardState) = try makeForwardChain()
 
@@ -157,6 +212,17 @@ final class CrossLevelCarryoverTests: XCTestCase {
       try LevelSevenSimulation(seed: seed, entryPosition: entryPosition, carryover: carryover)
     default:
       throw GameLoadingError.unsupportedLevel(levelID)
+    }
+  }
+
+  private func assertInvalidEntry(
+    _ entry: LevelEntryPosition, for levelID: LevelID, file: StaticString = #filePath,
+    line: UInt = #line, construction: () throws -> Any
+  ) {
+    XCTAssertThrowsError(try construction(), file: file, line: line) { error in
+      XCTAssertEqual(
+        error as? GameLoadingError, .invalidInitialState(levelID),
+        "\(entry) must not resolve to another doorway's start", file: file, line: line)
     }
   }
 

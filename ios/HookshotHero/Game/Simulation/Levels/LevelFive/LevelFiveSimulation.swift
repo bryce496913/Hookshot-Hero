@@ -9,7 +9,11 @@ import Foundation
     carryover: PlayerCarryoverState? = nil
   ) throws {
     let start: GridPosition =
-      entryPosition == .top ? .init(row: 5, column: 29) : .init(row: 8, column: 7)
+      switch entryPosition {
+      case .bottom, .right: .init(row: 8, column: 7)
+      case .top: .init(row: 5, column: 29)
+      case .left: throw GameLoadingError.invalidInitialState(.levelFive)
+      }
     try super.init(
       configuration: configuration, seed: seed, entryPosition: entryPosition, carryover: carryover,
       startOverride: start, entities: [])

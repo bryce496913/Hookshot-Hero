@@ -9,10 +9,15 @@ import Foundation
     carryover: PlayerCarryoverState? = nil
   ) throws {
     let streams = LevelRandomStreams(seed: seed)
+    let start: GridPosition =
+      switch entryPosition {
+      case .bottom: .init(row: 50, column: 27)
+      case .top: .init(row: 5, column: 27)
+      case .left, .right: throw GameLoadingError.invalidInitialState(.levelTwo)
+      }
     try super.init(
       configuration: configuration, seed: seed, entryPosition: entryPosition, carryover: carryover,
-      startOverride: entryPosition == .top ? .init(row: 5, column: 27) : .init(row: 50, column: 27),
-      entities: [])
+      startOverride: start, entities: [])
     level = LevelTwoDefinition.make()
     presentationDefinition = LevelTwoPresentationDefinition.make(from: level)
     chestStates = []

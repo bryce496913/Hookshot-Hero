@@ -49,6 +49,7 @@ import Foundation
       case .top: .init(row: 5, column: 27)
       case .right: .init(row: 29, column: 52)
       case .bottom: .init(row: 50, column: 27)
+      case .left: throw GameLoadingError.invalidInitialState(.levelFour)
       }
     try super.init(
       configuration: configuration, seed: seed, entryPosition: entryPosition, carryover: carryover,

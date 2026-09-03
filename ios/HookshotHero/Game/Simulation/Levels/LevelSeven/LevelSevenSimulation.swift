@@ -8,8 +8,12 @@ import Foundation
     seed: UInt64 = 7, entryPosition: LevelEntryPosition = .bottom,
     carryover: PlayerCarryoverState? = nil
   ) throws {
-    let start =
-      entryPosition == .top ? LevelSevenDefinition.topStart : LevelSevenDefinition.bottomStart
+    let start: GridPosition =
+      switch entryPosition {
+      case .bottom: LevelSevenDefinition.bottomStart
+      case .top: LevelSevenDefinition.topStart
+      case .left, .right: throw GameLoadingError.invalidInitialState(.levelSeven)
+      }
     try super.init(
       configuration: configuration, seed: seed, entryPosition: entryPosition, carryover: carryover,
       startOverride: start, entities: [])

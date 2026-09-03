@@ -5,7 +5,17 @@ enum DamageSource: Equatable, Sendable {
   case enemy(EnemyArchetype)
 }
 
-enum LevelEntryPosition: Hashable, Sendable { case bottom, top, right }
+/// The doorway through which the player enters a level.
+enum LevelEntryPosition: Hashable, Sendable {
+  /// Enter from the lower doorway.
+  case bottom
+  /// Enter from the upper doorway.
+  case top
+  /// Enter from the left-side doorway.
+  case left
+  /// Enter from the right-side doorway.
+  case right
+}
 struct OpenedChestID: Hashable, Sendable {
   let levelID: LevelID
   let interactionAnchor: GridPosition
