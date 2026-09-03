@@ -10,6 +10,7 @@ extension LevelID {
   static let levelFive = Self(rawValue: "level-5")
   static let levelSix = Self(rawValue: "level-6")
   static let levelSeven = Self(rawValue: "level-7")
+  static let levelEight = Self(rawValue: "level-8")
 }
 extension LevelID {
   var displayName: String { rawValue.split(separator: "-").last.map { "Level \($0)" } ?? rawValue }
