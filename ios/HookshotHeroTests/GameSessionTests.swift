@@ -939,12 +939,17 @@ final class LevelFourLoadingTests: XCTestCase {
     XCTAssertEqual(request?.reason, .returnedBackward)
 
     let completing = try LevelSixSimulation(seed: 496_913)
+    var forward: LevelTransitionRequest?
+    completing.onLevelTransition = { forward = $0 }
     completing.player.position = .init(row: 4, column: 53)
     completing.input.send(.move(.up))
     completing.update(deltaTime: 0.01)
-    XCTAssertEqual(completing.outcome, .won)
+    XCTAssertNil(completing.outcome)
     XCTAssertEqual(completing.player.score, 100)
     XCTAssertTrue(completing.completedLevelIDs.contains(.levelSix))
+    XCTAssertEqual(forward?.destinationLevelID, .levelEight)
+    XCTAssertEqual(forward?.destinationEntry, .left)
+    XCTAssertEqual(forward?.reason, .completedForward)
     completing.update(deltaTime: 1)
     XCTAssertEqual(completing.player.score, 100)
   }

@@ -69,7 +69,23 @@ import Foundation
     guard outcome == nil else { return }
     updateEnemySystem(deltaTime)
     let playerRegion = CollisionProfile.player.region(at: player.position)
-    guard playerRegion.intersects(level.exitRegion) else { return }
+    if playerRegion.intersects(LevelEightDefinition.leftDoorRegion) {
+      cancelAllInput()
+      onLevelTransition?(
+        .init(
+          sourceLevelID: .levelEight, destinationLevelID: .levelSix, destinationEntry: .top,
+          carryover: makeCarryoverState(), reason: .returnedBackward))
+      return
+    }
+    if playerRegion.intersects(LevelEightDefinition.bottomDoorRegion) {
+      cancelAllInput()
+      onLevelTransition?(
+        .init(
+          sourceLevelID: .levelEight, destinationLevelID: .levelSeven, destinationEntry: .top,
+          carryover: makeCarryoverState(), reason: .returnedBackward))
+      return
+    }
+    guard playerRegion.intersects(LevelEightDefinition.topDoorRegion) else { return }
     if !completedLevelIDs.contains(.levelEight) {
       player.score += 100
       completedLevelIDs.insert(.levelEight)
