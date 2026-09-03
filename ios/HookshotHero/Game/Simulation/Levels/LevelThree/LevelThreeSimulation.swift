@@ -8,10 +8,15 @@ import Foundation
     seed: UInt64 = 3, entryPosition: LevelEntryPosition = .bottom,
     carryover: PlayerCarryoverState? = nil
   ) throws {
+    let start: GridPosition =
+      switch entryPosition {
+      case .bottom: .init(row: 50, column: 29)
+      case .top: .init(row: 5, column: 29)
+      case .left, .right: throw GameLoadingError.invalidInitialState(.levelThree)
+      }
     try super.init(
       configuration: configuration, seed: seed, entryPosition: entryPosition, carryover: carryover,
-      startOverride: entryPosition == .top ? .init(row: 5, column: 29) : .init(row: 50, column: 29),
-      entities: [])
+      startOverride: start, entities: [])
     level = LevelThreeDefinition.make()
     presentationDefinition = LevelThreePresentationDefinition.make(from: level)
     chestStates = [Self.standardChest(at: level.chestAnchor, message: "You made it!")]
