@@ -741,6 +741,112 @@ final class LevelFourLoadingTests: XCTestCase {
   }
 }
 
+@MainActor
+final class RenderLayoutContextTests: XCTestCase {
+  private let layout = RenderLayoutContext(gridSize: .init(rows: 60, columns: 60))
+  private let doorSize = LogicalRenderSize(width: 4, height: 4)
+
+  func testCenterAnchorPreservesGridPointPosition() {
+    let coordinate = GridPosition(row: 25, column: 25)
+
+    XCTAssertEqual(
+      layout.position(for: coordinate, size: doorSize, anchor: .center),
+      layout.point(coordinate))
+  }
+
+  func testBottomLeftAnchorPreservesStaticPositioningForLevelFourTopDoor() {
+    let coordinate = GridPosition(row: 0, column: 28)
+
+    XCTAssertEqual(
+      layout.position(for: coordinate, size: doorSize, anchor: .bottomLeft),
+      layout.bottomLeft(coordinate, height: doorSize.height))
+    XCTAssertEqual(
+      layout.position(for: coordinate, size: doorSize, anchor: .bottomLeft),
+      CGPoint(x: 28, y: 56))
+  }
+
+  func testLevelFourRightDoorOccupiesLogicalDoorwayWithoutVerticalShift() {
+    let coordinate = GridPosition(row: 28, column: 56)
+    let position = layout.position(for: coordinate, size: doorSize, anchor: .bottomLeft)
+    let renderedRegion = CGRect(
+      x: position.x, y: position.y, width: CGFloat(doorSize.width),
+      height: CGFloat(doorSize.height))
+    let logicalDoorway = CGRect(x: 56, y: 27, width: 4, height: 6)
+
+    XCTAssertEqual(position, CGPoint(x: 56, y: 28))
+    XCTAssertTrue(logicalDoorway.contains(renderedRegion))
+  }
+
+  func testStaticAndDynamicDescriptorsResolveToSamePosition() {
+    let staticObject = StaticRenderDescriptor(
+      id: EntityID(), asset: LevelFourRenderAssets.doorClosed,
+      coordinate: .init(row: 28, column: 56), renderSize: doorSize,
+      anchor: .bottomLeft, zPosition: 3)
+    let dynamicObject = RenderEntitySnapshot(
+      id: EntityID(), asset: LevelFourRenderAssets.doorClosedRight,
+      coordinate: staticObject.coordinate, renderSize: staticObject.renderSize,
+      anchor: staticObject.anchor, zPosition: 3, orientation: .none, animation: nil,
+      opacity: 1, isHidden: false)
+
+    XCTAssertEqual(
+      layout.position(
+        for: staticObject.coordinate, size: staticObject.renderSize, anchor: staticObject.anchor),
+      layout.position(
+        for: dynamicObject.coordinate, size: dynamicObject.renderSize,
+        anchor: dynamicObject.anchor))
+  }
+
+  func testDynamicBottomLeftChestMatchesEquivalentStaticDescriptor() throws {
+    let simulation = try LevelFiveSimulation(seed: 496_913)
+    let dynamicChest = try XCTUnwrap(
+      simulation.renderSnapshot.entities.first { $0.asset == LevelFiveRenderAssets.chest })
+    let staticChest = StaticRenderDescriptor(
+      id: EntityID(), asset: dynamicChest.asset, coordinate: dynamicChest.coordinate,
+      renderSize: dynamicChest.renderSize, anchor: dynamicChest.anchor,
+      zPosition: dynamicChest.zPosition)
+
+    XCTAssertEqual(dynamicChest.anchor, .bottomLeft)
+    XCTAssertEqual(
+      layout.position(
+        for: dynamicChest.coordinate, size: dynamicChest.renderSize, anchor: dynamicChest.anchor),
+      layout.position(
+        for: staticChest.coordinate, size: staticChest.renderSize, anchor: staticChest.anchor))
+  }
+
+  func testLevelFourDoorAssetsChangeWithoutMovingTheirLogicalOpenings() throws {
+    let closedSimulation = try LevelFourSimulation(seed: 496_913)
+    let carryover = PlayerCarryoverState(
+      characterID: EntityID(), health: 4, score: 500,
+      completedLevelIDs: [.levelOne, .levelTwo, .levelThree, .levelFour])
+    let openSimulation = try LevelFourSimulation(
+      entryPosition: .right, carryover: carryover)
+    let closedDoors = closedSimulation.renderSnapshot.entities.filter {
+      [LevelFourRenderAssets.doorClosed, LevelFourRenderAssets.doorClosedRight].contains($0.asset)
+    }
+    let openDoors = openSimulation.renderSnapshot.entities.filter {
+      [LevelFourRenderAssets.doorOpen, LevelFourRenderAssets.doorOpenSide].contains($0.asset)
+    }
+
+    XCTAssertEqual(Set(closedDoors.map(\.coordinate)), Set(openDoors.map(\.coordinate)))
+    XCTAssertEqual(
+      Set(openDoors.map(\.coordinate)),
+      [
+        .init(row: 0, column: 28), .init(row: 28, column: 56),
+      ])
+    for door in closedDoors + openDoors {
+      let position = layout.position(
+        for: door.coordinate, size: door.renderSize, anchor: door.anchor)
+      if door.coordinate.row == 0 {
+        XCTAssertEqual(position, CGPoint(x: 28, y: 56))
+        XCTAssertTrue(closedSimulation.level.exitRegion.contains(door.coordinate))
+      } else {
+        XCTAssertEqual(position, CGPoint(x: 56, y: 28))
+        XCTAssertTrue(LevelFourDefinition.rightExitRegion.contains(door.coordinate))
+      }
+    }
+  }
+}
+
 @MainActor final class LevelFiveLoadingTests: XCTestCase {
   func testLevelFiveGeometryMatchesJavaDesign() throws {
     let level = LevelFiveDefinition.make()
