@@ -10,9 +10,11 @@ import Foundation
   ) throws {
     let start: GridPosition =
       switch entryPosition {
-      case .bottom, .right: .init(row: 8, column: 7)
+      // `.bottom` remains only as the generic direct DEBUG/test launch entry. Production
+      // progression from Level 4 enters through Level 5's left-side doorway.
+      case .bottom, .left: .init(row: 8, column: 7)
       case .top: .init(row: 5, column: 29)
-      case .left: throw GameLoadingError.invalidInitialState(.levelFive)
+      case .right: throw GameLoadingError.invalidInitialState(.levelFive)
       }
     try super.init(
       configuration: configuration, seed: seed, entryPosition: entryPosition, carryover: carryover,

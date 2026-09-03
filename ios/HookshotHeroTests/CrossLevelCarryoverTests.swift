@@ -34,7 +34,7 @@ final class CrossLevelCarryoverTests: XCTestCase {
       try LevelFourSimulation(entryPosition: .right).player.position,
       .init(row: 29, column: 52))
     XCTAssertEqual(
-      try LevelFiveSimulation(entryPosition: .right).player.position,
+      try LevelFiveSimulation(entryPosition: .left).player.position,
       .init(row: 8, column: 7))
     XCTAssertEqual(
       try LevelSixSimulation(entryPosition: .top).player.position, LevelSixDefinition.topStart)
@@ -55,8 +55,8 @@ final class CrossLevelCarryoverTests: XCTestCase {
     assertInvalidEntry(.left, for: .levelFour) {
       try LevelFourSimulation(entryPosition: .left)
     }
-    assertInvalidEntry(.left, for: .levelFive) {
-      try LevelFiveSimulation(entryPosition: .left)
+    assertInvalidEntry(.right, for: .levelFive) {
+      try LevelFiveSimulation(entryPosition: .right)
     }
     assertInvalidEntry(.left, for: .levelSix) {
       try LevelSixSimulation(entryPosition: .left)
@@ -89,7 +89,7 @@ final class CrossLevelCarryoverTests: XCTestCase {
   func testLevelFiveBranchPreservesEveryPriorChestAndPreventsRewardFarming() throws {
     let (levelFour, forwardState) = try makeForwardChain()
     let levelFive = try transition(
-      from: levelFour, at: .init(row: 29, column: 57), to: .levelFive, entry: .bottom,
+      from: levelFour, at: .init(row: 29, column: 57), to: .levelFive, entry: .left,
       reason: .completedForward, expected: forwardState)
 
     var branchState = forwardState
@@ -98,7 +98,7 @@ final class CrossLevelCarryoverTests: XCTestCase {
       from: levelFive, at: .init(row: 9, column: 3), to: .levelFour, entry: .right,
       reason: .returnedBackward, expected: branchState)
     let revisitedLevelFive = try transition(
-      from: returnedLevelFour, at: .init(row: 29, column: 57), to: .levelFive, entry: .bottom,
+      from: returnedLevelFour, at: .init(row: 29, column: 57), to: .levelFive, entry: .left,
       reason: .completedForward, expected: branchState)
     try assertChestCannotRewardAgain(in: revisitedLevelFive, expected: branchState)
   }
