@@ -92,6 +92,7 @@ import XCTest
       return XCTFail("Expected a visible loading failure")
     }
     XCTAssertEqual(failure.requestedLevelID, unsupported)
+    XCTAssertEqual(failure.diagnosticCode, "unsupported-level")
     XCTAssertNil(router.activeSession)
   }
 
@@ -104,6 +105,7 @@ import XCTest
     guard case .gameLoadingFailure(let failure) = router.path.first else {
       return XCTFail("Expected failure")
     }
+    XCTAssertEqual(failure.diagnosticCode, "unsupported-level")
     XCTAssertEqual(logger.errors.first?.0, requested)
     factory.supportedLevel = requested
     router.retryLoading(failure)
