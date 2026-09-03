@@ -22,7 +22,7 @@ The native Level 1 simulation deliberately uses elapsed-time movement and hooksh
 * Center-anchored, device-independent collision footprints define player, item, chest, exit, and grapple contact. Deterministic spawning rejects complete footprints that touch blocked, hazardous, protected, or occupied regions.
 * Typed gameplay feedback is rendered, expires by simulation elapsed time, respects Reduce Motion, and produces event-level accessibility announcements. Mine destruction uses a programmatic burst and the existing heart resource supports the textual health HUD.
 * Chest dialogue is a `GameSessionState` interruption. It cancels input and freezes simulation/time; lifecycle inactivity preserves the dialogue and Continue resumes only while active.
-* Direction-pad elements are semantic SwiftUI buttons with accessible tap activation plus owned press/release state for time-based repetition.
+* Historically, the first native control pass used semantic direction-pad buttons with owned press/release state. The current visible movement control is an anchored virtual joystick; separate semantic cardinal movement actions remain available to assistive technologies.
 * Scene dictionaries use a two-phase stale-ID calculation before removal, including entity and feedback nodes, so synchronization is idempotent and never mutates an active iteration.
 * Deterministic geometry, footprint, spawn, feedback, dialogue, movement, grapple, scoring, and victory tests protect shared Level 1 systems before Level 2 work begins.
 
