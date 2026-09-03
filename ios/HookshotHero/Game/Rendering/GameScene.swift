@@ -265,6 +265,17 @@ struct RenderLayoutContext {
   func bottomLeft(_ p: GridPosition, height: Double) -> CGPoint {
     .init(x: CGFloat(p.column), y: CGFloat(gridSize.rows - p.row) - CGFloat(height))
   }
+  func position(
+    for coordinate: GridPosition, size: LogicalRenderSize, anchor: RenderAnchor
+  ) -> CGPoint {
+    let bottomLeftPosition = bottomLeft(coordinate, height: size.height)
+    let centerPosition = point(coordinate)
+    return .init(
+      x: bottomLeftPosition.x
+        + CGFloat(2 * anchor.x) * (centerPosition.x - bottomLeftPosition.x),
+      y: bottomLeftPosition.y
+        + CGFloat(2 * anchor.y) * (centerPosition.y - bottomLeftPosition.y))
+  }
 }
 
 @MainActor final class GameScene: SKScene {
@@ -375,9 +386,7 @@ struct RenderLayoutContext {
   ) throws {
     let n = SKSpriteNode(texture: try catalog.texture(for: asset))
     n.anchorPoint = .init(x: CGFloat(anchor.x), y: CGFloat(anchor.y))
-    n.position =
-      anchor == .bottomLeft
-      ? layout.bottomLeft(coordinate, height: size.height) : layout.point(coordinate)
+    n.position = layout.position(for: coordinate, size: size, anchor: anchor)
     n.size = .init(width: CGFloat(size.width), height: CGFloat(size.height))
     n.zPosition = CGFloat(z)
     if let animationID {
@@ -423,7 +432,8 @@ struct RenderLayoutContext {
             }
             return frames[animation.frameIndex % frames.count]
           } ?? catalog.texture(for: entity.asset)
-        node.position = layout.point(entity.coordinate)
+        node.position = layout.position(
+          for: entity.coordinate, size: entity.renderSize, anchor: entity.anchor)
         node.size = CGSize(
           width: CGFloat(entity.renderSize.width), height: CGFloat(entity.renderSize.height))
         node.anchorPoint = .init(x: CGFloat(entity.anchor.x), y: CGFloat(entity.anchor.y))
