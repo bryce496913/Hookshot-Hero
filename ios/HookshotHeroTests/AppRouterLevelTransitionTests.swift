@@ -1,4 +1,5 @@
 import Combine
+import SpriteKit
 import XCTest
 
 @testable import HookshotHero
@@ -12,6 +13,19 @@ import XCTest
     try await assertLevelFourTransition(
       exit: .init(row: 29, column: 57), destination: .levelFive, entry: .left,
       expectedStart: .init(row: 8, column: 7))
+  }
+
+  func testDefaultRuntimeFactoryBuildsLevelFiveLeftEntryWithRealPreflight() throws {
+    let factory = DefaultGameLevelRuntimeFactory(
+      simulationFactory: DefaultGameSimulationFactory(), preflight: DefaultAssetPreflight())
+
+    let runtime = try factory.makeRuntime(
+      levelID: .levelFive, configuration: configuration, seed: seed, entryPosition: .left,
+      carryover: nil)
+
+    XCTAssertEqual(runtime.presentation.levelID, .levelFive)
+    XCTAssertEqual(runtime.simulation.renderSnapshot.player.coordinate, .init(row: 8, column: 7))
+    XCTAssertEqual(runtime.assetManifest, .levelFive)
   }
 
   func testLevelFourTopDoorLoadsLevelSixThroughRouterAndWaitsForSceneAttachment() async throws {
@@ -79,8 +93,11 @@ import XCTest
       logger: logger)
 
     let characterID = EntityID()
+    let openedChest = OpenedChestID(
+      levelID: .levelTwo, interactionAnchor: .init(row: 4, column: 4))
     let sourceCarryover = PlayerCarryoverState(
-      characterID: characterID, health: 2, score: 37, completedLevelIDs: [.levelFour])
+      characterID: characterID, health: 2, score: 37, completedLevelIDs: [.levelFour],
+      worldState: .init(openedChestIDs: [openedChest]))
     let sourceRuntime = try runtimeFactory.makeRuntime(
       levelID: .levelFour, configuration: configuration, seed: seed, entryPosition: .bottom,
       carryover: sourceCarryover)
@@ -91,6 +108,8 @@ import XCTest
     defer { observation.cancel() }
 
     router.startGame(session: session)
+    session.advance(by: 1.25)
+    let elapsedBeforeTransition = session.elapsedTime
     XCTAssertEqual(session.state, .running, file: file, line: line)
     XCTAssertEqual(router.path, [.gameplay], file: file, line: line)
     XCTAssertTrue(router.activeSession === session, file: file, line: line)
@@ -141,7 +160,16 @@ import XCTest
     XCTAssertEqual(session.state, .transitioning(destination), file: file, line: line)
     session.runtimeSceneDidAttach(generation: currentGeneration, levelID: .levelFour)
     XCTAssertEqual(session.state, .transitioning(destination), file: file, line: line)
-    session.runtimeSceneDidAttach(generation: currentGeneration, levelID: destination)
+    if destination == .levelFive {
+      let sceneView = SKView(frame: .init(x: 0, y: 0, width: 600, height: 600))
+      let replacementScene = GameScene(
+        session: session, runtime: session.runtime, generation: currentGeneration)
+      sceneView.presentScene(replacementScene)
+      await waitUntil { session.state == .running }
+      XCTAssertTrue(sceneView.scene === replacementScene, file: file, line: line)
+    } else {
+      session.runtimeSceneDidAttach(generation: currentGeneration, levelID: destination)
+    }
 
     XCTAssertEqual(session.state, .running, file: file, line: line)
     XCTAssertEqual(session.levelID, destination, file: file, line: line)
@@ -154,6 +182,20 @@ import XCTest
     XCTAssertEqual(
       (session.simulation as? LevelOneSimulation)?.makeCarryoverState().completedLevelIDs,
       sourceCarryover.completedLevelIDs, file: file, line: line)
+    XCTAssertEqual(
+      (session.simulation as? LevelOneSimulation)?.makeCarryoverState().worldState,
+      sourceCarryover.worldState, file: file, line: line)
+    XCTAssertEqual(session.elapsedTime, elapsedBeforeTransition, file: file, line: line)
+    if destination == .levelFive {
+      XCTAssertTrue(session.uiSnapshot.canMove, file: file, line: line)
+      XCTAssertTrue(session.uiSnapshot.canGrapple, file: file, line: line)
+      let positionBeforeMove = session.simulation.renderSnapshot.player.coordinate
+      session.simulation.inputController.send(.move(.right))
+      session.advance(by: 0.01)
+      XCTAssertEqual(
+        session.simulation.renderSnapshot.player.coordinate, positionBeforeMove.moved(.right),
+        file: file, line: line)
+    }
     XCTAssertTrue(observedStates.contains(.transitioning(destination)), file: file, line: line)
     XCTAssertEqual(observedStates.last, .running, file: file, line: line)
     XCTAssertEqual(router.path, [.gameplay], file: file, line: line)
