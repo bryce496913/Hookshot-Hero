@@ -18,7 +18,7 @@ import Foundation
       }
     try super.init(
       configuration: configuration, seed: seed, entryPosition: entryPosition, carryover: carryover,
-      startOverride: start, entities: [])
+      startOverride: start, entities: [], validatesInitialState: false)
     level = LevelFiveDefinition.make()
     presentationDefinition = LevelFivePresentationDefinition.make(from: level)
     chestStates = [

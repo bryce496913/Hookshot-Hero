@@ -55,7 +55,7 @@ import Foundation
     configuration: GameConfiguration = .init(reducedMotion: false, controlHintsEnabled: true),
     seed: UInt64 = UInt64.random(in: 1...UInt64.max), entryPosition: LevelEntryPosition = .bottom,
     carryover: PlayerCarryoverState? = nil, startOverride: GridPosition? = nil,
-    entities fixture: [WorldEntity]? = nil
+    entities fixture: [WorldEntity]? = nil, validatesInitialState: Bool = true
   ) throws {
     self.configuration = configuration
     self.seed = seed
@@ -84,7 +84,7 @@ import Foundation
     entities = try fixture ?? SpawnService.spawn(in: level, using: &rng)
     chestStates = [Self.standardChest(at: level.chestAnchor, message: Self.chestMessage)]
     restoreOpenedChestStates()
-    try validateInitialPlayerFootprint()
+    if validatesInitialState { try validateInitialPlayerFootprint() }
   }
   private static func startPosition(for entryPosition: LevelEntryPosition) throws -> GridPosition {
     switch entryPosition {
