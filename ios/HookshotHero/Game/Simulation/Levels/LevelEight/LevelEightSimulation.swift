@@ -22,6 +22,7 @@ import Foundation
       configuration: configuration, seed: seed, entryPosition: entryPosition, carryover: carryover,
       levelDefinition: levelDefinition, presentationDefinition: presentationDefinition,
       initialPlayerPosition: start, entities: [])
+    chestStates = []
 
     // The exit-derived Java anchors collide with this level's dense upper-right geometry.
     // These are the closest separated footprint-safe anchors in the connected open areas.

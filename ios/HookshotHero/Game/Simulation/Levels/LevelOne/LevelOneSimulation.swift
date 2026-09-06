@@ -65,6 +65,8 @@ import Foundation
       levelDefinition: levelDefinition,
       presentationDefinition: LevelOnePresentationDefinition.make(from: levelDefinition),
       initialPlayerPosition: initialPlayerPosition, entities: fixture)
+    chestStates = [Self.standardChest(at: level.chestAnchor, message: Self.chestMessage)]
+    restoreOpenedChestStates()
   }
   init(
     configuration: GameConfiguration, seed: UInt64, entryPosition: LevelEntryPosition,
@@ -92,8 +94,6 @@ import Foundation
       diagnosticPlayerPosition: nil)
     var rng = SeededRandomNumberGenerator(seed: seed)
     entities = try fixture ?? SpawnService.spawn(in: level, using: &rng)
-    chestStates = [Self.standardChest(at: level.chestAnchor, message: Self.chestMessage)]
-    restoreOpenedChestStates()
     try validateInitialPlayerFootprint()
   }
   private static func startPosition(

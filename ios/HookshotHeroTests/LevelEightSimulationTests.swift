@@ -22,6 +22,7 @@ import XCTest
     XCTAssertEqual(first.entities.filter { $0.kind == .mine }.count, 3)
     XCTAssertEqual(first.entities.filter { $0.kind == .cabbage }.count, 2)
     XCTAssertEqual(first.entities.filter { $0.kind == .coin }.count, 10)
+    XCTAssertTrue(first.chestStates.isEmpty)
     XCTAssertEqual(first.entities.map(\.position), second.entities.map(\.position))
     XCTAssertEqual(first.enemies.map(\.archetype), [.skeleton, .flyingTerror])
     XCTAssertEqual(
