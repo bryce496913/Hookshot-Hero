@@ -14,7 +14,11 @@ import Foundation
       case .top: LevelSixDefinition.topStart
       case .left, .right: throw GameLoadingError.invalidInitialState(.levelSix)
       }
-    try super.init(configuration: configuration, seed: seed, entryPosition: entryPosition, carryover: carryover, startOverride: start, entities: [])
+    // The shared superclass initially owns Level 1's definition, so destination validation must
+    // wait until the Level 6 definition has been installed below.
+    try super.init(
+      configuration: configuration, seed: seed, entryPosition: entryPosition, carryover: carryover,
+      startOverride: start, entities: [], validatesInitialState: false)
     level = LevelSixDefinition.make()
     presentationDefinition = LevelSixPresentationDefinition.make(from: level)
     chestStates = [
@@ -32,7 +36,19 @@ import Foundation
       [CollisionProfile.chest.region(at: $0.definition.interactionAnchor),
         $0.definition.spawnExclusionRegion]
     }
-    entities = try SpawnService.spawn(in: level, requirements: [.init(kind: .mine, count: 3), .init(kind: .cabbage, count: 2), .init(kind: .coin, count: 10)], protectedRegions: [CollisionProfile.player.region(at: player.position)] + chestRegions + enemies.map { $0.archetype.footprint.region(at: $0.position) }, using: &rng)
+    let protectedEntryRegions = [
+      CollisionProfile.player.region(at: LevelSixDefinition.bottomStart),
+      CollisionProfile.player.region(at: LevelSixDefinition.topStart),
+      level.entryRegion, level.exitRegion,
+    ]
+    entities = try SpawnService.spawn(
+      in: level,
+      requirements: [
+        .init(kind: .mine, count: 3), .init(kind: .cabbage, count: 2),
+        .init(kind: .coin, count: 10),
+      ],
+      protectedRegions: protectedEntryRegions + chestRegions
+        + enemies.map { $0.archetype.footprint.region(at: $0.position) }, using: &rng)
     try validateInitialPlayerFootprint()
   }
   override func update(deltaTime: TimeInterval) {

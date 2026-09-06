@@ -28,6 +28,20 @@ import XCTest
     XCTAssertEqual(runtime.assetManifest, .levelFive)
   }
 
+  func testDefaultRuntimeFactoryBuildsLevelSixBottomEntryWithRealPreflight() throws {
+    let factory = DefaultGameLevelRuntimeFactory(
+      simulationFactory: DefaultGameSimulationFactory(), preflight: DefaultAssetPreflight())
+
+    let runtime = try factory.makeRuntime(
+      levelID: .levelSix, configuration: configuration, seed: seed, entryPosition: .bottom,
+      carryover: nil)
+
+    XCTAssertEqual(runtime.presentation.levelID, .levelSix)
+    XCTAssertEqual(
+      runtime.simulation.renderSnapshot.player.coordinate, LevelSixDefinition.bottomStart)
+    XCTAssertEqual(runtime.assetManifest, .levelSix)
+  }
+
   func testLevelFourTopDoorLoadsLevelSixThroughRouterAndWaitsForSceneAttachment() async throws {
     try await assertLevelFourTransition(
       exit: .init(row: 3, column: 29), destination: .levelSix, entry: .bottom,
@@ -160,16 +174,12 @@ import XCTest
     XCTAssertEqual(session.state, .transitioning(destination), file: file, line: line)
     session.runtimeSceneDidAttach(generation: currentGeneration, levelID: .levelFour)
     XCTAssertEqual(session.state, .transitioning(destination), file: file, line: line)
-    if destination == .levelFive {
-      let sceneView = SKView(frame: .init(x: 0, y: 0, width: 600, height: 600))
-      let replacementScene = GameScene(
-        session: session, runtime: session.runtime, generation: currentGeneration)
-      sceneView.presentScene(replacementScene)
-      await waitUntil { session.state == .running }
-      XCTAssertTrue(sceneView.scene === replacementScene, file: file, line: line)
-    } else {
-      session.runtimeSceneDidAttach(generation: currentGeneration, levelID: destination)
-    }
+    let sceneView = SKView(frame: .init(x: 0, y: 0, width: 600, height: 600))
+    let replacementScene = GameScene(
+      session: session, runtime: session.runtime, generation: currentGeneration)
+    sceneView.presentScene(replacementScene)
+    await waitUntil { session.state == .running }
+    XCTAssertTrue(sceneView.scene === replacementScene, file: file, line: line)
 
     XCTAssertEqual(session.state, .running, file: file, line: line)
     XCTAssertEqual(session.levelID, destination, file: file, line: line)
@@ -186,15 +196,32 @@ import XCTest
       (session.simulation as? LevelOneSimulation)?.makeCarryoverState().worldState,
       sourceCarryover.worldState, file: file, line: line)
     XCTAssertEqual(session.elapsedTime, elapsedBeforeTransition, file: file, line: line)
-    if destination == .levelFive {
+    if destination == .levelFive || destination == .levelSix {
       XCTAssertTrue(session.uiSnapshot.canMove, file: file, line: line)
       XCTAssertTrue(session.uiSnapshot.canGrapple, file: file, line: line)
+      XCTAssertEqual(
+        session.uiSnapshot.levelName, "Level \(destination == .levelFive ? 5 : 6)", file: file,
+        line: line)
       let positionBeforeMove = session.simulation.renderSnapshot.player.coordinate
       session.simulation.inputController.send(.move(.right))
       session.advance(by: 0.01)
       XCTAssertEqual(
         session.simulation.renderSnapshot.player.coordinate, positionBeforeMove.moved(.right),
         file: file, line: line)
+    }
+    if destination == .levelSix {
+      let snapshot = session.simulation.renderSnapshot
+      XCTAssertFalse(snapshot.player.isHidden, file: file, line: line)
+      XCTAssertTrue(
+        snapshot.entities.contains { $0.asset == EnemyArchetype.skeleton.asset },
+        file: file, line: line)
+      XCTAssertTrue(
+        snapshot.entities.contains { $0.asset == EnemyArchetype.flyingTerror.asset },
+        file: file, line: line)
+      XCTAssertEqual(
+        snapshot.entities.filter {
+          [LevelSixRenderAssets.chestSide, LevelSixRenderAssets.chestFront].contains($0.asset)
+        }.count, 2, file: file, line: line)
     }
     XCTAssertTrue(observedStates.contains(.transitioning(destination)), file: file, line: line)
     XCTAssertEqual(observedStates.last, .running, file: file, line: line)
