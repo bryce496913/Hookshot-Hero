@@ -3,6 +3,104 @@ import XCTest
 @testable import HookshotHero
 
 @MainActor final class LevelEightSimulationTests: XCTestCase {
+  func testSharedDesignatedInitializerDoesNotInferChestContentFromDefinition() throws {
+    let level = LevelEightDefinition.make()
+    let simulation = try LevelOneSimulation(
+      configuration: .init(reducedMotion: false, controlHintsEnabled: true), seed: 8,
+      entryPosition: .bottom, carryover: nil, levelDefinition: level,
+      presentationDefinition: LevelEightPresentationDefinition.make(from: level),
+      initialPlayerPosition: LevelEightDefinition.fromLevelSevenStart, entities: [])
+
+    XCTAssertTrue(simulation.chestStates.isEmpty)
+    XCTAssertTrue(
+      simulation.renderSnapshot.entities.allSatisfy { entity in
+        entity.asset != LevelOneRenderAssets.chestClosed
+          && entity.asset != LevelOneRenderAssets.chestOpen
+      })
+  }
+
+  func testEveryLevelExplicitlyOwnsIntentionalChestContent() throws {
+    let simulations: [LevelOneSimulation] = [
+      try LevelOneSimulation(seed: 1, entities: []),
+      try LevelTwoSimulation(seed: 2),
+      try LevelThreeSimulation(seed: 3),
+      try LevelFourSimulation(seed: 4),
+      try LevelFiveSimulation(seed: 5),
+      try LevelSixSimulation(seed: 6),
+      try LevelSevenSimulation(seed: 7),
+      try LevelEightSimulation(seed: 8),
+    ]
+    XCTAssertEqual(simulations.map { $0.chestStates.count }, [1, 0, 1, 0, 1, 2, 2, 0])
+
+    let levelOneChest = try XCTUnwrap(simulations[0].chestStates.first?.definition)
+    XCTAssertEqual(levelOneChest.interactionAnchor, LevelOneDefinition.make().chestAnchor)
+    XCTAssertEqual(levelOneChest.renderAnchor, LevelOneDefinition.make().chestAnchor)
+    XCTAssertEqual(levelOneChest.closedAsset, LevelOneRenderAssets.chestClosed)
+    XCTAssertEqual(levelOneChest.openedAsset, LevelOneRenderAssets.chestOpen)
+    XCTAssertEqual(levelOneChest.scoreReward, 100)
+    XCTAssertEqual(levelOneChest.healthReward, 2)
+    XCTAssertEqual(levelOneChest.message, LevelOneSimulation.chestMessage)
+
+    for simulation in simulations {
+      for chest in simulation.chestStates {
+        XCTAssertTrue(
+          simulation.level.isInside(chest.definition.interactionAnchor),
+          "\(simulation.levelID.rawValue) has an off-board chest interaction anchor")
+        XCTAssertTrue(
+          simulation.level.isInside(chest.definition.renderAnchor),
+          "\(simulation.levelID.rawValue) has an off-board chest render anchor")
+      }
+    }
+  }
+
+  func testLevelOneChestRestoresOpenedAndCannotBeFarmed() throws {
+    let initial = PlayerCarryoverState(characterID: EntityID(), health: 2, score: 0)
+    let first = try LevelOneSimulation(seed: 1, carryover: initial, entities: [])
+    XCTAssertEqual(first.chestStates.count, 1)
+    XCTAssertFalse(first.chestStates[0].isOpened)
+    XCTAssertTrue(
+      first.renderSnapshot.entities.contains { $0.asset == LevelOneRenderAssets.chestClosed })
+
+    first.player.position = first.chestStates[0].definition.interactionAnchor
+    first.update(deltaTime: 0.01)
+    XCTAssertEqual(first.player.health, 4)
+    XCTAssertEqual(first.player.score, 100)
+    XCTAssertTrue(first.chestStates[0].isOpened)
+    XCTAssertTrue(
+      first.renderSnapshot.entities.contains { $0.asset == LevelOneRenderAssets.chestOpen })
+    let openedID = OpenedChestID(
+      levelID: .levelOne, interactionAnchor: first.chestStates[0].definition.interactionAnchor)
+    XCTAssertTrue(first.worldState.openedChestIDs.contains(openedID))
+
+    let returning = try LevelOneSimulation(carryover: first.makeCarryoverState(), entities: [])
+    XCTAssertTrue(returning.chestStates[0].isOpened)
+    returning.player.position = returning.chestStates[0].definition.interactionAnchor
+    returning.update(deltaTime: 0.01)
+    XCTAssertEqual(returning.player.health, 4)
+    XCTAssertEqual(returning.player.score, 100)
+    XCTAssertTrue(returning.worldState.openedChestIDs.contains(openedID))
+  }
+
+  func testInitialDynamicRenderRequestsAreDeclaredByLevelEightManifest() throws {
+    let simulation = try LevelEightSimulation(seed: 496_913)
+    let snapshot = simulation.renderSnapshot
+    let dynamicEntities = [snapshot.player] + snapshot.entities
+    let dynamicAssets = Set(dynamicEntities.map(\.asset))
+    let dynamicAnimations = Set(dynamicEntities.compactMap { $0.animation?.animationID })
+    let manifest = LevelAssetManifest.levelEight
+
+    XCTAssertTrue(dynamicAssets.isSubset(of: manifest.textureAssetIDs))
+    XCTAssertTrue(dynamicAnimations.isSubset(of: manifest.animationIDs))
+
+    let chestAssets: Set<RenderAssetID> = [
+      LevelOneRenderAssets.chestClosed, LevelOneRenderAssets.chestOpen,
+      LevelFiveRenderAssets.chest, LevelSixRenderAssets.chestSide,
+      LevelSixRenderAssets.chestFront, LevelSevenRenderAssets.chestSide,
+      LevelSevenRenderAssets.chestBack,
+    ]
+    XCTAssertTrue(dynamicAssets.isDisjoint(with: chestAssets))
+  }
+
   func testSupportedEntriesUseNamedSafeStartsAndRightIsRejected() throws {
     XCTAssertEqual(
       try LevelEightSimulation(entryPosition: .left).player.position,
