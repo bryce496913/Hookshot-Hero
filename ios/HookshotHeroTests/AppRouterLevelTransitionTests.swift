@@ -42,6 +42,26 @@ import XCTest
     XCTAssertEqual(runtime.assetManifest, .levelSix)
   }
 
+  func testDefaultAssetPreflightAcceptsCompleteLevelSixManifest() throws {
+    let textureCatalog = TextureCatalog(entries: LevelOneTextureCatalog.entries)
+    let animationCatalog = LevelOneAnimationCatalog(textureCatalog: textureCatalog)
+
+    try DefaultAssetPreflight().validate(
+      manifest: .levelSix, textureCatalog: textureCatalog, animationCatalog: animationCatalog)
+
+    let requiredLevelSixAssets: Set<RenderAssetID> = [
+      LevelSixRenderAssets.floor, LevelSixRenderAssets.lava, LevelSixRenderAssets.wallFront,
+      LevelSixRenderAssets.wallLeft, LevelSixRenderAssets.wallRight, LevelSixRenderAssets.exitDoor,
+      LevelSixRenderAssets.entryDoor, LevelSixRenderAssets.chestSide,
+      LevelSixRenderAssets.chestFront, LevelSixRenderAssets.smoke, LevelOneRenderAssets.lidia,
+      LevelOneRenderAssets.mine, LevelOneRenderAssets.cabbage, EnemyArchetype.skeleton.asset,
+      EnemyArchetype.flyingTerror.asset,
+    ]
+    XCTAssertTrue(requiredLevelSixAssets.isSubset(of: LevelAssetManifest.levelSix.textureAssetIDs))
+    XCTAssertTrue(
+      LevelAssetManifest.levelSix.animationIDs.contains(LevelOneRenderAnimations.coinSpin))
+  }
+
   func testLevelFourTopDoorLoadsLevelSixThroughRouterAndWaitsForSceneAttachment() async throws {
     try await assertLevelFourTransition(
       exit: .init(row: 3, column: 29), destination: .levelSix, entry: .bottom,
