@@ -64,7 +64,9 @@ struct AppGameLoadingLogger: GameLoadingLogging {
   func startGame(levelID: LevelID) {
     startGame(levelID: levelID, isRetry: false, requestID: .init(rawValue: UUID()))
   }
-  func setGameConfiguration(_ configuration: GameConfiguration) { gameConfiguration = configuration }
+  func setGameConfiguration(_ configuration: GameConfiguration) {
+    gameConfiguration = configuration
+  }
   private func startGame(levelID: LevelID, isRetry: Bool, requestID: GameLoadingRequestID) {
     endActiveSession(expectedID: activeSession?.identifier)
     loadingRequestID = requestID
@@ -85,6 +87,23 @@ struct AppGameLoadingLogger: GameLoadingLogging {
           .invalidInitialState(levelID), levelID: levelID, isRetry: isRetry, requestID: requestID)
         return
       }
+      #if DEBUG
+        if levelID == .levelFour,
+          let fixture = ProcessInfo.processInfo.arguments.first(where: {
+            $0.hasPrefix("--level-four-transition=")
+          }),
+          let simulation = session.simulation as? LevelFourSimulation
+        {
+          switch fixture {
+          case "--level-four-transition=right":
+            simulation.prepareForTransitionUITest(exit: .right)
+          case "--level-four-transition=top":
+            simulation.prepareForTransitionUITest(exit: .top)
+          default:
+            break
+          }
+        }
+      #endif
       activeSession = session
       observe(session)
       loadingRequestID = nil
