@@ -9,6 +9,8 @@ import Foundation
     seed: UInt64 = 8, entryPosition: LevelEntryPosition = .bottom,
     carryover: PlayerCarryoverState? = nil
   ) throws {
+    let levelDefinition = LevelEightDefinition.make()
+    let presentationDefinition = LevelEightPresentationDefinition.make(from: levelDefinition)
     let start: GridPosition =
       switch entryPosition {
       case .left: LevelEightDefinition.fromLevelSixStart
@@ -18,9 +20,8 @@ import Foundation
       }
     try super.init(
       configuration: configuration, seed: seed, entryPosition: entryPosition, carryover: carryover,
-      startOverride: start, entities: [])
-    level = LevelEightDefinition.make()
-    presentationDefinition = LevelEightPresentationDefinition.make(from: level)
+      levelDefinition: levelDefinition, presentationDefinition: presentationDefinition,
+      initialPlayerPosition: start, entities: [])
 
     // The exit-derived Java anchors collide with this level's dense upper-right geometry.
     // These are the closest separated footprint-safe anchors in the connected open areas.
@@ -61,7 +62,6 @@ import Foundation
       protectedRegions: starts.map { CollisionProfile.player.region(at: $0) }
         + doorRegions + enemyRegions,
       using: &rng)
-    try validateInitialPlayerFootprint()
   }
 
   override func update(deltaTime: TimeInterval) {

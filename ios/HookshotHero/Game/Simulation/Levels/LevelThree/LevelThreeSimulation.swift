@@ -8,6 +8,8 @@ import Foundation
     seed: UInt64 = 3, entryPosition: LevelEntryPosition = .bottom,
     carryover: PlayerCarryoverState? = nil
   ) throws {
+    let levelDefinition = LevelThreeDefinition.make()
+    let presentationDefinition = LevelThreePresentationDefinition.make(from: levelDefinition)
     let start: GridPosition =
       switch entryPosition {
       case .bottom: .init(row: 50, column: 29)
@@ -16,9 +18,8 @@ import Foundation
       }
     try super.init(
       configuration: configuration, seed: seed, entryPosition: entryPosition, carryover: carryover,
-      startOverride: start, entities: [])
-    level = LevelThreeDefinition.make()
-    presentationDefinition = LevelThreePresentationDefinition.make(from: level)
+      levelDefinition: levelDefinition, presentationDefinition: presentationDefinition,
+      initialPlayerPosition: start, entities: [])
     chestStates = [Self.standardChest(at: level.chestAnchor, message: "You made it!")]
     restoreOpenedChestStates()
     enemies = [
@@ -34,7 +35,6 @@ import Foundation
     try validateEnemyFootprints(entryPositions: [
       .init(row: 5, column: 29), .init(row: 50, column: 29),
     ])
-    try validateInitialPlayerFootprint()
     var rng = SeededRandomNumberGenerator(seed: seed ^ 0x33)
     entities = try SpawnService.spawn(
       in: level,

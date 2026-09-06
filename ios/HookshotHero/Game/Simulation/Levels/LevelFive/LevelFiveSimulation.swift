@@ -8,6 +8,8 @@ import Foundation
     seed: UInt64 = 5, entryPosition: LevelEntryPosition = .bottom,
     carryover: PlayerCarryoverState? = nil
   ) throws {
+    let levelDefinition = LevelFiveDefinition.make()
+    let presentationDefinition = LevelFivePresentationDefinition.make(from: levelDefinition)
     let start: GridPosition =
       switch entryPosition {
       // `.bottom` remains only as the generic direct DEBUG/test launch entry. Production
@@ -18,9 +20,8 @@ import Foundation
       }
     try super.init(
       configuration: configuration, seed: seed, entryPosition: entryPosition, carryover: carryover,
-      startOverride: start, entities: [], validatesInitialState: false)
-    level = LevelFiveDefinition.make()
-    presentationDefinition = LevelFivePresentationDefinition.make(from: level)
+      levelDefinition: levelDefinition, presentationDefinition: presentationDefinition,
+      initialPlayerPosition: start, entities: [])
     chestStates = [
       .init(
         definition: .init(
@@ -56,7 +57,6 @@ import Foundation
         CollisionProfile.chest.region(at: level.chestAnchor),
         chestStates[0].definition.spawnExclusionRegion,
       ] + enemies.map { $0.archetype.footprint.region(at: $0.position) }, using: &rng)
-    try validateInitialPlayerFootprint()
   }
   override func update(deltaTime: TimeInterval) {
     super.update(deltaTime: deltaTime)

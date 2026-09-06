@@ -8,6 +8,8 @@ import Foundation
     seed: UInt64 = 7, entryPosition: LevelEntryPosition = .bottom,
     carryover: PlayerCarryoverState? = nil
   ) throws {
+    let levelDefinition = LevelSevenDefinition.make()
+    let presentationDefinition = LevelSevenPresentationDefinition.make(from: levelDefinition)
     let start: GridPosition =
       switch entryPosition {
       case .bottom: LevelSevenDefinition.bottomStart
@@ -16,9 +18,8 @@ import Foundation
       }
     try super.init(
       configuration: configuration, seed: seed, entryPosition: entryPosition, carryover: carryover,
-      startOverride: start, entities: [])
-    level = LevelSevenDefinition.make()
-    presentationDefinition = LevelSevenPresentationDefinition.make(from: level)
+      levelDefinition: levelDefinition, presentationDefinition: presentationDefinition,
+      initialPlayerPosition: start, entities: [])
     chestStates = [
       .init(
         definition: .init(
@@ -69,7 +70,6 @@ import Foundation
         level.entryRegion,
       ] + chestRegions + enemies.map { $0.archetype.footprint.region(at: $0.position) }, using: &rng
     )
-    try validateInitialPlayerFootprint()
   }
   override func update(deltaTime: TimeInterval) {
     super.update(deltaTime: deltaTime)
