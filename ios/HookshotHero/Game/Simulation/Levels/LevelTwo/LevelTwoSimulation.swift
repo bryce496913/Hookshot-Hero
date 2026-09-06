@@ -8,6 +8,8 @@ import Foundation
     seed: UInt64 = 2, entryPosition: LevelEntryPosition = .bottom,
     carryover: PlayerCarryoverState? = nil
   ) throws {
+    let levelDefinition = LevelTwoDefinition.make()
+    let presentationDefinition = LevelTwoPresentationDefinition.make(from: levelDefinition)
     let streams = LevelRandomStreams(seed: seed)
     let start: GridPosition =
       switch entryPosition {
@@ -17,9 +19,8 @@ import Foundation
       }
     try super.init(
       configuration: configuration, seed: seed, entryPosition: entryPosition, carryover: carryover,
-      startOverride: start, entities: [])
-    level = LevelTwoDefinition.make()
-    presentationDefinition = LevelTwoPresentationDefinition.make(from: level)
+      levelDefinition: levelDefinition, presentationDefinition: presentationDefinition,
+      initialPlayerPosition: start, entities: [])
     chestStates = []
     enemies = [
       .init(
@@ -34,7 +35,6 @@ import Foundation
     try validateEnemyFootprints(entryPositions: [
       .init(row: 5, column: 27), .init(row: 50, column: 27),
     ])
-    try validateInitialPlayerFootprint()
     var rng = streams.itemSpawn
     entities = try SpawnService.spawn(
       in: level,

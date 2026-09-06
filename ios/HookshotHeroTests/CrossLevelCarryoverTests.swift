@@ -69,6 +69,60 @@ final class CrossLevelCarryoverTests: XCTestCase {
     }
   }
 
+  func testFactoryConstructionMatrixValidatesEverySupportedEntryAgainstItsDestination() throws {
+    let supported: [(LevelID, LevelEntryPosition, GridPosition)] = [
+      (.levelOne, .bottom, .init(row: 50, column: 27)),
+      (.levelOne, .top, .init(row: 5, column: 23)),
+      (.levelTwo, .bottom, .init(row: 50, column: 27)),
+      (.levelTwo, .top, .init(row: 5, column: 27)),
+      (.levelThree, .bottom, .init(row: 50, column: 29)),
+      (.levelThree, .top, .init(row: 5, column: 29)),
+      (.levelFour, .bottom, .init(row: 50, column: 27)),
+      (.levelFour, .top, .init(row: 5, column: 27)),
+      (.levelFour, .right, .init(row: 29, column: 52)),
+      (.levelFive, .bottom, .init(row: 8, column: 7)),
+      (.levelFive, .left, .init(row: 8, column: 7)),
+      (.levelFive, .top, .init(row: 5, column: 29)),
+      (.levelSix, .bottom, LevelSixDefinition.bottomStart),
+      (.levelSix, .top, LevelSixDefinition.topStart),
+      (.levelSeven, .bottom, LevelSevenDefinition.bottomStart),
+      (.levelSeven, .top, LevelSevenDefinition.topStart),
+      (.levelEight, .left, LevelEightDefinition.fromLevelSixStart),
+      (.levelEight, .bottom, LevelEightDefinition.fromLevelSevenStart),
+      (.levelEight, .top, LevelEightDefinition.topReturnStart),
+    ]
+    let factory = DefaultGameSimulationFactory()
+    let configuration = GameConfiguration(reducedMotion: false, controlHintsEnabled: true)
+
+    for (levelID, entry, expectedStart) in supported {
+      let simulation = try factory.makeSimulation(
+        levelID: levelID, configuration: configuration, seed: seed, entryPosition: entry,
+        carryover: nil)
+      let concrete = try XCTUnwrap(simulation as? LevelOneSimulation)
+      XCTAssertEqual(concrete.player.position, expectedStart, "\(levelID) \(entry)")
+      let footprint = CollisionProfile.player.region(at: concrete.player.position)
+      XCTAssertTrue(footprint.cells.allSatisfy(concrete.level.isInside), "\(levelID) \(entry)")
+      XCTAssertFalse(concrete.level.isBlocked(footprint), "\(levelID) \(entry)")
+      XCTAssertFalse(concrete.level.overlapsLava(footprint), "\(levelID) \(entry)")
+    }
+
+    let levelIDs: [LevelID] = [
+      .levelOne, .levelTwo, .levelThree, .levelFour, .levelFive, .levelSix, .levelSeven,
+      .levelEight,
+    ]
+    let entries: [LevelEntryPosition] = [.bottom, .top, .left, .right]
+    for levelID in levelIDs {
+      for entry in entries where !supported.contains(where: { $0.0 == levelID && $0.1 == entry }) {
+        XCTAssertThrowsError(
+          try factory.makeSimulation(
+            levelID: levelID, configuration: configuration, seed: seed, entryPosition: entry,
+            carryover: nil),
+          "\(levelID) \(entry)"
+        ) { XCTAssertEqual($0 as? GameLoadingError, .invalidInitialState(levelID)) }
+      }
+    }
+  }
+
   func testForwardAndReverseMainPathPreservesCarryoverAndPreventsChestFarming() throws {
     let (levelFour, forwardState) = try makeForwardChain()
 

@@ -42,6 +42,109 @@ import XCTest
     XCTAssertEqual(runtime.assetManifest, .levelSix)
   }
 
+  func testDefaultRuntimeFactoryBuildsLevelFourRightEntryWithRealPreflight() throws {
+    let runtime = try DefaultGameLevelRuntimeFactory().makeRuntime(
+      levelID: .levelFour, configuration: configuration, seed: seed, entryPosition: .right,
+      carryover: nil)
+
+    XCTAssertEqual(runtime.presentation.levelID, .levelFour)
+    XCTAssertEqual(runtime.simulation.renderSnapshot.player.coordinate, .init(row: 29, column: 52))
+    XCTAssertEqual(runtime.assetManifest, .levelFour)
+  }
+
+  func testDefaultRuntimeFactoryBuildsLevelEightLeftEntryWithRealPreflight() throws {
+    let runtime = try DefaultGameLevelRuntimeFactory().makeRuntime(
+      levelID: .levelEight, configuration: configuration, seed: seed, entryPosition: .left,
+      carryover: nil)
+
+    XCTAssertEqual(runtime.presentation.levelID, .levelEight)
+    XCTAssertEqual(
+      runtime.simulation.renderSnapshot.player.coordinate, LevelEightDefinition.fromLevelSixStart)
+    XCTAssertEqual(runtime.assetManifest, .levelEight)
+  }
+
+  func testLevelSixExitLoadsLevelEightAndWaitsForSceneAttachment() async throws {
+    let directory = FileManager.default.temporaryDirectory.appending(path: UUID().uuidString)
+    defer { try? FileManager.default.removeItem(at: directory) }
+    let progression = ProgressionStore(
+      repository: ProgressionRepository(fileURL: directory.appending(path: "save.json")))
+    let runtimeFactory = DefaultGameLevelRuntimeFactory()
+    let router = AppRouter(
+      progressionStore: progression, runtimeFactory: runtimeFactory, levelSeed: seed)
+    let characterID = EntityID()
+    let carryover = PlayerCarryoverState(
+      characterID: characterID, health: 2, score: 37, completedLevelIDs: [.levelSix])
+    let sourceRuntime = try runtimeFactory.makeRuntime(
+      levelID: .levelSix, configuration: configuration, seed: seed, entryPosition: .bottom,
+      carryover: carryover)
+    let session = GameSession(configuration: configuration, runtime: sourceRuntime)
+    router.startGame(session: session)
+
+    let source = try XCTUnwrap(session.simulation as? LevelSixSimulation)
+    source.player.position = .init(row: 3, column: 53)
+    session.advance(by: 0.01)
+
+    await waitUntil { session.runtimeGeneration == 1 }
+    XCTAssertEqual(session.state, .transitioning(.levelEight))
+    XCTAssertEqual(session.levelID, .levelEight)
+    XCTAssertEqual(
+      session.simulation.renderSnapshot.player.coordinate, LevelEightDefinition.fromLevelSixStart)
+    XCTAssertEqual(session.health, carryover.health)
+    XCTAssertEqual(session.score, carryover.score)
+    XCTAssertEqual(session.simulation.renderSnapshot.player.id, characterID)
+
+    let sceneView = SKView(frame: .init(x: 0, y: 0, width: 600, height: 600))
+    let replacementScene = GameScene(
+      session: session, runtime: session.runtime, generation: session.runtimeGeneration)
+    sceneView.presentScene(replacementScene)
+    await waitUntil { session.state == .running }
+
+    XCTAssertTrue(sceneView.scene === replacementScene)
+    XCTAssertEqual(session.state, .running)
+    XCTAssertEqual(session.levelID, .levelEight)
+  }
+
+  func testLevelFiveReturnLoadsLevelFourAndWaitsForSceneAttachment() async throws {
+    let directory = FileManager.default.temporaryDirectory.appending(path: UUID().uuidString)
+    defer { try? FileManager.default.removeItem(at: directory) }
+    let progression = ProgressionStore(
+      repository: ProgressionRepository(fileURL: directory.appending(path: "save.json")))
+    let runtimeFactory = DefaultGameLevelRuntimeFactory()
+    let router = AppRouter(
+      progressionStore: progression, runtimeFactory: runtimeFactory, levelSeed: seed)
+    let characterID = EntityID()
+    let carryover = PlayerCarryoverState(
+      characterID: characterID, health: 2, score: 37,
+      completedLevelIDs: [.levelFour, .levelFive])
+    let sourceRuntime = try runtimeFactory.makeRuntime(
+      levelID: .levelFive, configuration: configuration, seed: seed, entryPosition: .left,
+      carryover: carryover)
+    let session = GameSession(configuration: configuration, runtime: sourceRuntime)
+    router.startGame(session: session)
+
+    let source = try XCTUnwrap(session.simulation as? LevelFiveSimulation)
+    source.player.position = .init(row: 9, column: 3)
+    session.advance(by: 0.01)
+
+    await waitUntil { session.runtimeGeneration == 1 }
+    XCTAssertEqual(session.state, .transitioning(.levelFour))
+    XCTAssertEqual(session.levelID, .levelFour)
+    XCTAssertEqual(session.simulation.renderSnapshot.player.coordinate, .init(row: 29, column: 52))
+    XCTAssertEqual(session.health, carryover.health)
+    XCTAssertEqual(session.score, carryover.score)
+    XCTAssertEqual(session.simulation.renderSnapshot.player.id, characterID)
+
+    let sceneView = SKView(frame: .init(x: 0, y: 0, width: 600, height: 600))
+    let replacementScene = GameScene(
+      session: session, runtime: session.runtime, generation: session.runtimeGeneration)
+    sceneView.presentScene(replacementScene)
+    await waitUntil { session.state == .running }
+
+    XCTAssertTrue(sceneView.scene === replacementScene)
+    XCTAssertEqual(session.state, .running)
+    XCTAssertEqual(session.levelID, .levelFour)
+  }
+
   func testDefaultAssetPreflightAcceptsCompleteLevelSixManifest() throws {
     let textureCatalog = TextureCatalog(entries: LevelOneTextureCatalog.entries)
     let animationCatalog = LevelOneAnimationCatalog(textureCatalog: textureCatalog)

@@ -57,6 +57,8 @@ import Foundation
     seed: UInt64 = 4, entryPosition: LevelEntryPosition = .bottom,
     carryover: PlayerCarryoverState? = nil
   ) throws {
+    let levelDefinition = LevelFourDefinition.make()
+    let presentationDefinition = LevelFourPresentationDefinition.make(from: levelDefinition)
     boss = .init(
       id: EntityID(), archetype: .minotaur, position: .init(row: 25, column: 25), facing: .right,
       health: 10, maximumHealth: 10, behaviorState: .seek, decisionAccumulator: 0, animationTime: 0)
@@ -69,12 +71,10 @@ import Foundation
       }
     try super.init(
       configuration: configuration, seed: seed, entryPosition: entryPosition, carryover: carryover,
-      startOverride: start, entities: [])
+      levelDefinition: levelDefinition, presentationDefinition: presentationDefinition,
+      initialPlayerPosition: start, entities: [])
     if completedLevelIDs.contains(.levelFour) { boss = nil }
-    level = LevelFourDefinition.make()
-    presentationDefinition = LevelFourPresentationDefinition.make(from: level)
     chestStates = []
-    try validateInitialPlayerFootprint()
   }
   override func update(deltaTime: TimeInterval) {
     super.update(deltaTime: deltaTime)

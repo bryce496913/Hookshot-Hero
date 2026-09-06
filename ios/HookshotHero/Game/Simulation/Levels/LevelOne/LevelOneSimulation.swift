@@ -51,24 +51,34 @@ import Foundation
   var onOutcome: ((GameOutcome) -> Void)?
   var onLevelTransition: ((LevelTransitionRequest) -> Void)?
   var onDialogue: ((String) -> Void)?
-  init(
+  convenience init(
     configuration: GameConfiguration = .init(reducedMotion: false, controlHintsEnabled: true),
     seed: UInt64 = UInt64.random(in: 1...UInt64.max), entryPosition: LevelEntryPosition = .bottom,
     carryover: PlayerCarryoverState? = nil, startOverride: GridPosition? = nil,
-    entities fixture: [WorldEntity]? = nil, validatesInitialState: Bool = true
+    entities fixture: [WorldEntity]? = nil
+  ) throws {
+    let levelDefinition = LevelOneDefinition.make()
+    let initialPlayerPosition = try startOverride ?? Self.startPosition(
+      for: entryPosition, levelDefinition: levelDefinition)
+    try self.init(
+      configuration: configuration, seed: seed, entryPosition: entryPosition, carryover: carryover,
+      levelDefinition: levelDefinition,
+      presentationDefinition: LevelOnePresentationDefinition.make(from: levelDefinition),
+      initialPlayerPosition: initialPlayerPosition, entities: fixture)
+  }
+  init(
+    configuration: GameConfiguration, seed: UInt64, entryPosition: LevelEntryPosition,
+    carryover: PlayerCarryoverState?, levelDefinition: LevelDefinition,
+    presentationDefinition: LevelPresentationDefinition, initialPlayerPosition: GridPosition,
+    entities fixture: [WorldEntity]?
   ) throws {
     self.configuration = configuration
     self.seed = seed
     skeletonRNG = .init(seed: seed ^ 0x5151)
     flyingRNG = .init(seed: seed ^ 0x7171)
-    level = LevelOneDefinition.make()
-    presentationDefinition = LevelOnePresentationDefinition.make(from: level)
-    let initial: GridPosition
-    if let startOverride {
-      initial = startOverride
-    } else {
-      initial = try Self.startPosition(for: entryPosition)
-    }
+    level = levelDefinition
+    self.presentationDefinition = presentationDefinition
+    let initial = initialPlayerPosition
     player = .init(
       id: carryover?.characterID ?? EntityID(), position: initial, lastSafePosition: initial)
     player.health = carryover?.health ?? 3
@@ -84,11 +94,13 @@ import Foundation
     entities = try fixture ?? SpawnService.spawn(in: level, using: &rng)
     chestStates = [Self.standardChest(at: level.chestAnchor, message: Self.chestMessage)]
     restoreOpenedChestStates()
-    if validatesInitialState { try validateInitialPlayerFootprint() }
+    try validateInitialPlayerFootprint()
   }
-  private static func startPosition(for entryPosition: LevelEntryPosition) throws -> GridPosition {
+  private static func startPosition(
+    for entryPosition: LevelEntryPosition, levelDefinition: LevelDefinition
+  ) throws -> GridPosition {
     switch entryPosition {
-    case .bottom: LevelOneDefinition.make().start
+    case .bottom: levelDefinition.start
     case .top: .init(row: 5, column: 23)
     case .left, .right: throw GameLoadingError.invalidInitialState(.levelOne)
     }

@@ -8,19 +8,18 @@ import Foundation
     seed: UInt64 = 6, entryPosition: LevelEntryPosition = .bottom,
     carryover: PlayerCarryoverState? = nil
   ) throws {
+    let levelDefinition = LevelSixDefinition.make()
+    let presentationDefinition = LevelSixPresentationDefinition.make(from: levelDefinition)
     let start: GridPosition =
       switch entryPosition {
       case .bottom: LevelSixDefinition.bottomStart
       case .top: LevelSixDefinition.topStart
       case .left, .right: throw GameLoadingError.invalidInitialState(.levelSix)
       }
-    // The shared superclass initially owns Level 1's definition, so destination validation must
-    // wait until the Level 6 definition has been installed below.
     try super.init(
       configuration: configuration, seed: seed, entryPosition: entryPosition, carryover: carryover,
-      startOverride: start, entities: [], validatesInitialState: false)
-    level = LevelSixDefinition.make()
-    presentationDefinition = LevelSixPresentationDefinition.make(from: level)
+      levelDefinition: levelDefinition, presentationDefinition: presentationDefinition,
+      initialPlayerPosition: start, entities: [])
     chestStates = [
       .init(definition: .init(id: EntityID(), interactionAnchor: .init(row: 4, column: 24), renderAnchor: .init(row: 4, column: 24), closedAsset: LevelSixRenderAssets.chestSide, openedAsset: LevelSixRenderAssets.chestSide, renderSize: .init(width: 4, height: 4), renderAnchorPoint: .bottomLeft, message: "You made it!", scoreReward: 100, healthReward: 2), isOpened: false),
       .init(definition: .init(id: EntityID(), interactionAnchor: .init(row: 44, column: 8), renderAnchor: .init(row: 44, column: 8), closedAsset: LevelSixRenderAssets.chestFront, openedAsset: LevelSixRenderAssets.chestFront, renderSize: .init(width: 4, height: 4), renderAnchorPoint: .bottomLeft, message: "You made it!", scoreReward: 100, healthReward: 2), isOpened: false),
@@ -49,7 +48,6 @@ import Foundation
       ],
       protectedRegions: protectedEntryRegions + chestRegions
         + enemies.map { $0.archetype.footprint.region(at: $0.position) }, using: &rng)
-    try validateInitialPlayerFootprint()
   }
   override func update(deltaTime: TimeInterval) {
     super.update(deltaTime: deltaTime)
