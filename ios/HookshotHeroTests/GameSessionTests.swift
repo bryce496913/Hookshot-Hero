@@ -771,7 +771,7 @@ final class RenderLayoutContextTests: XCTestCase {
       layout.point(coordinate))
   }
 
-  func testSupportedAnchorsRetainTheirSpriteKitAnchorPoints() {
+  func testCenterAndBottomLeftAnchorsRetainTheirSpriteKitAnchorPoints() {
     XCTAssertEqual(RenderAnchor.center.x, 0.5)
     XCTAssertEqual(RenderAnchor.center.y, 0.5)
     XCTAssertEqual(RenderAnchor.bottomLeft.x, 0)
