@@ -90,7 +90,7 @@ final class HookshotHeroUITests: XCTestCase {
     assertLevelFourTransition(
       fixture: "--level-four-transition=top", movementButton: "moveUpButton",
       expectedFixture: levelFourTopFixture, destination: "Level 6",
-      expectedStart: levelSixBottomStart, playableMoveButton: "moveDownButton")
+      expectedStart: levelSixBottomStart, playableMoveButton: "moveRightButton")
   }
   func testDebugLevelSelectStartsLevelSevenAndMovesOneCell() {
     launch()
