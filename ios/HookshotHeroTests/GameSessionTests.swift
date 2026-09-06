@@ -771,6 +771,30 @@ final class RenderLayoutContextTests: XCTestCase {
       layout.point(coordinate))
   }
 
+  func testSupportedAnchorsRetainTheirSpriteKitAnchorPoints() {
+    XCTAssertEqual(RenderAnchor.center.x, 0.5)
+    XCTAssertEqual(RenderAnchor.center.y, 0.5)
+    XCTAssertEqual(RenderAnchor.bottomLeft.x, 0)
+    XCTAssertEqual(RenderAnchor.bottomLeft.y, 0)
+  }
+
+  func testProductionSourcesDoNotConstructArbitraryRenderAnchors() throws {
+    let testsDirectory = URL(fileURLWithPath: #filePath).deletingLastPathComponent()
+    let productionDirectory = testsDirectory
+      .deletingLastPathComponent()
+      .appendingPathComponent("HookshotHero", isDirectory: true)
+    let swiftSources = try FileManager.default.subpathsOfDirectory(atPath: productionDirectory.path)
+      .filter { $0.hasSuffix(".swift") }
+
+    for relativePath in swiftSources {
+      let source = try String(
+        contentsOf: productionDirectory.appendingPathComponent(relativePath), encoding: .utf8)
+      XCTAssertNil(
+        source.range(of: #"RenderAnchor\s*\(\s*x\s*:"#, options: .regularExpression),
+        "Arbitrary RenderAnchor construction found in \(relativePath)")
+    }
+  }
+
   func testBottomLeftAnchorPreservesStaticPositioningForLevelFourTopDoor() {
     let coordinate = GridPosition(row: 0, column: 28)
 
