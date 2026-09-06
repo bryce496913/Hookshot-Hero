@@ -11,9 +11,9 @@ import Foundation
       boss = nil
       switch exit {
       case .right:
-        player.position = .init(row: 29, column: 56)
+        player.position = .init(row: 29, column: 54)
       case .top:
-        player.position = .init(row: 4, column: 29)
+        player.position = .init(row: 5, column: 29)
       default:
         break
       }

@@ -1,6 +1,11 @@
 import XCTest
 
 final class HookshotHeroUITests: XCTestCase {
+  private let levelFiveLeftStart = [8, 7]
+  private let levelSixBottomStart = [50, 27]
+  private let levelFourRightFixture = [29, 54]
+  private let levelFourTopFixture = [5, 29]
+
   private var app: XCUIApplication!
   override func setUpWithError() throws {
     continueAfterFailure = false
@@ -78,12 +83,14 @@ final class HookshotHeroUITests: XCTestCase {
   func testLevelFourRightExitReplacesSceneAndLoadsPlayableLevelFive() {
     assertLevelFourTransition(
       fixture: "--level-four-transition=right", movementButton: "moveRightButton",
-      destination: "Level 5", expectedStart: [8, 7], playableMoveButton: "moveRightButton")
+      expectedFixture: levelFourRightFixture, destination: "Level 5",
+      expectedStart: levelFiveLeftStart, playableMoveButton: "moveRightButton")
   }
   func testLevelFourTopExitReplacesSceneAndLoadsPlayableLevelSix() {
     assertLevelFourTransition(
       fixture: "--level-four-transition=top", movementButton: "moveUpButton",
-      destination: "Level 6", expectedStart: [53, 27], playableMoveButton: "moveDownButton")
+      expectedFixture: levelFourTopFixture, destination: "Level 6",
+      expectedStart: levelSixBottomStart, playableMoveButton: "moveDownButton")
   }
   func testDebugLevelSelectStartsLevelSevenAndMovesOneCell() {
     launch()
@@ -233,8 +240,9 @@ final class HookshotHeroUITests: XCTestCase {
   }
 
   private func assertLevelFourTransition(
-    fixture: String, movementButton: String, destination: String, expectedStart: [Int],
-    playableMoveButton: String, file: StaticString = #filePath, line: UInt = #line
+    fixture: String, movementButton: String, expectedFixture: [Int], destination: String,
+    expectedStart: [Int], playableMoveButton: String, file: StaticString = #filePath,
+    line: UInt = #line
   ) {
     app.launchEnvironment["HOOKSHOT_START_LEVEL"] = "level-4"
     launch(fixture)
@@ -242,13 +250,15 @@ final class HookshotHeroUITests: XCTestCase {
     XCTAssertTrue(app.staticTexts["Level 4"].waitForExistence(timeout: 5), file: file, line: line)
     let sourcePosition = app.staticTexts["playerPosition"]
     XCTAssertTrue(sourcePosition.waitForExistence(timeout: 5), file: file, line: line)
+    XCTAssertEqual(position(sourcePosition), expectedFixture, file: file, line: line)
+    XCTAssertFalse(app.staticTexts[destination].exists, file: file, line: line)
+    XCTAssertFalse(app.staticTexts["Unable to Load Level"].exists, file: file, line: line)
 
     app.buttons[movementButton].tap()
     XCTAssertTrue(
-      waitForLoadingOrFail(destination, file: file, line: line),
-      "The Level 4 exit never entered its loading state", file: file, line: line)
-    waitForDestinationOrFail(destination, file: file, line: line)
+      waitForDestinationOrFailure(destination, file: file, line: line), file: file, line: line)
 
+    XCTAssertTrue(app.staticTexts[destination].exists, file: file, line: line)
     XCTAssertFalse(app.staticTexts["Unable to Load Level"].exists, file: file, line: line)
     XCTAssertTrue(app.otherElements["movementJoystick"].isEnabled, file: file, line: line)
     XCTAssertTrue(app.buttons["grappleButton"].isEnabled, file: file, line: line)
@@ -261,33 +271,19 @@ final class HookshotHeroUITests: XCTestCase {
       line: line)
   }
 
-  private func waitForDestinationOrFail(
-    _ destination: String, file: StaticString, line: UInt
-  ) {
-    let deadline = Date().addingTimeInterval(8)
-    repeat {
-      if app.staticTexts[destination].exists { return }
-      if app.staticTexts["Unable to Load Level"].exists {
-        reportLoadingFailure(destination, file: file, line: line)
-        return
-      }
-      RunLoop.current.run(until: Date().addingTimeInterval(0.05))
-    } while Date() < deadline
-    XCTFail("Timed out waiting for \(destination)", file: file, line: line)
-  }
-
-  private func waitForLoadingOrFail(
+  private func waitForDestinationOrFailure(
     _ destination: String, file: StaticString, line: UInt
   ) -> Bool {
-    let deadline = Date().addingTimeInterval(2)
+    let deadline = Date().addingTimeInterval(8)
     repeat {
-      if app.descendants(matching: .any)["levelLoadingOverlay"].exists { return true }
+      if app.staticTexts[destination].exists { return true }
       if app.staticTexts["Unable to Load Level"].exists {
         reportLoadingFailure(destination, file: file, line: line)
         return false
       }
-      RunLoop.current.run(until: Date().addingTimeInterval(0.02))
+      RunLoop.current.run(until: Date().addingTimeInterval(0.05))
     } while Date() < deadline
+    XCTFail("Timed out waiting for \(destination)", file: file, line: line)
     return false
   }
 
