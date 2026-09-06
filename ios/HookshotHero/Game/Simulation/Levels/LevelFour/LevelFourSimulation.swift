@@ -3,6 +3,22 @@ import Foundation
 @MainActor final class LevelFourSimulation: LevelOneSimulation {
   private var boss: EnemyState?
   private var bossHitByCurrentHook = false
+
+  #if DEBUG
+    /// Places UI-test sessions one input away from a defeated-boss exit.
+    /// This is intentionally unavailable in release builds.
+    func prepareForTransitionUITest(exit: LevelEntryPosition) {
+      boss = nil
+      switch exit {
+      case .right:
+        player.position = .init(row: 29, column: 56)
+      case .top:
+        player.position = .init(row: 4, column: 29)
+      default:
+        break
+      }
+    }
+  #endif
   override var levelID: LevelID { .levelFour }
   override var levelName: String { "Level 4" }
   override var renderSnapshot: GameRenderSnapshot {

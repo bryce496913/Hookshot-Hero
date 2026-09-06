@@ -75,6 +75,16 @@ final class HookshotHeroUITests: XCTestCase {
     XCTAssertTrue(app.buttons["moveUpButton"].isEnabled)
     XCTAssertTrue(app.buttons["grappleButton"].isEnabled)
   }
+  func testLevelFourRightExitReplacesSceneAndLoadsPlayableLevelFive() {
+    assertLevelFourTransition(
+      fixture: "--level-four-transition=right", movementButton: "moveRightButton",
+      destination: "Level 5", expectedStart: [8, 7], playableMoveButton: "moveRightButton")
+  }
+  func testLevelFourTopExitReplacesSceneAndLoadsPlayableLevelSix() {
+    assertLevelFourTransition(
+      fixture: "--level-four-transition=top", movementButton: "moveUpButton",
+      destination: "Level 6", expectedStart: [53, 27], playableMoveButton: "moveDownButton")
+  }
   func testDebugLevelSelectStartsLevelSevenAndMovesOneCell() {
     launch()
     app.buttons["debugLevelSelectButton"].tap()
@@ -220,6 +230,83 @@ final class HookshotHeroUITests: XCTestCase {
     XCTAssertFalse(grapple.isEnabled)
     app.buttons["overlayResumeButton"].tap()
     XCTAssertTrue(grapple.isEnabled)
+  }
+
+  private func assertLevelFourTransition(
+    fixture: String, movementButton: String, destination: String, expectedStart: [Int],
+    playableMoveButton: String, file: StaticString = #filePath, line: UInt = #line
+  ) {
+    app.launchEnvironment["HOOKSHOT_START_LEVEL"] = "level-4"
+    launch(fixture)
+
+    XCTAssertTrue(app.staticTexts["Level 4"].waitForExistence(timeout: 5), file: file, line: line)
+    let sourcePosition = app.staticTexts["playerPosition"]
+    XCTAssertTrue(sourcePosition.waitForExistence(timeout: 5), file: file, line: line)
+
+    app.buttons[movementButton].tap()
+    XCTAssertTrue(
+      waitForLoadingOrFail(destination, file: file, line: line),
+      "The Level 4 exit never entered its loading state", file: file, line: line)
+    waitForDestinationOrFail(destination, file: file, line: line)
+
+    XCTAssertFalse(app.staticTexts["Unable to Load Level"].exists, file: file, line: line)
+    XCTAssertTrue(app.otherElements["movementJoystick"].isEnabled, file: file, line: line)
+    XCTAssertTrue(app.buttons["grappleButton"].isEnabled, file: file, line: line)
+    let destinationPosition = app.staticTexts["playerPosition"]
+    XCTAssertEqual(position(destinationPosition), expectedStart, file: file, line: line)
+    app.buttons[playableMoveButton].tap()
+    XCTAssertTrue(
+      waitForPositionChange(destinationPosition, from: expectedStart),
+      "Controls were enabled but did not move the player in \(destination)", file: file,
+      line: line)
+  }
+
+  private func waitForDestinationOrFail(
+    _ destination: String, file: StaticString, line: UInt
+  ) {
+    let deadline = Date().addingTimeInterval(8)
+    repeat {
+      if app.staticTexts[destination].exists { return }
+      if app.staticTexts["Unable to Load Level"].exists {
+        reportLoadingFailure(destination, file: file, line: line)
+        return
+      }
+      RunLoop.current.run(until: Date().addingTimeInterval(0.05))
+    } while Date() < deadline
+    XCTFail("Timed out waiting for \(destination)", file: file, line: line)
+  }
+
+  private func waitForLoadingOrFail(
+    _ destination: String, file: StaticString, line: UInt
+  ) -> Bool {
+    let deadline = Date().addingTimeInterval(2)
+    repeat {
+      if app.descendants(matching: .any)["levelLoadingOverlay"].exists { return true }
+      if app.staticTexts["Unable to Load Level"].exists {
+        reportLoadingFailure(destination, file: file, line: line)
+        return false
+      }
+      RunLoop.current.run(until: Date().addingTimeInterval(0.02))
+    } while Date() < deadline
+    return false
+  }
+
+  private func reportLoadingFailure(
+    _ destination: String, file: StaticString, line: UInt
+  ) {
+    let diagnostic = app.staticTexts["loadingFailureDiagnosticCode"]
+    let code = diagnostic.exists ? diagnostic.label : "loadingFailureDiagnosticCode unavailable"
+    XCTFail(
+      "Unable to Load Level while waiting for \(destination): \(code)", file: file, line: line)
+  }
+
+  private func waitForPositionChange(_ element: XCUIElement, from initial: [Int]) -> Bool {
+    let deadline = Date().addingTimeInterval(3)
+    repeat {
+      if position(element) != initial { return true }
+      RunLoop.current.run(until: Date().addingTimeInterval(0.05))
+    } while Date() < deadline
+    return false
   }
 
   func testPauseAndDialogueDisableJoystick() {
