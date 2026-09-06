@@ -7,11 +7,23 @@ struct LogicalRenderSize: Equatable, Sendable {
   let width: Double
   let height: Double
 }
-struct RenderAnchor: Equatable, Sendable {
-  let x: Double
-  let y: Double
-  static let center = Self(x: 0.5, y: 0.5)
-  static let bottomLeft = Self(x: 0, y: 0)
+enum RenderAnchor: Equatable, Sendable {
+  case center
+  case bottomLeft
+
+  var x: Double {
+    switch self {
+    case .center: 0.5
+    case .bottomLeft: 0
+    }
+  }
+
+  var y: Double {
+    switch self {
+    case .center: 0.5
+    case .bottomLeft: 0
+    }
+  }
 }
 enum RenderOrientation: String, Sendable { case up, down, left, right, none }
 struct TextureSourceRect: Equatable, Sendable {

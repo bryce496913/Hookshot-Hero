@@ -268,13 +268,12 @@ struct RenderLayoutContext {
   func position(
     for coordinate: GridPosition, size: LogicalRenderSize, anchor: RenderAnchor
   ) -> CGPoint {
-    let bottomLeftPosition = bottomLeft(coordinate, height: size.height)
-    let centerPosition = point(coordinate)
-    return .init(
-      x: bottomLeftPosition.x
-        + CGFloat(2 * anchor.x) * (centerPosition.x - bottomLeftPosition.x),
-      y: bottomLeftPosition.y
-        + CGFloat(2 * anchor.y) * (centerPosition.y - bottomLeftPosition.y))
+    switch anchor {
+    case .center:
+      point(coordinate)
+    case .bottomLeft:
+      bottomLeft(coordinate, height: size.height)
+    }
   }
 }
 
