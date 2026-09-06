@@ -1,6 +1,6 @@
-# Hookshot Hero for iOS — playable Levels 1–7
+# Hookshot Hero for iOS — playable Levels 1–8
 
-The native SwiftUI/SpriteKit conversion now provides playable **Levels 1 through 7** while the Java game remains the behavioral reference. Progression follows Levels 1 → 2 → 3 → 4, then preserves Java's branch: Level 4's right door leads to Level 5, whose top exit leads to Level 7, while Level 4's top door leads independently to Level 6. Level 7 and Level 6 each end at a current-content boundary intended to continue to future Level 8.
+The native SwiftUI/SpriteKit runtime implements playable **Levels 1 through 8** while the Java game remains the behavioral reference. Progression follows Levels 1 → 2 → 3 → 4, then preserves Java's branch: Level 4's right door leads to Level 5 → Level 7 → Level 8, while Level 4's top door leads to Level 6 → Level 8. Level 8 is the convergence point, not another step in a simple 4 → 5 → 6 → 7 → 8 sequence. Its top exit is the current native-content boundary, with Level 9 as the intended Java continuation.
 
 ## Current gameplay
 
@@ -47,13 +47,13 @@ The repository intentionally has no CI workflow. The commands above are the requ
 * Optional bouncing balls.
 * Mission-mode guide.
 
-Levels 2 through 7 are registered native gameplay levels. Levels 5, 6, and 7 each reproduce their Java maze, lava, doors, smoke emitters, Skeleton, Flying Terror, three mines, two cabbages, and ten coins. Level 5 has one side-view chest; Levels 6 and 7 each have two independent chests. In DEBUG builds, the scrollable direct level selector includes Level 7.
+Levels 2 through 8 are registered native gameplay levels. Levels 5, 6, and 7 each reproduce their Java maze, lava, doors, smoke emitters, Skeleton, Flying Terror, three mines, two cabbages, and ten coins. Level 5 has one side-view chest; Levels 6 and 7 each have two independent chests. Level 8 implements its native maze, lava, three doors, Skeleton, Flying Terror, three mines, two cabbages, and ten coins. In DEBUG builds, the scrollable direct level selector includes Levels 1–8.
 
 See [Conversion decisions](Documentation/ConversionDecisions.md), [Responsibility map](Documentation/ResponsibilityMap.md), and [Temporary assets](Resources/TemporaryAssets.md).
 
 ## Shared simulation and UI publication boundary
 
-The gameplay dependency direction is `AppRouter → GameSimulationFactory → GameSimulation → GameSession → GameplayView / GameScene`. `DefaultGameSimulationFactory` creates the concrete simulation for Levels 1 through 7; `DefaultGameLevelRuntimeFactory` assembles and preflights their runtimes using the corresponding `LevelAssetManifest`. Unsupported identifiers fail with `GameLoadingError.unsupportedLevel`.
+The gameplay dependency direction is `AppRouter → GameSimulationFactory → GameSimulation → GameSession → GameplayView / GameScene`. `DefaultGameSimulationFactory` creates the concrete simulation for Levels 1 through 8; `DefaultGameLevelRuntimeFactory` assembles and preflights their runtimes using the corresponding `LevelAssetManifest`. Unsupported identifiers fail with `GameLoadingError.unsupportedLevel`.
 
 The simulation is authoritative for health, score, entities, timing, and outcomes. Every Level 1 score source—coins, grapple-destroyed mines, the chest, and level completion—mutates the simulation player. `GameSession` has no score-award API and reads the final authoritative status for routing and immutable results.
 
@@ -135,9 +135,9 @@ Local validation remains intentionally Xcode-based. Run the full Xcode 26 sequen
 
 ## Level 2 Runtime Conversion
 
-Levels 1 through 7 are implemented in the shared runtime path. A normal production playthrough starts at Level 1, and each connected exit emits a transition request that installs the destination in the same `GameSession`, preserving health, score, character identity, completion state, and elapsed playthrough time. Reverse doors use named destination entrances: Level 5 returns to Level 4's right-side door, and Level 7 returns to Level 5. Level 4 restores its defeated boss and open exits from carryover completion state. Its right branch continues through Level 5 to Level 7, while its top branch reaches Level 6. Levels 6 and 7 are the parallel playable-content boundaries; Levels 8 through 10 remain deferred.
+Levels 1 through 8 are implemented in the shared runtime path. A normal production playthrough starts at Level 1, and each connected exit emits a transition request that installs the destination in the same `GameSession`, preserving health, score, character identity, completion state, and elapsed playthrough time. Level 4 restores its defeated boss and open exits from carryover completion state. Its right exit progresses through Level 5 → Level 7 → Level 8, while its top exit progresses through Level 6 → Level 8. Level 8 is therefore the convergence point for the two branches.
 
-Level 8 must preserve the existing branch topology and accept incoming progression from the appropriate Level 6 / Level 7 paths rather than treating Level 7 as part of a simple linear progression.
+Reverse doors use named destination entrances. Level 5 returns to Level 4's right-side entry, and Level 7 returns to Level 5. In Level 8, the left-side door returns to Level 6's top entry and the bottom door returns to Level 7's top entry. Level 8's top exit completes the current native content; its intended Java continuation is Level 9 (**Level 8 → future Level 9**). Levels 9–10 remain deferred.
 
 Conversion flow:
 
@@ -185,12 +185,14 @@ Typography is exposed through `AppTextStyle` with exact base sizes: `h1 = 16`, `
 Reusable styling helpers are defined beside the theme: `.appTextStyle(_:)`, `.appScreenBackground()`, `.appSurface(cornerRadius:)`, `.appNavigationStyle()`, `AppPrimaryButtonStyle`, `AppSecondaryButtonStyle`, and `AppHighlightButtonStyle`. Button styles preserve semantic SwiftUI `Button` behavior, a minimum 44-point hit target, visible pressed states, and visible disabled states. Dynamic Type is supported by using SwiftUI fonts at the required base sizes with flexible stacks, wrapping, scrolling settings/help content, and full-width actions so primary controls remain visible instead of clipping.
 
 
-## Levels 5–7 Java parity and deliberate corrections
+## Levels 5–8 Java parity and deliberate corrections
 
 Level 5 retains 52 internal wall anchors and 61 lava anchors. Its visible left doorway (rows 8–11, columns 0–3) returns to Level 4's right entry, intentionally correcting Java's contradictory `GetEntryGrid`; its top exit transitions to Level 7. Its chest interacts at row 52, column 4 but renders with `ChestSide` at row 52, column 8. Footprint-safe player starts remain row 8, column 7 and row 5, column 29 rather than placing Lidia partly in walls. Its emitters remain at rows/columns 55/16 and 26/43.
 
-Level 6 contains 54 internal wall anchors and 49 lava anchors. The bottom doorway (rows 56–59, columns 27–32) returns to Level 4's top entry; the upper-right exit (rows 0–3, columns 51–56) completes current content for the future Level 8 route. The bottom player entry remains at row 50, column 27. Java used `(5,23)` for the top entry, but that position is not aligned with Native Level 6's upper-right top exit/doorway. The native conversion intentionally corrects the top entry to row 5, column 53 (`(5,53)`), ensuring that a future Level 8 → Level 6 return places Lidia beneath the correct doorway with a valid collision footprint. This is an intentional Java correction and must not be reverted when Level 8 is implemented. Chests at 4/24 (`ChestSide`) and 44/8 (`ChestFront`) independently award 100 score and up to two health. Emitters are at 13/21 and 39/53. Java's overlapping enemy-at-exit defect is corrected with deterministic, footprint-safe Skeleton 22/53 and Flying Terror 10/52 starts.
+Level 6 contains 54 internal wall anchors and 49 lava anchors. The bottom doorway (rows 56–59, columns 27–32) returns to Level 4's top entry; the upper-right exit (rows 0–3, columns 51–56) progresses to Level 8's left-side entry. The bottom player entry remains at row 50, column 27. Java used `(5,23)` for the top entry, but that position is not aligned with Native Level 6's upper-right top exit/doorway. The native conversion intentionally corrects the top entry to row 5, column 53 (`(5,53)`), so the implemented Level 8 → Level 6 reverse route places Lidia beneath the correct doorway with a valid collision footprint. This intentional Java correction must not be reverted. Chests at 4/24 (`ChestSide`) and 44/8 (`ChestFront`) independently award 100 score and up to two health. Emitters are at 13/21 and 39/53. Java's overlapping enemy-at-exit defect is corrected with deterministic, footprint-safe Skeleton 22/53 and Flying Terror 10/52 starts.
 
-Level 7 implements the Java-parity dungeon geometry with two independent persistent chests, three mines, two cabbages, ten coins, one Skeleton, and one Flying Terror. Its bottom doorway navigates backward to Level 5. Its top exit marks current-content completion and retains Level 8 as its intended future destination; Level 8 is not yet playable.
+Level 7 implements the Java-parity dungeon geometry with two independent persistent chests, three mines, two cabbages, ten coins, one Skeleton, and one Flying Terror. Its bottom doorway navigates backward to Level 5, and its top exit progresses to Level 8's bottom entry.
 
-Native corrections shared by these levels include full-footprint deterministic item spawning, independent random streams for items and each enemy, bounded enemy movement, stable entity identity, two-phase render cleanup, a maximum health of five, time-based damage cooldowns, and deduplicated completion rewards. Audio remains deferred. Full local Xcode validation remains outstanding and must be performed on macOS; this repository's Linux editing environment does not provide `xcodebuild` or Simulator runtimes.
+Level 8 implements the branch convergence. Its left-side door navigates backward to Level 6's top entry, and its bottom door navigates backward to Level 7's top entry. Its top exit awards Level 8 completion and ends the current native playthrough; this is the **Level 8 → future Level 9** boundary, not a transition to an unimplemented Level 8.
+
+Native corrections shared by these levels include full-footprint deterministic item spawning, independent random streams for items and each enemy, bounded enemy movement, stable entity identity, two-phase render cleanup, a maximum health of five, time-based damage cooldowns, and deduplicated completion rewards. Audio remains deferred. PRs #64–#67 added or corrected source and test coverage, but their Xcode suites were not executed in the Codex Linux environment. Full macOS/Xcode validation therefore remains outstanding; this environment does not provide `xcodebuild` or Simulator runtimes.
