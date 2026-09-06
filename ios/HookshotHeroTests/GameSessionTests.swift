@@ -1010,9 +1010,16 @@ final class RenderLayoutContextTests: XCTestCase {
     for entry in [LevelEntryPosition.bottom, .top] {
       for seed in [UInt64(1), 42, 496_913, UInt64.max] {
         let simulation = try LevelSixSimulation(seed: seed, entryPosition: entry)
-        let protectedRegions =
-          [CollisionProfile.player.region(at: simulation.player.position)]
-          + simulation.chestStates.map(\.definition.spawnExclusionRegion)
+        let protectedRegions = [
+          CollisionProfile.player.region(at: LevelSixDefinition.bottomStart),
+          CollisionProfile.player.region(at: LevelSixDefinition.topStart),
+          simulation.level.entryRegion, simulation.level.exitRegion,
+        ] + simulation.chestStates.flatMap {
+          [
+            CollisionProfile.chest.region(at: $0.definition.interactionAnchor),
+            $0.definition.spawnExclusionRegion,
+          ]
+        } + simulation.enemies.map { $0.archetype.footprint.region(at: $0.position) }
 
         for entity in simulation.entities {
           let footprint = CollisionProfile.footprint(for: entity.kind).region(at: entity.position)
