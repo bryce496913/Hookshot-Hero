@@ -54,6 +54,16 @@ struct TransitionPlayabilityContract {
     XCTAssertEqual(LevelSixDefinition.bottomStart, levelSixBottomStartUITestContract)
   }
 
+  func testLevelFiveLeftStartAllowsSelectedRightMove() {
+    let level = LevelFiveDefinition.make()
+    let safeDirections = DestinationMoveSafety.safeDirections(
+      from: levelFiveLeftStartUITestContract, in: level)
+
+    XCTAssertEqual(level.start, levelFiveLeftStartUITestContract)
+    XCTAssertFalse(safeDirections.isEmpty)
+    XCTAssertTrue(safeDirections.contains(.right))
+  }
+
   func testLevelSixBottomStartRejectsDownAndAllowsRight() {
     let level = LevelSixDefinition.make()
 
@@ -66,7 +76,7 @@ struct TransitionPlayabilityContract {
   }
 
   func testPlayerMoveSafetyRejectsWallIntersection() {
-    let wall = GridRegion(rows: 1..<4, columns: 2..<5)
+    let wall = GridRegion(rows: 1..<4, columns: 4..<5)
     let level = testLevel(walls: [wall])
 
     XCTAssertFalse(
@@ -83,7 +93,7 @@ struct TransitionPlayabilityContract {
   }
 
   func testPlayerMoveSafetyRejectsLavaIntersection() {
-    let lava = GridRegion(rows: 1..<4, columns: 2..<5)
+    let lava = GridRegion(rows: 1..<4, columns: 4..<5)
     let level = testLevel(lava: [lava])
 
     XCTAssertFalse(
