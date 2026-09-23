@@ -48,7 +48,7 @@ struct GameplayView: View {
       VStack(spacing: compact ? 5 : 8) {
         hud
         ZStack {
-          SpriteView(scene: scene).id(scene.runtimeGeneration).aspectRatio(1, contentMode: .fit)
+          GameSceneView(scene: scene).id(scene.runtimeGeneration).aspectRatio(1, contentMode: .fit)
             .background(AppTheme.Colors.background).accessibilityHidden(true)
             .accessibilityIdentifier("gameBoard")
           GameplayFeedbackOverlay(
@@ -92,8 +92,7 @@ struct GameplayView: View {
   private var hud: some View {
     HStack {
       Text(session.uiSnapshot.levelName).appTextStyle(.h2).accessibilityIdentifier("levelTitle")
-      Image("heart.png").resizable().scaledToFit().frame(width: 20, height: 20).accessibilityHidden(
-        true)
+      HealthIcon().accessibilityHidden(true)
       Text("Health \(session.uiSnapshot.health)").appTextStyle(.h2).accessibilityLabel("Health")
         .accessibilityValue(
           "\(session.uiSnapshot.health)"
@@ -127,6 +126,51 @@ struct GameplayView: View {
     }.padding(30).appSurface(cornerRadius: 20).padding(24).background(
       AppTheme.Colors.background.opacity(0.72)
     ).zIndex(5)
+  }
+}
+
+/// Hosts SpriteKit without `SpriteView`'s focus coordinator. The game board is display-only—all
+/// input is handled by the SwiftUI controls below it—so the backing view must not participate in
+/// UIKit focus or gesture handling.
+private struct GameSceneView: UIViewRepresentable {
+  let scene: SKScene
+
+  func makeUIView(context: Context) -> SKView {
+    let view = SKView()
+    view.isUserInteractionEnabled = false
+    view.isAccessibilityElement = false
+    view.accessibilityElementsHidden = true
+    view.presentScene(scene)
+    return view
+  }
+
+  func updateUIView(_ view: SKView, context: Context) {
+    guard view.scene !== scene else { return }
+    view.presentScene(scene)
+  }
+
+  static func dismantleUIView(_ view: SKView, coordinator: ()) {
+    view.presentScene(nil)
+  }
+}
+
+/// Loads the legacy heart as a bundled file rather than asking CoreUI for an asset-catalog image.
+/// The resource is intentionally shipped beside the SpriteKit textures, not in `Assets.xcassets`.
+private struct HealthIcon: View {
+  private static let image: UIImage? = Bundle.main.url(
+    forResource: "heart", withExtension: "png"
+  ).flatMap { UIImage(contentsOfFile: $0.path) }
+
+  var body: some View {
+    Group {
+      if let image = Self.image {
+        Image(uiImage: image).resizable().interpolation(.none)
+      } else {
+        Image(systemName: "heart.fill").resizable().foregroundStyle(AppTheme.Colors.highlight)
+      }
+    }
+    .scaledToFit()
+    .frame(width: 20, height: 20)
   }
 }
 
