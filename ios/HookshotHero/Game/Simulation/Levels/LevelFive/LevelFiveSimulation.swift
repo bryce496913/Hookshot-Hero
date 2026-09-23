@@ -29,7 +29,7 @@ import Foundation
     restoreOpenedChestStates()
     enemies = [
       .init(
-        id: EntityID(), archetype: .skeleton, position: skeletonStart, facing: .down,
+        id: EntityID(), archetype: .skeleton, position: Self.skeletonStart, facing: .down,
         health: 3, maximumHealth: 3, behaviorState: .patrol, decisionAccumulator: 0,
         animationTime: 0),
       .init(
