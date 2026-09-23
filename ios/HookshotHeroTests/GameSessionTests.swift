@@ -899,6 +899,70 @@ final class RenderLayoutContextTests: XCTestCase {
       }.count, 0)
   }
 
+  func testLevelFiveSkeletonStartIsFootprintSafeAndPreservesEnemyContract() throws {
+    let simulation = try LevelFiveSimulation(seed: 496_913, entryPosition: .left)
+    let skeleton = try XCTUnwrap(
+      simulation.enemies.first { $0.archetype == .skeleton })
+    let flyingTerror = try XCTUnwrap(
+      simulation.enemies.first { $0.archetype == .flyingTerror })
+    let skeletonRegion = skeleton.archetype.footprint.region(at: skeleton.position)
+    let flyingTerrorRegion = flyingTerror.archetype.footprint.region(at: flyingTerror.position)
+
+    XCTAssertEqual(skeleton.position, LevelFiveSimulation.skeletonStart)
+    XCTAssertEqual(skeletonRegion, .init(rows: 26..<31, columns: 28..<33))
+    XCTAssertTrue(skeletonRegion.cells.allSatisfy(simulation.level.isInside))
+    XCTAssertFalse(simulation.level.walls.contains(where: skeletonRegion.intersects))
+    XCTAssertFalse(skeletonRegion.intersects(simulation.level.entryRegion))
+    XCTAssertFalse(skeletonRegion.intersects(simulation.level.exitRegion))
+    for start in [GridPosition(row: 5, column: 29), LevelFiveDefinition.leftStart] {
+      XCTAssertFalse(skeletonRegion.intersects(CollisionProfile.player.region(at: start)))
+    }
+    XCTAssertFalse(skeletonRegion.intersects(flyingTerrorRegion))
+    XCTAssertEqual(skeleton.health, 3)
+    XCTAssertEqual(skeleton.maximumHealth, 3)
+    XCTAssertEqual(skeleton.archetype.sight, 19)
+    XCTAssertEqual(skeleton.archetype.patrolInterval, 0.7)
+    XCTAssertEqual(skeleton.archetype.seekInterval, 0.5)
+  }
+
+  func testLevelFiveDeterministicSpawnsAvoidAllStartsAndPreserveContent() throws {
+    for entry in [LevelEntryPosition.left, .bottom, .top] {
+      for seed in [UInt64(1), 42, 496_913] {
+        let first = try LevelFiveSimulation(seed: seed, entryPosition: entry)
+        let second = try LevelFiveSimulation(seed: seed, entryPosition: entry)
+        let protectedRegions = [
+          CollisionProfile.player.region(at: LevelFiveDefinition.leftStart),
+          CollisionProfile.player.region(at: .init(row: 5, column: 29)),
+          first.level.entryRegion, first.level.exitRegion,
+          EnemyArchetype.skeleton.footprint.region(at: LevelFiveSimulation.skeletonStart),
+        ]
+
+        XCTAssertEqual(first.entities.map(\.position), second.entities.map(\.position))
+        XCTAssertEqual(first.entities.filter { $0.kind == .mine }.count, 3)
+        XCTAssertEqual(first.entities.filter { $0.kind == .cabbage }.count, 2)
+        XCTAssertEqual(first.entities.filter { $0.kind == .coin }.count, 10)
+        for entity in first.entities {
+          let footprint = CollisionProfile.footprint(for: entity.kind).region(at: entity.position)
+          XCTAssertFalse(
+            protectedRegions.contains(where: footprint.intersects),
+            "Seed \(seed), entry \(entry), and \(entity.kind) overlapped a protected region")
+        }
+      }
+    }
+  }
+
+  func testLevelFiveConstructsForEverySupportedEntryAndRequiredSeed() throws {
+    for entry in [LevelEntryPosition.left, .bottom, .top] {
+      for seed in [UInt64(1), 42, 496_913] {
+        let simulation = try LevelFiveSimulation(seed: seed, entryPosition: entry)
+        XCTAssertEqual(simulation.levelID, .levelFive)
+        XCTAssertEqual(
+          simulation.enemies.first { $0.archetype == .skeleton }?.position,
+          LevelFiveSimulation.skeletonStart)
+      }
+    }
+  }
+
   func testLeftEntryUsesFootprintSafeSideStart() throws {
     let simulation = try LevelFiveSimulation(seed: 496_913, entryPosition: .left)
 

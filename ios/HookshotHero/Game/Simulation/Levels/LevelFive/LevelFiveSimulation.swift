@@ -1,6 +1,8 @@
 import Foundation
 
 @MainActor final class LevelFiveSimulation: LevelOneSimulation {
+  static let skeletonStart = GridPosition(row: 28, column: 30)
+
   override var levelID: LevelID { .levelFive }
   override var levelName: String { "Level 5" }
   init(
@@ -27,7 +29,7 @@ import Foundation
     restoreOpenedChestStates()
     enemies = [
       .init(
-        id: EntityID(), archetype: .skeleton, position: .init(row: 28, column: 20), facing: .down,
+        id: EntityID(), archetype: .skeleton, position: skeletonStart, facing: .down,
         health: 3, maximumHealth: 3, behaviorState: .patrol, decisionAccumulator: 0,
         animationTime: 0),
       .init(
@@ -46,7 +48,8 @@ import Foundation
         .init(kind: .coin, count: 10),
       ],
       protectedRegions: [
-        CollisionProfile.player.region(at: player.position),
+        CollisionProfile.player.region(at: LevelFiveDefinition.leftStart),
+        CollisionProfile.player.region(at: .init(row: 5, column: 29)),
         CollisionProfile.chest.region(at: level.chestAnchor),
         chestStates[0].definition.spawnExclusionRegion,
       ] + enemies.map { $0.archetype.footprint.region(at: $0.position) }, using: &rng)
