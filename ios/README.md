@@ -24,6 +24,8 @@ The existing Java sprite resources are bundled directly in the target. Do not du
 
 This repository intentionally does not run automated checks. Debug, tests, Analyze, Release, and archive validation must be performed locally with Xcode 26 before merging changes. Use a distinct DerivedData directory for the test build so the testable application module cannot be confused with an ordinary Debug build.
 
+The project uses automatic signing but intentionally does not commit a developer team identifier, because that value belongs to the local Apple Developer account. Before running on a physical device or creating a signed archive, select the `HookshotHero` target, open **Signing & Capabilities**, and choose your team. Simulator builds and the unsigned archive validation below do not require a development team.
+
 ```bash
 xcodebuild -version
 xcodebuild -project ios/HookshotHero.xcodeproj -scheme HookshotHero -showdestinations
