@@ -1028,7 +1028,7 @@ final class RenderLayoutContextTests: XCTestCase {
     XCTAssertEqual(level.displayName, "Level 6")
     XCTAssertEqual(LevelSixDefinition.wallAnchors.count, 54)
     XCTAssertEqual(LevelSixDefinition.lavaAnchors.count, 49)
-    XCTAssertEqual(LevelSixDefinition.bottomStart, .init(row: 50, column: 27))
+    XCTAssertEqual(LevelSixDefinition.bottomStart, .init(row: 53, column: 29))
     XCTAssertEqual(LevelSixDefinition.topStart, .init(row: 5, column: 53))
     XCTAssertEqual(level.entryAnchor, .init(row: 56, column: 27))
     XCTAssertEqual(level.exitAnchor, .init(row: 0, column: 51))

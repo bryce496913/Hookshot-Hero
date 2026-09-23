@@ -49,7 +49,7 @@ Not tested. The Level 7 `.top` return and carryover remain unverified.
 
 ## Level 4 → Level 6
 
-Not tested. Level 6's `.bottom` entry, row 50/column 27 start, HUD, controls,
+Not tested. Level 6's `.bottom` entry, row 53/column 29 start, HUD, controls,
 movement persistence, lava-reset behavior, chests, and enemies remain
 unverified.
 
