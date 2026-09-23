@@ -10,14 +10,7 @@ import Foundation
   ) throws {
     let levelDefinition = LevelFiveDefinition.make()
     let presentationDefinition = LevelFivePresentationDefinition.make(from: levelDefinition)
-    let start: GridPosition =
-      switch entryPosition {
-      // `.bottom` remains only as the generic direct DEBUG/test launch entry. Production
-      // progression from Level 4 enters through Level 5's left-side doorway.
-      case .bottom, .left: .init(row: 8, column: 7)
-      case .top: .init(row: 5, column: 29)
-      case .right: throw GameLoadingError.invalidInitialState(.levelFive)
-      }
+    let start = try LevelFiveDefinition.start(for: entryPosition)
     try super.init(
       configuration: configuration, seed: seed, entryPosition: entryPosition, carryover: carryover,
       levelDefinition: levelDefinition, presentationDefinition: presentationDefinition,
@@ -43,7 +36,7 @@ import Foundation
         animationTime: 0),
     ]
     try validateEnemyFootprints(entryPositions: [
-      .init(row: 5, column: 29), .init(row: 8, column: 7),
+      .init(row: 5, column: 29), LevelFiveDefinition.leftStart,
     ])
     var rng = SeededRandomNumberGenerator(seed: seed ^ 0x55)
     entities = try SpawnService.spawn(

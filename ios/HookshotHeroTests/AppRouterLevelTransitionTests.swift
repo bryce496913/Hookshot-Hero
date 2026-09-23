@@ -12,7 +12,7 @@ import XCTest
   func testLevelFourRightDoorLoadsLevelFiveThroughRouterAndWaitsForSceneAttachment() async throws {
     try await assertLevelFourTransition(
       exit: .init(row: 29, column: 57), destination: .levelFive, entry: .left,
-      expectedStart: .init(row: 8, column: 7))
+      expectedStart: LevelFiveDefinition.leftStart)
   }
 
   func testDefaultRuntimeFactoryBuildsLevelFiveLeftEntryWithRealPreflight() throws {
@@ -24,7 +24,8 @@ import XCTest
       carryover: nil)
 
     XCTAssertEqual(runtime.presentation.levelID, .levelFive)
-    XCTAssertEqual(runtime.simulation.renderSnapshot.player.coordinate, .init(row: 8, column: 7))
+    XCTAssertEqual(
+      runtime.simulation.renderSnapshot.player.coordinate, LevelFiveDefinition.leftStart)
     XCTAssertEqual(runtime.assetManifest, .levelFive)
   }
 

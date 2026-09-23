@@ -35,7 +35,7 @@ final class CrossLevelCarryoverTests: XCTestCase {
       .init(row: 29, column: 52))
     XCTAssertEqual(
       try LevelFiveSimulation(entryPosition: .left).player.position,
-      .init(row: 8, column: 7))
+      LevelFiveDefinition.leftStart)
     XCTAssertEqual(
       try LevelSixSimulation(entryPosition: .top).player.position, LevelSixDefinition.topStart)
     XCTAssertEqual(
@@ -80,8 +80,8 @@ final class CrossLevelCarryoverTests: XCTestCase {
       (.levelFour, .bottom, .init(row: 50, column: 27)),
       (.levelFour, .top, .init(row: 5, column: 27)),
       (.levelFour, .right, .init(row: 29, column: 52)),
-      (.levelFive, .bottom, .init(row: 8, column: 7)),
-      (.levelFive, .left, .init(row: 8, column: 7)),
+      (.levelFive, .bottom, LevelFiveDefinition.leftStart),
+      (.levelFive, .left, LevelFiveDefinition.leftStart),
       (.levelFive, .top, .init(row: 5, column: 29)),
       (.levelSix, .bottom, LevelSixDefinition.bottomStart),
       (.levelSix, .top, LevelSixDefinition.topStart),
