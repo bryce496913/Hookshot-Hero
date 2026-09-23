@@ -912,6 +912,7 @@ final class RenderLayoutContextTests: XCTestCase {
     XCTAssertEqual(skeletonRegion, .init(rows: 26..<31, columns: 28..<33))
     XCTAssertTrue(skeletonRegion.cells.allSatisfy(simulation.level.isInside))
     XCTAssertFalse(simulation.level.walls.contains(where: skeletonRegion.intersects))
+    XCTAssertFalse(simulation.level.overlapsLava(skeletonRegion))
     XCTAssertFalse(skeletonRegion.intersects(simulation.level.entryRegion))
     XCTAssertFalse(skeletonRegion.intersects(simulation.level.exitRegion))
     for start in [GridPosition(row: 5, column: 29), LevelFiveDefinition.leftStart] {
@@ -923,6 +924,21 @@ final class RenderLayoutContextTests: XCTestCase {
     XCTAssertEqual(skeleton.archetype.sight, 19)
     XCTAssertEqual(skeleton.archetype.patrolInterval, 0.7)
     XCTAssertEqual(skeleton.archetype.seekInterval, 0.5)
+  }
+
+  func testCorrectedLevelFiveStartsAndSkeletonAreSafeOnCompleteProductionMap() {
+    let level = LevelFiveDefinition.make()
+    let footprints = [
+      CollisionProfile.player.region(at: LevelFiveDefinition.leftStart),
+      CollisionProfile.player.region(at: .init(row: 5, column: 29)),
+      EnemyArchetype.skeleton.footprint.region(at: LevelFiveSimulation.skeletonStart),
+    ]
+
+    for footprint in footprints {
+      XCTAssertTrue(footprint.cells.allSatisfy(level.isInside))
+      XCTAssertFalse(level.isBlocked(footprint))
+      XCTAssertFalse(level.overlapsLava(footprint))
+    }
   }
 
   func testLevelFiveDeterministicSpawnsAvoidAllStartsAndPreserveContent() throws {
@@ -1022,6 +1038,17 @@ final class RenderLayoutContextTests: XCTestCase {
 }
 
 @MainActor final class LevelSixLoadingTests: XCTestCase {
+  func testCorrectedLevelSixStartsAreSafeOnCompleteProductionMap() {
+    let level = LevelSixDefinition.make()
+
+    for start in [LevelSixDefinition.bottomStart, LevelSixDefinition.topStart] {
+      let footprint = CollisionProfile.player.region(at: start)
+      XCTAssertTrue(footprint.cells.allSatisfy(level.isInside))
+      XCTAssertFalse(level.isBlocked(footprint))
+      XCTAssertFalse(level.overlapsLava(footprint))
+    }
+  }
+
   func testGeometryMatchesEveryJavaGroupAndCounts() throws {
     let level = LevelSixDefinition.make()
     XCTAssertEqual(level.grid, .init(rows: 60, columns: 60))

@@ -68,6 +68,9 @@ final class HookshotHeroUITests: XCTestCase {
     app.buttons["debugLevel5Button"].tap()
     XCTAssertTrue(app.otherElements["gameplayHUD"].waitForExistence(timeout: 5))
     XCTAssertTrue(app.staticTexts["Level 5"].exists)
+    let coordinate = app.staticTexts["playerPosition"]
+    XCTAssertTrue(coordinate.waitForExistence(timeout: 5))
+    XCTAssertEqual(position(coordinate), levelFiveLeftStart)
   }
   func testDebugLevelSelectStartsLevelSixWithControls() {
     launch()
@@ -79,18 +82,23 @@ final class HookshotHeroUITests: XCTestCase {
     XCTAssertTrue(app.staticTexts["scoreValue"].exists)
     XCTAssertTrue(app.buttons["moveUpButton"].isEnabled)
     XCTAssertTrue(app.buttons["grappleButton"].isEnabled)
+    let coordinate = app.staticTexts["playerPosition"]
+    XCTAssertTrue(coordinate.waitForExistence(timeout: 5))
+    XCTAssertEqual(position(coordinate), levelSixBottomStart)
   }
   func testLevelFourRightExitReplacesSceneAndLoadsPlayableLevelFive() {
     assertLevelFourTransition(
       fixture: "--level-four-transition=right", movementButton: "moveRightButton",
       expectedFixture: levelFourRightFixture, destination: "Level 5",
-      expectedStart: levelFiveLeftStart, playableMoveButton: "moveRightButton")
+      expectedStart: levelFiveLeftStart, playableMoveButton: "moveRightButton",
+      expectedMovedPosition: [9, 8])
   }
   func testLevelFourTopExitReplacesSceneAndLoadsPlayableLevelSix() {
     assertLevelFourTransition(
       fixture: "--level-four-transition=top", movementButton: "moveUpButton",
       expectedFixture: levelFourTopFixture, destination: "Level 6",
-      expectedStart: levelSixBottomStart, playableMoveButton: "moveRightButton")
+      expectedStart: levelSixBottomStart, playableMoveButton: "moveRightButton",
+      expectedMovedPosition: [53, 30])
   }
   func testDebugLevelSelectStartsLevelSevenAndMovesOneCell() {
     launch()
@@ -241,8 +249,8 @@ final class HookshotHeroUITests: XCTestCase {
 
   private func assertLevelFourTransition(
     fixture: String, movementButton: String, expectedFixture: [Int], destination: String,
-    expectedStart: [Int], playableMoveButton: String, file: StaticString = #filePath,
-    line: UInt = #line
+    expectedStart: [Int], playableMoveButton: String, expectedMovedPosition: [Int],
+    file: StaticString = #filePath, line: UInt = #line
   ) {
     app.launchEnvironment["HOOKSHOT_START_LEVEL"] = "level-4"
     launch(fixture)
@@ -266,9 +274,8 @@ final class HookshotHeroUITests: XCTestCase {
     XCTAssertEqual(position(destinationPosition), expectedStart, file: file, line: line)
     app.buttons[playableMoveButton].tap()
     XCTAssertTrue(
-      waitForPositionChange(destinationPosition, from: expectedStart),
-      "Controls were enabled but did not move the player in \(destination)", file: file,
-      line: line)
+      waitForPosition(destinationPosition, expectedMovedPosition),
+      "Player did not finish the verified safe movement in \(destination)", file: file, line: line)
   }
 
   private func waitForDestinationOrFailure(
@@ -294,15 +301,6 @@ final class HookshotHeroUITests: XCTestCase {
     let code = diagnostic.exists ? diagnostic.label : "loadingFailureDiagnosticCode unavailable"
     XCTFail(
       "Unable to Load Level while waiting for \(destination): \(code)", file: file, line: line)
-  }
-
-  private func waitForPositionChange(_ element: XCUIElement, from initial: [Int]) -> Bool {
-    let deadline = Date().addingTimeInterval(3)
-    repeat {
-      if position(element) != initial { return true }
-      RunLoop.current.run(until: Date().addingTimeInterval(0.05))
-    } while Date() < deadline
-    return false
   }
 
   func testPauseAndDialogueDisableJoystick() {
