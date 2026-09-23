@@ -27,7 +27,7 @@ struct TransitionPlayabilityContract {
 }
 
 @MainActor final class LevelFourTransitionFixtureTests: XCTestCase {
-  private let levelFiveLeftStartUITestContract = GridPosition(row: 8, column: 7)
+  private let levelFiveLeftStartUITestContract = LevelFiveDefinition.leftStart
   private let levelSixBottomStartUITestContract = GridPosition(row: 50, column: 27)
 
   func testDestinationPlayabilityContractsSelectSafeMoves() {
@@ -46,7 +46,8 @@ struct TransitionPlayabilityContract {
       XCTAssertTrue(
         DestinationMoveSafety.isSafePlayerMove(
           from: contract.start, direction: contract.direction, in: level),
-        "Unsafe UI-test move for \(contract.levelID.rawValue) \(contract.entry): \(contract.direction)")
+        "Unsafe UI-test move for \(contract.levelID.rawValue) \(contract.entry): \(contract.direction)"
+      )
     }
   }
 
@@ -62,6 +63,33 @@ struct TransitionPlayabilityContract {
     XCTAssertEqual(level.start, levelFiveLeftStartUITestContract)
     XCTAssertFalse(safeDirections.isEmpty)
     XCTAssertTrue(safeDirections.contains(.right))
+  }
+
+  func testLevelFiveLeftStartHasAValidCompleteFootprint() {
+    let level = LevelFiveDefinition.make()
+    let footprint = CollisionProfile.player.region(at: LevelFiveDefinition.leftStart)
+
+    XCTAssertEqual(LevelFiveDefinition.leftStart, GridPosition(row: 9, column: 7))
+    XCTAssertTrue(footprint.cells.allSatisfy(level.isInside))
+    XCTAssertFalse(footprint.cells.contains(where: level.isWall))
+    XCTAssertFalse(footprint.cells.contains(where: level.isLava))
+    XCTAssertFalse(footprint.intersects(level.entryRegion))
+    XCTAssertFalse(
+      DestinationMoveSafety.safeDirections(
+        from: LevelFiveDefinition.leftStart, in: level
+      ).isEmpty)
+  }
+
+  func testLevelFiveEntryPositionsResolveWithoutConstructingEnemyState() throws {
+    XCTAssertEqual(
+      try LevelFiveDefinition.start(for: .left), LevelFiveDefinition.leftStart)
+    XCTAssertEqual(
+      try LevelFiveDefinition.start(for: .bottom), LevelFiveDefinition.leftStart)
+    XCTAssertEqual(
+      try LevelFiveDefinition.start(for: .top), GridPosition(row: 5, column: 29))
+    XCTAssertThrowsError(try LevelFiveDefinition.start(for: .right)) {
+      XCTAssertEqual($0 as? GameLoadingError, .invalidInitialState(.levelFive))
+    }
   }
 
   func testLevelSixBottomStartRejectsDownAndAllowsRight() {

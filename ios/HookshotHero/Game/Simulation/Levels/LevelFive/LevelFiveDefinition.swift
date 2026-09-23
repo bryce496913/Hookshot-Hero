@@ -1,6 +1,8 @@
 import Foundation
 
 enum LevelFiveDefinition {
+  static let leftStart = GridPosition(row: 9, column: 7)
+
   static let wallAnchors: [GridPosition] =
     stride(from: 32, to: 52, by: 4).map { .init(row: 12, column: $0) }
     + stride(from: 32, to: 44, by: 4).map { .init(row: 16, column: $0) }
@@ -49,7 +51,7 @@ enum LevelFiveDefinition {
       topExitRegion: .init(rows: 0..<4, columns: 27..<33),
       bottomDoorRegion: .init(rows: 8..<12, columns: 0..<4))
     return .init(
-      grid: .init(rows: 60, columns: 60), start: .init(row: 8, column: 7),
+      grid: .init(rows: 60, columns: 60), start: leftStart,
       exitAnchor: .init(row: 0, column: 27), entryAnchor: .init(row: 8, column: 0),
       chestAnchor: .init(row: 52, column: 4), boundary: boundary,
       walls: boundary.wallRegions
@@ -60,5 +62,15 @@ enum LevelFiveDefinition {
         .init(rows: $0.row..<($0.row + 4), columns: $0.column..<($0.column + 4))
       },
       internalWallAnchors: wallAnchors, displayName: "Level 5")
+  }
+
+  static func start(for entryPosition: LevelEntryPosition) throws -> GridPosition {
+    switch entryPosition {
+    // `.bottom` remains only as the generic direct DEBUG/test launch entry. Production
+    // progression from Level 4 enters through Level 5's left-side doorway.
+    case .bottom, .left: leftStart
+    case .top: .init(row: 5, column: 29)
+    case .right: throw GameLoadingError.invalidInitialState(.levelFive)
+    }
   }
 }

@@ -1,7 +1,7 @@
 import XCTest
 
 final class HookshotHeroUITests: XCTestCase {
-  private let levelFiveLeftStart = [8, 7]
+  private let levelFiveLeftStart = [9, 7]
   private let levelSixBottomStart = [50, 27]
   private let levelFourRightFixture = [29, 54]
   private let levelFourTopFixture = [5, 29]

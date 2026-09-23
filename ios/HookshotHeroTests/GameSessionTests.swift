@@ -902,14 +902,14 @@ final class RenderLayoutContextTests: XCTestCase {
   func testLeftEntryUsesFootprintSafeSideStart() throws {
     let simulation = try LevelFiveSimulation(seed: 496_913, entryPosition: .left)
 
-    XCTAssertEqual(simulation.player.position, .init(row: 8, column: 7))
+    XCTAssertEqual(simulation.player.position, LevelFiveDefinition.leftStart)
   }
 
   func testBottomEntryRemainsDirectDebugAndTestLaunchAlias() throws {
     let directLaunch = try LevelFiveSimulation(seed: 496_913, entryPosition: .bottom)
     let productionEntry = try LevelFiveSimulation(seed: 496_913, entryPosition: .left)
 
-    XCTAssertEqual(directLaunch.player.position, .init(row: 8, column: 7))
+    XCTAssertEqual(directLaunch.player.position, LevelFiveDefinition.leftStart)
     XCTAssertEqual(directLaunch.player.position, productionEntry.player.position)
   }
 
@@ -941,7 +941,7 @@ final class RenderLayoutContextTests: XCTestCase {
     XCTAssertEqual(simulation.player.position, .init(row: 5, column: 29))
     for enemy in simulation.enemies {
       let enemyRegion = enemy.archetype.footprint.region(at: enemy.position)
-      for entry in [GridPosition(row: 5, column: 29), .init(row: 8, column: 7)] {
+      for entry in [GridPosition(row: 5, column: 29), LevelFiveDefinition.leftStart] {
         XCTAssertFalse(enemyRegion.intersects(CollisionProfile.player.region(at: entry)))
       }
     }
