@@ -30,7 +30,7 @@ enum LevelSixDefinition {
       .init(row: 28, column: 12), .init(row: 32, column: 12),
       .init(row: 24, column: 24),
     ]
-  static let bottomStart = GridPosition(row: 50, column: 27)
+  static let bottomStart = GridPosition(row: 53, column: 29)
   static let topStart = GridPosition(row: 5, column: 53)
   static func make() -> LevelDefinition {
     let boundary = LevelBoundaryGeometry(

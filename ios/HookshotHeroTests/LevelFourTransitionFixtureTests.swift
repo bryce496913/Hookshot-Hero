@@ -28,7 +28,7 @@ struct TransitionPlayabilityContract {
 
 @MainActor final class LevelFourTransitionFixtureTests: XCTestCase {
   private let levelFiveLeftStartUITestContract = LevelFiveDefinition.leftStart
-  private let levelSixBottomStartUITestContract = GridPosition(row: 50, column: 27)
+  private let levelSixBottomStartUITestContract = GridPosition(row: 53, column: 29)
 
   func testDestinationPlayabilityContractsSelectSafeMoves() {
     let contracts = [
@@ -92,15 +92,65 @@ struct TransitionPlayabilityContract {
     }
   }
 
-  func testLevelSixBottomStartRejectsDownAndAllowsRight() {
+  func testLevelSixBottomStartHasAValidCompleteFootprint() {
     let level = LevelSixDefinition.make()
+    let footprint = CollisionProfile.player.region(at: LevelSixDefinition.bottomStart)
 
-    XCTAssertFalse(
-      DestinationMoveSafety.isSafePlayerMove(
-        from: LevelSixDefinition.bottomStart, direction: .down, in: level))
+    XCTAssertEqual(LevelSixDefinition.bottomStart, GridPosition(row: 53, column: 29))
+    XCTAssertTrue(footprint.cells.allSatisfy(level.isInside))
+    XCTAssertFalse(footprint.cells.contains(where: level.isWall))
+    XCTAssertFalse(footprint.cells.contains(where: level.isLava))
+    XCTAssertFalse(footprint.intersects(level.entryRegion))
+  }
+
+  func testLevelSixBottomStartCanMoveRightIntoPlayableInterior() {
+    let level = LevelSixDefinition.make()
+    let destination = LevelSixDefinition.bottomStart.moved(.right)
+    let destinationFootprint = CollisionProfile.player.region(at: destination)
+
+    XCTAssertEqual(destination, .init(row: 53, column: 30))
+    XCTAssertTrue(destinationFootprint.cells.allSatisfy(level.isInside))
+    XCTAssertFalse(destinationFootprint.cells.contains(where: level.isWall))
+    XCTAssertFalse(destinationFootprint.cells.contains(where: level.isLava))
     XCTAssertTrue(
       DestinationMoveSafety.isSafePlayerMove(
         from: LevelSixDefinition.bottomStart, direction: .right, in: level))
+  }
+
+  func testLevelSixTopStartRemainsSafe() {
+    let level = LevelSixDefinition.make()
+    let footprint = CollisionProfile.player.region(at: LevelSixDefinition.topStart)
+
+    XCTAssertEqual(LevelSixDefinition.topStart, .init(row: 5, column: 53))
+    XCTAssertTrue(footprint.cells.allSatisfy(level.isInside))
+    XCTAssertFalse(footprint.cells.contains(where: level.isWall))
+    XCTAssertFalse(footprint.cells.contains(where: level.isLava))
+    XCTAssertFalse(footprint.intersects(level.exitRegion))
+  }
+
+  func testLevelSixNamedBottomStartMatchesDefinitionStart() {
+    XCTAssertEqual(LevelSixDefinition.make().start, LevelSixDefinition.bottomStart)
+  }
+
+  func testLevelSixBottomStartDoesNotImmediatelyTransition() throws {
+    let simulation = try LevelSixSimulation(seed: 496_913, entryPosition: .bottom)
+    var transition: LevelTransitionRequest?
+    simulation.onLevelTransition = { transition = $0 }
+
+    simulation.update(deltaTime: 0.01)
+
+    XCTAssertNil(transition)
+    XCTAssertNil(simulation.outcome)
+  }
+
+  func testDefaultSimulationFactoryConstructsCorrectedLevelSixBottomStart() throws {
+    let simulation = try DefaultGameSimulationFactory().makeSimulation(
+      levelID: .levelSix,
+      configuration: .init(reducedMotion: false, controlHintsEnabled: true), seed: 496_913,
+      entryPosition: .bottom, carryover: nil)
+
+    XCTAssertEqual(
+      simulation.renderSnapshot.player.coordinate, LevelSixDefinition.bottomStart)
   }
 
   func testPlayerMoveSafetyRejectsWallIntersection() {
