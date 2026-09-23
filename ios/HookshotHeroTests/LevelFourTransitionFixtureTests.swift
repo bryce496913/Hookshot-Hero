@@ -8,8 +8,14 @@ enum DestinationMoveSafety {
   static func isSafePlayerMove(
     from position: GridPosition, direction: GridDirection, in level: LevelDefinition
   ) -> Bool {
+    let startingPlayerRegion = CollisionProfile.player.region(at: position)
     let movedPlayerRegion = CollisionProfile.player.region(at: position.moved(direction))
-    return !level.isBlocked(movedPlayerRegion) && !level.overlapsLava(movedPlayerRegion)
+    return startingPlayerRegion.cells.allSatisfy(level.isInside)
+      && !level.isBlocked(startingPlayerRegion)
+      && !level.overlapsLava(startingPlayerRegion)
+      && movedPlayerRegion.cells.allSatisfy(level.isInside)
+      && !level.isBlocked(movedPlayerRegion)
+      && !level.overlapsLava(movedPlayerRegion)
   }
 
   static func safeDirections(
@@ -28,7 +34,7 @@ struct TransitionPlayabilityContract {
 
 @MainActor final class LevelFourTransitionFixtureTests: XCTestCase {
   private let levelFiveLeftStartUITestContract = LevelFiveDefinition.leftStart
-  private let levelSixBottomStartUITestContract = GridPosition(row: 53, column: 29)
+  private let levelSixBottomStartUITestContract = LevelSixDefinition.bottomStart
 
   func testDestinationPlayabilityContractsSelectSafeMoves() {
     let contracts = [
@@ -175,6 +181,32 @@ struct TransitionPlayabilityContract {
     let level = testLevel(lava: [lava])
 
     XCTAssertFalse(
+      DestinationMoveSafety.isSafePlayerMove(
+        from: .init(row: 2, column: 2), direction: .right, in: level))
+  }
+
+  func testPlayerMoveSafetyRejectsLavaOnlyAtStartingFootprint() {
+    let lava = GridRegion(rows: 1..<4, columns: 1..<2)
+    let level = testLevel(lava: [lava])
+
+    XCTAssertFalse(
+      DestinationMoveSafety.isSafePlayerMove(
+        from: .init(row: 2, column: 2), direction: .right, in: level))
+  }
+
+  func testPlayerMoveSafetyRejectsWallOnlyAtStartingFootprint() {
+    let wall = GridRegion(rows: 1..<4, columns: 1..<2)
+    let level = testLevel(walls: [wall])
+
+    XCTAssertFalse(
+      DestinationMoveSafety.isSafePlayerMove(
+        from: .init(row: 2, column: 2), direction: .right, in: level))
+  }
+
+  func testPlayerMoveSafetyAcceptsSafeStartingAndDestinationFootprints() {
+    let level = testLevel()
+
+    XCTAssertTrue(
       DestinationMoveSafety.isSafePlayerMove(
         from: .init(row: 2, column: 2), direction: .right, in: level))
   }
