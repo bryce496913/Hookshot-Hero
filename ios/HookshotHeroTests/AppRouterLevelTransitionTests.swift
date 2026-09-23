@@ -26,6 +26,10 @@ import XCTest
     XCTAssertEqual(runtime.presentation.levelID, .levelFive)
     XCTAssertEqual(
       runtime.simulation.renderSnapshot.player.coordinate, LevelFiveDefinition.leftStart)
+    let simulation = try XCTUnwrap(runtime.simulation as? LevelFiveSimulation)
+    XCTAssertEqual(
+      simulation.enemies.first { $0.archetype == .skeleton }?.position,
+      LevelFiveSimulation.skeletonStart)
     XCTAssertEqual(runtime.assetManifest, .levelFive)
   }
 
