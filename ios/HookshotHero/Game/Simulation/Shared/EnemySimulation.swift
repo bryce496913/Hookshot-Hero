@@ -1,36 +1,66 @@
 import Foundation
 
 enum EnemyArchetype: Equatable, Sendable {
-  case skeleton, flyingTerror, minotaur
+  case skeleton, flyingTerror, minotaur, ghostWizard
   var displayName: String {
     switch self {
     case .skeleton: "Skeleton"
     case .flyingTerror: "Flying Terror"
     case .minotaur: "Minotaur"
+    case .ghostWizard: "Ghost Wizard"
     }
   }
   var asset: RenderAssetID {
-    RenderAssetID(
-      rawValue: self == .skeleton
-        ? "enemy.skeleton" : (self == .flyingTerror ? "enemy.flying-terror" : "enemy.minotaur"))
+    switch self {
+    case .skeleton: RenderAssetID(rawValue: "enemy.skeleton")
+    case .flyingTerror: RenderAssetID(rawValue: "enemy.flying-terror")
+    case .minotaur: RenderAssetID(rawValue: "enemy.minotaur")
+    case .ghostWizard: LevelTenRenderAssets.ghostWizard
+    }
   }
-  var maximumHealth: Int { self == .skeleton ? 3 : (self == .flyingTerror ? 5 : 10) }
-  var sight: Double { self == .skeleton ? 19 : (self == .flyingTerror ? 39 : 19) }
+  var maximumHealth: Int {
+    switch self {
+    case .skeleton: 3
+    case .flyingTerror: 5
+    case .minotaur, .ghostWizard: 10
+    }
+  }
+  var sight: Double {
+    switch self {
+    case .skeleton, .minotaur: 19
+    case .flyingTerror: 39
+    case .ghostWizard: 25
+    }
+  }
   var patrolInterval: TimeInterval {
-    self == .skeleton ? 0.7 : (self == .flyingTerror ? 0.3 : 0.45)
+    switch self {
+    case .skeleton: 0.7
+    case .flyingTerror: 0.3
+    case .minotaur: 0.45
+    case .ghostWizard: 0.5
+    }
   }
-  var seekInterval: TimeInterval { self == .skeleton ? 0.5 : (self == .flyingTerror ? 0.3 : 0.35) }
+  var seekInterval: TimeInterval {
+    switch self {
+    case .skeleton: 0.5
+    case .flyingTerror: 0.3
+    case .minotaur: 0.35
+    case .ghostWizard: 0.15
+    }
+  }
   var footprint: CollisionFootprint {
-    self == .skeleton
-      ? .init(rowOffsets: -2..<3, columnOffsets: -2..<3)
-      : (self == .flyingTerror
-        ? .init(rowOffsets: -3..<5, columnOffsets: -3..<5)
-        : .init(rowOffsets: -2..<3, columnOffsets: -2..<3))
+    switch self {
+    case .flyingTerror: .init(rowOffsets: -3..<5, columnOffsets: -3..<5)
+    case .skeleton, .minotaur, .ghostWizard: .init(rowOffsets: -2..<3, columnOffsets: -2..<3)
+    }
   }
   var renderSize: LogicalRenderSize {
-    self == .skeleton
-      ? .init(width: 4.9, height: 4.7)
-      : (self == .flyingTerror ? .init(width: 12.8, height: 12.8) : .init(width: 4.8, height: 6.4))
+    switch self {
+    case .skeleton: .init(width: 4.9, height: 4.7)
+    case .flyingTerror: .init(width: 12.8, height: 12.8)
+    case .minotaur: .init(width: 4.8, height: 6.4)
+    case .ghostWizard: .init(width: 3, height: 5.8)
+    }
   }
 }
 enum EnemyBehaviorState: Equatable, Sendable { case patrol, seek }

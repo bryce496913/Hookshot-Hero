@@ -27,8 +27,11 @@ import XCTest
       XCTAssertFalse(simulation.level.isBlocked(footprint))
       XCTAssertFalse(simulation.level.overlapsLava(footprint))
     }
+    let leftEntry = try LevelNineSimulation(entryPosition: .left)
+    XCTAssertEqual(leftEntry.player.position, LevelNineDefinition.leftStart)
+    XCTAssertFalse(
+      leftEntry.level.isBlocked(CollisionProfile.player.region(at: leftEntry.player.position)))
     XCTAssertThrowsError(try LevelNineSimulation(entryPosition: .top))
-    XCTAssertThrowsError(try LevelNineSimulation(entryPosition: .left))
     XCTAssertThrowsError(try LevelNineSimulation(entryPosition: .right))
   }
 
@@ -57,7 +60,7 @@ import XCTest
     XCTAssertEqual(returning.player.score, score)
   }
 
-  func testLevelNineForwardExitRequestsUnsupportedLevelTenBoundary() throws {
+  func testLevelNineForwardExitRequestsRegisteredLevelTen() throws {
     let simulation = try LevelNineSimulation(seed: 9)
     var request: LevelTransitionRequest?
     simulation.onLevelTransition = { request = $0 }
@@ -67,7 +70,7 @@ import XCTest
     XCTAssertEqual(request?.destinationEntry, .right)
     XCTAssertEqual(request?.reason, .completedForward)
     XCTAssertEqual(request?.carryover.completedLevelIDs, [.levelNine])
-    XCTAssertThrowsError(try LevelAssetManifest.manifest(for: .levelTen))
+    XCTAssertEqual(try LevelAssetManifest.manifest(for: .levelTen), .levelTen)
   }
 
   func testRealSessionTransitionsLevelEightToNineAndBackWithCarryover() throws {

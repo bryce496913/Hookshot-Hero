@@ -9,13 +9,16 @@ import Foundation
     seed: UInt64 = 9, entryPosition: LevelEntryPosition = .bottom,
     carryover: PlayerCarryoverState? = nil
   ) throws {
-    guard entryPosition == .bottom else { throw GameLoadingError.invalidInitialState(.levelNine) }
+    guard entryPosition == .bottom || entryPosition == .left else {
+      throw GameLoadingError.invalidInitialState(.levelNine)
+    }
     let definition = LevelNineDefinition.make()
     try super.init(
       configuration: configuration, seed: seed, entryPosition: entryPosition, carryover: carryover,
       levelDefinition: definition,
       presentationDefinition: LevelNinePresentationDefinition.make(from: definition),
-      initialPlayerPosition: LevelNineDefinition.bottomStart, entities: [])
+      initialPlayerPosition: entryPosition == .left
+        ? LevelNineDefinition.leftStart : LevelNineDefinition.bottomStart, entities: [])
     chestStates = [
       .init(
         definition: .init(
@@ -39,7 +42,9 @@ import Foundation
         facing: .left, health: 5, maximumHealth: 5, behaviorState: .patrol, decisionAccumulator: 0,
         animationTime: 0),
     ]
-    try validateEnemyFootprints(entryPositions: [LevelNineDefinition.bottomStart])
+    try validateEnemyFootprints(entryPositions: [
+      LevelNineDefinition.bottomStart, LevelNineDefinition.leftStart,
+    ])
     var rng = SeededRandomNumberGenerator(seed: seed ^ 0x99)
     let protected =
       [
@@ -79,7 +84,6 @@ import Foundation
         emit(.levelCompleted(points: 100), at: player.position)
       }
       cancelAllInput()
-      // Level 10 remains an intentionally unsupported loading boundary until its native pass.
       onLevelTransition?(
         .init(
           sourceLevelID: .levelNine, destinationLevelID: .levelTen,

@@ -1,6 +1,6 @@
 # Hookshot Hero for iOS — playable Levels 1–8
 
-The native SwiftUI/SpriteKit runtime implements playable **Levels 1 through 8** while the Java game remains the behavioral reference. Progression follows Levels 1 → 2 → 3 → 4, then preserves Java's branch: Level 4's right door leads to Level 5 → Level 7 → Level 8, while Level 4's top door leads to Level 6 → Level 8. Level 8 is the convergence point, not another step in a simple 4 → 5 → 6 → 7 → 8 sequence. Its top exit is the current native-content boundary, with Level 9 as the intended Java continuation.
+The native SwiftUI/SpriteKit runtime implements playable **Levels 1 through 10** while the Java game remains the behavioral reference. Progression follows Levels 1 → 2 → 3 → 4, then preserves Java's branch: Level 4's right door leads to Level 5 → Level 7 → Level 8, while Level 4's top door leads to Level 6 → Level 8. Level 8 is the convergence point, not another step in a simple 4 → 5 → 6 → 7 → 8 sequence. Its top exit continues through Level 9 to the Level 10 boss arena.
 
 ## Current gameplay
 
@@ -49,7 +49,7 @@ The repository intentionally has no CI workflow. The commands above are the requ
 * Optional bouncing balls.
 * Mission-mode guide.
 
-Levels 2 through 9 are registered native gameplay levels. Levels 5, 6, 7, and 9 reproduce their Java maze, lava, doors, smoke emitters, Skeleton, Flying Terror, three mines, two cabbages, and ten coins. Level 5 and Level 9 have one side-view chest; Levels 6 and 7 each have two independent chests. Level 8 implements its native maze, lava, three doors, Skeleton, Flying Terror, three mines, two cabbages, and ten coins. In DEBUG builds, the scrollable direct level selector includes Levels 1–9.
+Levels 2 through 9 are registered native gameplay levels. Levels 5, 6, 7, and 9 reproduce their Java maze, lava, doors, smoke emitters, Skeleton, Flying Terror, three mines, two cabbages, and ten coins. Level 5 and Level 9 have one side-view chest; Levels 6 and 7 each have two independent chests. Level 8 implements its native maze, lava, three doors, Skeleton, Flying Terror, three mines, two cabbages, and ten coins. In DEBUG builds, the scrollable direct level selector includes Levels 1–10.
 
 See [Conversion decisions](Documentation/ConversionDecisions.md), [Responsibility map](Documentation/ResponsibilityMap.md), and [Temporary assets](Resources/TemporaryAssets.md).
 
@@ -57,7 +57,7 @@ See [Conversion decisions](Documentation/ConversionDecisions.md), [Responsibilit
 
 The gameplay dependency direction is `AppRouter → GameSimulationFactory → GameSimulation → GameSession → GameplayView / GameScene`. `DefaultGameSimulationFactory` creates the concrete simulation for Levels 1 through 9; `DefaultGameLevelRuntimeFactory` assembles and preflights their runtimes using the corresponding `LevelAssetManifest`. Unsupported identifiers fail with `GameLoadingError.unsupportedLevel`.
 
-The playable forward route currently reaches Level 9. Level 8's top door enters Level 9 at its bottom door, and Level 9's bottom door returns to Level 8 beneath its actual top doorway. Level 9's left door emits a typed Level 10 request. This follows the Java runtime's `NextLevels[0].Exit` check at `(row: 7, column: 1)`, not the unused `GetExitGrid()` value `(7,3)`; the native trigger covers rows 7–13 at the rendered doorway so it is reachable by the full player footprint. Level 10 is deliberately not registered or playable in this pass, so crossing that boundary produces the normal unsupported-level loading presentation.
+The playable forward route currently reaches Level 10. Level 8's top door enters Level 9 at its bottom door, and Level 9's bottom door returns to Level 8 beneath its actual top doorway. Level 9's left door emits a typed Level 10 request. This follows the Java runtime's `NextLevels[0].Exit` check at `(row: 7, column: 1)`, not the unused `GetExitGrid()` value `(7,3)`; the native trigger covers rows 7–13 at the rendered doorway so it is reachable by the full player footprint. Level 10 is registered and enters its boss arena through a footprint-safe right-side arrival.
 
 The simulation is authoritative for health, score, entities, timing, and outcomes. Every Level 1 score source—coins, grapple-destroyed mines, the chest, and level completion—mutates the simulation player. `GameSession` has no score-award API and reads the final authoritative status for routing and immutable results.
 
@@ -139,9 +139,9 @@ Local validation remains intentionally Xcode-based. Run the full Xcode 26 sequen
 
 ## Level 2 Runtime Conversion
 
-Levels 1 through 8 are implemented in the shared runtime path. A normal production playthrough starts at Level 1, and each connected exit emits a transition request that installs the destination in the same `GameSession`, preserving health, score, character identity, completion state, and elapsed playthrough time. Level 4 restores its defeated boss and open exits from carryover completion state. Its right exit progresses through Level 5 → Level 7 → Level 8, while its top exit progresses through Level 6 → Level 8. Level 8 is therefore the convergence point for the two branches.
+Levels 1 through 10 are implemented in the shared runtime path. A normal production playthrough starts at Level 1, and each connected exit emits a transition request that installs the destination in the same `GameSession`, preserving health, score, character identity, completion state, and elapsed playthrough time. Level 4 restores its defeated boss and open exits from carryover completion state. Its right exit progresses through Level 5 → Level 7 → Level 8, while its top exit progresses through Level 6 → Level 8. Level 8 is therefore the convergence point for the two branches.
 
-Reverse doors use named destination entrances. Level 5 returns to Level 4's right-side entry, and Level 7 returns to Level 5. In Level 8, the left-side door returns to Level 6's top entry and the bottom door returns to Level 7's top entry. Level 8's top exit completes the current native content; its intended Java continuation is Level 9 (**Level 8 → future Level 9**). Levels 9–10 remain deferred.
+Reverse doors use named destination entrances. Level 5 returns to Level 4's right-side entry, and Level 7 returns to Level 5. In Level 8, the left-side door returns to Level 6's top entry and the bottom door returns to Level 7's top entry. Level 8's top exit continues to Level 9; Level 9's left door enters Level 10, whose right door provides the safe reverse route.
 
 Conversion flow:
 
@@ -197,6 +197,25 @@ Level 6 contains 54 internal wall anchors and 49 lava anchors. The bottom doorwa
 
 Level 7 implements the Java-parity dungeon geometry with two independent persistent chests, three mines, two cabbages, ten coins, one Skeleton, and one Flying Terror. Its bottom doorway navigates backward to Level 5, and its top exit progresses to Level 8's bottom entry.
 
-Level 8 implements the branch convergence. Its left-side door navigates backward to Level 6's top entry, and its bottom door navigates backward to Level 7's top entry. Its top exit awards Level 8 completion and ends the current native playthrough; this is the **Level 8 → future Level 9** boundary, not a transition to an unimplemented Level 8.
+Level 8 implements the branch convergence. Its left-side door navigates backward to Level 6's top entry, its bottom door navigates backward to Level 7's top entry, and its top exit awards Level 8 completion before continuing to Level 9.
 
 Native corrections shared by these levels include full-footprint deterministic item spawning, independent random streams for items and each enemy, bounded enemy movement, stable entity identity, two-phase render cleanup, a maximum health of five, time-based damage cooldowns, and deduplicated completion rewards. Audio remains deferred. PRs #64–#67 added or corrected source and test coverage, but their Xcode suites were not executed in the Codex Linux environment. Full macOS/Xcode validation therefore remains outstanding; this environment does not provide `xcodebuild` or Simulator runtimes.
+
+## Level 10 and the temporary native ending
+
+Level 10 is now a registered native boss arena. Level 9's left door enters through Level 10's
+right-side door, and that same door returns to Level 9 at a footprint-safe left entry. The Java
+level draws only that right-side door but declares its forward exit at the center of the arena;
+the native version resolves the mismatch by rendering a large locked/open portal directly over
+the center trigger. The portal cannot complete the level while the Ghost Wizard lives.
+
+The Ghost Wizard moves toward the player, inflicts contact damage, launches a projectile every
+three seconds while the player is in sight, takes one damage per grapple, displays animated
+sprites and a health bar, and unlocks the ending portal when defeated. Its defeat and the special
+chest are recorded in `PlayerCarryoverState.worldState`, so revisiting Level 10 in the same run
+does not respawn the boss or grant chest/completion rewards twice. This intentionally replaces
+the Java implementation's process-global `Minotaur.BossIsDead` coupling.
+
+Java continues to `CountryRoad` and `HeroWelcome`, but neither ending area has a native runtime.
+Until they are implemented, the unlocked center portal is the only Level 10 victory path and
+finishes the session on the existing Results screen; it never requests an unregistered level.
