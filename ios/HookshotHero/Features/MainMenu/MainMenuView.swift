@@ -77,6 +77,7 @@ struct DebugLevelSelectView: View {
         ("Level 1", .levelOne), ("Level 2", .levelTwo), ("Level 3", .levelThree),
         ("Level 4", .levelFour), ("Level 5", .levelFive), ("Level 6", .levelSix),
         ("Level 7", .levelSeven), ("Level 8", .levelEight), ("Level 9", .levelNine),
+        ("Level 10", .levelTen),
     ]
 
     var body: some View {

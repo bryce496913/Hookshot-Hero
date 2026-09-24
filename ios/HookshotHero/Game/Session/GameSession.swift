@@ -12,7 +12,6 @@ extension LevelID {
   static let levelSeven = Self(rawValue: "level-7")
   static let levelEight = Self(rawValue: "level-8")
   static let levelNine = Self(rawValue: "level-9")
-  /// A typed transition destination only; Level 10 is not registered with the runtime factory yet.
   static let levelTen = Self(rawValue: "level-10")
 }
 extension LevelID {

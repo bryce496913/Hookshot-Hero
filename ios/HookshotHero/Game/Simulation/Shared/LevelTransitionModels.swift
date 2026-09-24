@@ -22,6 +22,8 @@ struct OpenedChestID: Hashable, Sendable {
 }
 struct WorldCarryoverState: Hashable, Sendable {
   var openedChestIDs: Set<OpenedChestID> = []
+  /// Boss victories scoped to this play session; unlike Java, this is never process-global.
+  var defeatedBossLevelIDs: Set<LevelID> = []
 }
 struct PlayerCarryoverState: Hashable, Sendable {
   let characterID: EntityID
