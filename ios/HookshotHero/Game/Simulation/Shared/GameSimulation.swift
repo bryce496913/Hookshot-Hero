@@ -148,6 +148,7 @@ extension LevelAssetManifest {
     case .levelSix: levelSix
     case .levelSeven: levelSeven
     case .levelEight: levelEight
+    case .levelNine: levelNine
     default: throw GameLoadingError.unsupportedLevel(levelID)
     }
   }
@@ -286,6 +287,10 @@ struct DefaultGameSimulationFactory: GameSimulationFactory {
           entryPosition: entryPosition, carryover: carryover)
       case .levelEight:
         return try LevelEightSimulation(
+          configuration: configuration, seed: seed ?? UInt64.random(in: 1...UInt64.max),
+          entryPosition: entryPosition, carryover: carryover)
+      case .levelNine:
+        return try LevelNineSimulation(
           configuration: configuration, seed: seed ?? UInt64.random(in: 1...UInt64.max),
           entryPosition: entryPosition, carryover: carryover)
       default:

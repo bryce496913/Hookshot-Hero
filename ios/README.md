@@ -49,13 +49,15 @@ The repository intentionally has no CI workflow. The commands above are the requ
 * Optional bouncing balls.
 * Mission-mode guide.
 
-Levels 2 through 8 are registered native gameplay levels. Levels 5, 6, and 7 each reproduce their Java maze, lava, doors, smoke emitters, Skeleton, Flying Terror, three mines, two cabbages, and ten coins. Level 5 has one side-view chest; Levels 6 and 7 each have two independent chests. Level 8 implements its native maze, lava, three doors, Skeleton, Flying Terror, three mines, two cabbages, and ten coins. In DEBUG builds, the scrollable direct level selector includes Levels 1–8.
+Levels 2 through 9 are registered native gameplay levels. Levels 5, 6, 7, and 9 reproduce their Java maze, lava, doors, smoke emitters, Skeleton, Flying Terror, three mines, two cabbages, and ten coins. Level 5 and Level 9 have one side-view chest; Levels 6 and 7 each have two independent chests. Level 8 implements its native maze, lava, three doors, Skeleton, Flying Terror, three mines, two cabbages, and ten coins. In DEBUG builds, the scrollable direct level selector includes Levels 1–9.
 
 See [Conversion decisions](Documentation/ConversionDecisions.md), [Responsibility map](Documentation/ResponsibilityMap.md), and [Temporary assets](Resources/TemporaryAssets.md).
 
 ## Shared simulation and UI publication boundary
 
-The gameplay dependency direction is `AppRouter → GameSimulationFactory → GameSimulation → GameSession → GameplayView / GameScene`. `DefaultGameSimulationFactory` creates the concrete simulation for Levels 1 through 8; `DefaultGameLevelRuntimeFactory` assembles and preflights their runtimes using the corresponding `LevelAssetManifest`. Unsupported identifiers fail with `GameLoadingError.unsupportedLevel`.
+The gameplay dependency direction is `AppRouter → GameSimulationFactory → GameSimulation → GameSession → GameplayView / GameScene`. `DefaultGameSimulationFactory` creates the concrete simulation for Levels 1 through 9; `DefaultGameLevelRuntimeFactory` assembles and preflights their runtimes using the corresponding `LevelAssetManifest`. Unsupported identifiers fail with `GameLoadingError.unsupportedLevel`.
+
+The playable forward route currently reaches Level 9. Level 8's top door enters Level 9 at its bottom door, and Level 9's bottom door returns to Level 8 beneath its actual top doorway. Level 9's left door emits a typed Level 10 request. This follows the Java runtime's `NextLevels[0].Exit` check at `(row: 7, column: 1)`, not the unused `GetExitGrid()` value `(7,3)`; the native trigger covers rows 7–13 at the rendered doorway so it is reachable by the full player footprint. Level 10 is deliberately not registered or playable in this pass, so crossing that boundary produces the normal unsupported-level loading presentation.
 
 The simulation is authoritative for health, score, entities, timing, and outcomes. Every Level 1 score source—coins, grapple-destroyed mines, the chest, and level completion—mutates the simulation player. `GameSession` has no score-award API and reads the final authoritative status for routing and immutable results.
 

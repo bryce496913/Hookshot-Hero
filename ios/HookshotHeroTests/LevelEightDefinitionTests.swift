@@ -34,7 +34,7 @@ import XCTest
     XCTAssertEqual(level.entryAnchor, .init(row: 56, column: 27))
     XCTAssertEqual(LevelEightDefinition.fromLevelSevenStart, .init(row: 50, column: 27))
     XCTAssertEqual(LevelEightDefinition.fromLevelSixStart, .init(row: 29, column: 5))
-    XCTAssertEqual(LevelEightDefinition.topReturnStart, .init(row: 5, column: 23))
+    XCTAssertEqual(LevelEightDefinition.topReturnStart, .init(row: 5, column: 50))
 
     for start in [
       LevelEightDefinition.fromLevelSevenStart, LevelEightDefinition.fromLevelSixStart,

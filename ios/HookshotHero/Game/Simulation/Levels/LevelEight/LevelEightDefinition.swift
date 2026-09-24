@@ -69,7 +69,8 @@ enum LevelEightDefinition {
   // Java's (27, 5) intersects the wall tile at (24, 4) under the native 3x3 player
   // footprint. (29, 5) is the nearest doorway-aligned position with a complete safe footprint.
   static let fromLevelSixStart = GridPosition(row: 29, column: 5)
-  static let topReturnStart = GridPosition(row: 5, column: 23)
+  // Centered under the actual columns 48...53 doorway; the complete 3x3 footprint is clear.
+  static let topReturnStart = GridPosition(row: 5, column: 50)
 
   static func make() -> LevelDefinition {
     let boundary = LevelBoundaryGeometry(
