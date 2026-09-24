@@ -71,13 +71,28 @@ struct MainMenuView: View {
 }
 
 #if DEBUG
+struct DebugLevelDestination: Identifiable, Equatable {
+    let number: Int
+    let levelID: LevelID
+
+    var id: LevelID { levelID }
+    var title: String { "Level \(number)" }
+    var accessibilityIdentifier: String { "debugLevel\(number)Button" }
+}
+
 struct DebugLevelSelectView: View {
     let playLevel: (LevelID) -> Void
-    private let levels: [(String, LevelID)] = [
-        ("Level 1", .levelOne), ("Level 2", .levelTwo), ("Level 3", .levelThree),
-        ("Level 4", .levelFour), ("Level 5", .levelFive), ("Level 6", .levelSix),
-        ("Level 7", .levelSeven), ("Level 8", .levelEight), ("Level 9", .levelNine),
-        ("Level 10", .levelTen),
+    static let levels: [DebugLevelDestination] = [
+        .init(number: 1, levelID: .levelOne),
+        .init(number: 2, levelID: .levelTwo),
+        .init(number: 3, levelID: .levelThree),
+        .init(number: 4, levelID: .levelFour),
+        .init(number: 5, levelID: .levelFive),
+        .init(number: 6, levelID: .levelSix),
+        .init(number: 7, levelID: .levelSeven),
+        .init(number: 8, levelID: .levelEight),
+        .init(number: 9, levelID: .levelNine),
+        .init(number: 10, levelID: .levelTen),
     ]
 
     var body: some View {
@@ -88,10 +103,10 @@ struct DebugLevelSelectView: View {
                     Text("Debug Level Select").appTextStyle(.h1).accessibilityAddTraits(.isHeader)
                     Text("Start directly in any implemented level.")
                         .appTextStyle(.paragraph).foregroundStyle(AppTheme.Colors.text.opacity(0.7))
-                    ForEach(levels, id: \.1) { level in
-                        Button(level.0) { playLevel(level.1) }
+                    ForEach(Self.levels) { level in
+                        Button(level.title) { playLevel(level.levelID) }
                             .buttonStyle(AppPrimaryButtonStyle())
-                            .accessibilityIdentifier("debug\(level.0.replacingOccurrences(of: " ", with: ""))Button")
+                            .accessibilityIdentifier(level.accessibilityIdentifier)
                     }
                 }.padding(24)
             }

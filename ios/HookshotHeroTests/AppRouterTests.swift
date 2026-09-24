@@ -3,6 +3,21 @@ import XCTest
 @testable import HookshotHero
 
 @MainActor final class AppRouterTests: XCTestCase {
+  func testDebugLevelSelectContainsEveryLevelInOrder() {
+    #if DEBUG
+      XCTAssertEqual(DebugLevelSelectView.levels.map(\.number), Array(1...10))
+      XCTAssertEqual(
+        DebugLevelSelectView.levels.map(\.levelID),
+        [
+          .levelOne, .levelTwo, .levelThree, .levelFour, .levelFive,
+          .levelSix, .levelSeven, .levelEight, .levelNine, .levelTen,
+        ])
+      XCTAssertEqual(
+        DebugLevelSelectView.levels.map(\.accessibilityIdentifier),
+        (1...10).map { "debugLevel\($0)Button" })
+    #endif
+  }
+
   private var directory: URL!
   private var progression: ProgressionStore!
   private var router: AppRouter!
