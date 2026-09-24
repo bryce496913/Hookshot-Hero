@@ -34,17 +34,24 @@ import Foundation
     // Separate native footprints keep that doorway reachable while retaining both archetypes.
     enemies = [
       .init(
-        id: EntityID(), archetype: .skeleton, position: .init(row: 9, column: 9), facing: .right,
+        id: EntityID(), archetype: .skeleton, position: .init(row: 9, column: 18), facing: .right,
         health: 3, maximumHealth: 3, behaviorState: .patrol, decisionAccumulator: 0,
         animationTime: 0),
       .init(
-        id: EntityID(), archetype: .flyingTerror, position: .init(row: 13, column: 16),
+        id: EntityID(), archetype: .flyingTerror, position: .init(row: 11, column: 26),
         facing: .left, health: 5, maximumHealth: 5, behaviorState: .patrol, decisionAccumulator: 0,
         animationTime: 0),
     ]
     try validateEnemyFootprints(entryPositions: [
       LevelNineDefinition.bottomStart, LevelNineDefinition.leftStart,
     ])
+    let enemyRegions = enemies.map { $0.archetype.footprint.region(at: $0.position) }
+    let doorRegions = [LevelNineDefinition.forwardDoorRegion, LevelNineDefinition.bottomDoorRegion]
+    guard !enemyRegions[0].intersects(enemyRegions[1]),
+      enemyRegions.allSatisfy({ region in
+        !level.isBlocked(region) && !doorRegions.contains(where: region.intersects)
+      })
+    else { throw GameLoadingError.invalidInitialState(.levelNine) }
     var rng = SeededRandomNumberGenerator(seed: seed ^ 0x99)
     let protected =
       [
@@ -57,7 +64,7 @@ import Foundation
           $0.definition.spawnExclusionRegion,
         ]
       }
-      + enemies.map { $0.archetype.footprint.region(at: $0.position) }
+      + enemyRegions
     entities = try SpawnService.spawn(
       in: level,
       requirements: [

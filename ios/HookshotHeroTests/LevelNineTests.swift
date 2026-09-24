@@ -35,6 +35,39 @@ import XCTest
     XCTAssertThrowsError(try LevelNineSimulation(entryPosition: .right))
   }
 
+  func testFactoryBuildsBothLevelNineEntriesWithSeparatedFootprintsAndReachableDoors() throws {
+    let factory = DefaultGameLevelRuntimeFactory()
+    for entry: LevelEntryPosition in [.bottom, .left] {
+      let runtime = try factory.makeRuntime(
+        levelID: .levelNine,
+        configuration: .init(reducedMotion: false, controlHintsEnabled: true), seed: 9,
+        entryPosition: entry, carryover: nil)
+      let simulation = try XCTUnwrap(runtime.simulation as? LevelNineSimulation)
+      let playerRegion = CollisionProfile.player.region(at: simulation.player.position)
+      XCTAssertFalse(simulation.level.isBlocked(playerRegion))
+      XCTAssertFalse(simulation.level.overlapsLava(playerRegion))
+
+      let enemyRegions = simulation.enemies.map {
+        $0.archetype.footprint.region(at: $0.position)
+      }
+      for region in enemyRegions {
+        XCTAssertFalse(simulation.level.isBlocked(region))
+        XCTAssertFalse(region.intersects(playerRegion))
+        XCTAssertFalse(region.intersects(LevelNineDefinition.forwardDoorRegion))
+        XCTAssertFalse(region.intersects(LevelNineDefinition.bottomDoorRegion))
+      }
+      XCTAssertFalse(enemyRegions[0].intersects(enemyRegions[1]))
+      XCTAssertTrue(
+        hasMovementPath(
+          from: simulation.player.position, to: LevelNineDefinition.forwardDoorRegion,
+          in: simulation.level))
+      XCTAssertTrue(
+        hasMovementPath(
+          from: simulation.player.position, to: LevelNineDefinition.bottomDoorRegion,
+          in: simulation.level))
+    }
+  }
+
   func testSpawnPopulationAndEnemiesAreDeterministic() throws {
     let first = try LevelNineSimulation(seed: 496_913)
     let second = try LevelNineSimulation(seed: 496_913)
@@ -44,7 +77,7 @@ import XCTest
     XCTAssertEqual(first.entities.filter { $0.kind == .coin }.count, 10)
     XCTAssertEqual(first.enemies.map(\.archetype), [.skeleton, .flyingTerror])
     XCTAssertEqual(
-      first.enemies.map(\.position), [.init(row: 9, column: 9), .init(row: 13, column: 16)])
+      first.enemies.map(\.position), [.init(row: 9, column: 18), .init(row: 11, column: 26)])
   }
 
   func testChestPersistsAcrossLevelNineReconstruction() throws {
@@ -73,7 +106,7 @@ import XCTest
     XCTAssertEqual(try LevelAssetManifest.manifest(for: .levelTen), .levelTen)
   }
 
-  func testRealSessionTransitionsLevelEightToNineAndBackWithCarryover() throws {
+  func testRealSessionTransitionsEightToNineToTenAndBackWithCarryover() throws {
     let factory = DefaultGameLevelRuntimeFactory()
     let configuration = GameConfiguration(reducedMotion: false, controlHintsEnabled: true)
     let characterID = EntityID()
@@ -105,19 +138,54 @@ import XCTest
     XCTAssertEqual(session.health, 2)
 
     let levelNine = try XCTUnwrap(session.simulation as? LevelNineSimulation)
-    levelNine.player.position = .init(row: 57, column: 29)
+    levelNine.player.position = .init(row: 9, column: 3)
     session.advance(by: 0.01)
-    let backward = try XCTUnwrap(session.pendingTransitionRequest)
-    XCTAssertEqual(backward.destinationLevelID, .levelEight)
-    XCTAssertEqual(backward.destinationEntry, .top)
-    XCTAssertEqual(backward.carryover.completedLevelIDs, [.levelEight])
+    let intoTen = try XCTUnwrap(session.pendingTransitionRequest)
+    XCTAssertEqual(intoTen.destinationLevelID, .levelTen)
+    XCTAssertEqual(intoTen.destinationEntry, .right)
+    XCTAssertEqual(intoTen.carryover.completedLevelIDs, [.levelEight, .levelNine])
+    XCTAssertEqual(intoTen.carryover.score, 237)
+
+    let levelTenRuntime = try factory.makeRuntime(
+      levelID: .levelTen, configuration: configuration, seed: 496_913,
+      entryPosition: intoTen.destinationEntry, carryover: intoTen.carryover)
+    session.installRuntime(levelTenRuntime)
+    session.runtimeSceneDidAttach(generation: session.runtimeGeneration, levelID: .levelTen)
+    let levelTen = try XCTUnwrap(session.simulation as? LevelTenSimulation)
+    levelTen.player.position = .init(row: 30, column: 54)
+    session.advance(by: 0.01)
+    let backToNine = try XCTUnwrap(session.pendingTransitionRequest)
+    XCTAssertEqual(backToNine.destinationLevelID, .levelNine)
+    XCTAssertEqual(backToNine.destinationEntry, .left)
+    XCTAssertEqual(backToNine.carryover.completedLevelIDs, [.levelEight, .levelNine])
     let returnedRuntime = try factory.makeRuntime(
-      levelID: .levelEight, configuration: configuration, seed: 496_913,
-      entryPosition: backward.destinationEntry, carryover: backward.carryover)
+      levelID: .levelNine, configuration: configuration, seed: 496_913,
+      entryPosition: backToNine.destinationEntry, carryover: backToNine.carryover)
     session.installRuntime(returnedRuntime)
     XCTAssertEqual(
-      session.simulation.renderSnapshot.player.coordinate, LevelEightDefinition.topReturnStart)
-    XCTAssertEqual(session.score, 137)
-    XCTAssertEqual(session.elapsedTime, 4.02, accuracy: 0.001)
+      session.simulation.renderSnapshot.player.coordinate, LevelNineDefinition.leftStart)
+    XCTAssertEqual(session.score, 237)
+    XCTAssertEqual(session.elapsedTime, 4.03, accuracy: 0.001)
+  }
+
+  private func hasMovementPath(
+    from start: GridPosition, to target: GridRegion, in level: LevelDefinition
+  ) -> Bool {
+    var visited: Set<GridPosition> = [start]
+    var queue = [start]
+    while !queue.isEmpty {
+      let position = queue.removeFirst()
+      if CollisionProfile.player.region(at: position).intersects(target) { return true }
+      for direction in GridDirection.allCases {
+        let next = position.moved(direction)
+        let footprint = CollisionProfile.player.region(at: next)
+        guard !visited.contains(next), footprint.cells.allSatisfy(level.isInside),
+          !level.isBlocked(footprint)
+        else { continue }
+        visited.insert(next)
+        queue.append(next)
+      }
+    }
+    return false
   }
 }
