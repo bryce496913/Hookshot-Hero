@@ -31,7 +31,8 @@ extension LevelAssetManifest {
       LevelTenRenderAssets.floor, LevelTenRenderAssets.wallFront, LevelTenRenderAssets.wallLeft,
       LevelTenRenderAssets.wallRight, LevelTenRenderAssets.entranceDoor,
       LevelTenRenderAssets.endingDoorOpen, LevelTenRenderAssets.endingDoorClosed,
-      LevelTenRenderAssets.specialChest, LevelTenRenderAssets.ghostWizard,
+      LevelTenRenderAssets.specialChest, LevelOneRenderAssets.chestOpen,
+      LevelTenRenderAssets.ghostWizard,
       LevelTenRenderAssets.projectile,
     ]).union(sharedPlayerTextureAssetIDs).union(
       (0..<4).flatMap { row in

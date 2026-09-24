@@ -57,7 +57,8 @@ enum LevelNineDefinition {
 
   static let forwardDoorRegion = GridRegion(rows: 7..<14, columns: 0..<4)
   static let bottomDoorRegion = GridRegion(rows: 56..<60, columns: 27..<33)
-  static let bottomStart = GridPosition(row: 50, column: 27)
+  // Keep the complete 3x3 player footprint clear of the lava tile at (48, 24).
+  static let bottomStart = GridPosition(row: 50, column: 29)
   static let leftStart = GridPosition(row: 10, column: 7)
   static let chestAnchor = GridPosition(row: 52, column: 4)
 

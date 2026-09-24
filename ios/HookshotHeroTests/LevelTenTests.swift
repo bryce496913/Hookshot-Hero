@@ -55,6 +55,23 @@ import XCTest
     XCTAssertEqual(returned.player.score, rewarded.score)
   }
 
+  func testOpenedDefeatChestAssetPassesManifestPreflight() throws {
+    let simulation = try LevelTenSimulation()
+    simulation.defeatBossForTesting()
+    simulation.player.position = LevelTenDefinition.chestAnchor
+    simulation.activateChestAndExit()
+    XCTAssertTrue(simulation.chestStates.first?.isOpened == true)
+    XCTAssertTrue(
+      simulation.renderSnapshot.entities.contains { $0.asset == LevelOneRenderAssets.chestOpen })
+    XCTAssertTrue(
+      LevelAssetManifest.levelTen.textureAssetIDs.contains(LevelOneRenderAssets.chestOpen))
+
+    let textures = TextureCatalog(entries: LevelOneTextureCatalog.entries)
+    try DefaultAssetPreflight().validate(
+      manifest: .levelTen, textureCatalog: textures,
+      animationCatalog: LevelOneAnimationCatalog(textureCatalog: textures))
+  }
+
   func testProjectileAndGrappleInteractions() throws {
     let simulation = try LevelTenSimulation()
     simulation.player.position = .init(row: 10, column: 10)
