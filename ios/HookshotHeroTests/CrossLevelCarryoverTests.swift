@@ -90,6 +90,7 @@ final class CrossLevelCarryoverTests: XCTestCase {
       (.levelEight, .left, LevelEightDefinition.fromLevelSixStart),
       (.levelEight, .bottom, LevelEightDefinition.fromLevelSevenStart),
       (.levelEight, .top, LevelEightDefinition.topReturnStart),
+      (.levelNine, .bottom, LevelNineDefinition.bottomStart),
     ]
     let factory = DefaultGameSimulationFactory()
     let configuration = GameConfiguration(reducedMotion: false, controlHintsEnabled: true)
@@ -109,6 +110,7 @@ final class CrossLevelCarryoverTests: XCTestCase {
     let levelIDs: [LevelID] = [
       .levelOne, .levelTwo, .levelThree, .levelFour, .levelFive, .levelSix, .levelSeven,
       .levelEight,
+      .levelNine,
     ]
     let entries: [LevelEntryPosition] = [.bottom, .top, .left, .right]
     for levelID in levelIDs {

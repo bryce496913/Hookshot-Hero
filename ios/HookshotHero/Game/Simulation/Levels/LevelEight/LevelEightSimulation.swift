@@ -92,6 +92,10 @@ import Foundation
       completedLevelIDs.insert(.levelEight)
       emit(.levelCompleted(points: 100), at: player.position)
     }
-    setOutcome(.won)
+    cancelAllInput()
+    onLevelTransition?(
+      .init(
+        sourceLevelID: .levelEight, destinationLevelID: .levelNine, destinationEntry: .bottom,
+        carryover: makeCarryoverState(), reason: .completedForward))
   }
 }

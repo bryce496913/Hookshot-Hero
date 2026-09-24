@@ -29,8 +29,9 @@ import XCTest
       try LevelSixSimulation(seed: 6),
       try LevelSevenSimulation(seed: 7),
       try LevelEightSimulation(seed: 8),
+      try LevelNineSimulation(seed: 9),
     ]
-    XCTAssertEqual(simulations.map { $0.chestStates.count }, [1, 0, 1, 0, 1, 2, 2, 0])
+    XCTAssertEqual(simulations.map { $0.chestStates.count }, [1, 0, 1, 0, 1, 2, 2, 0, 1])
 
     let levelOneChest = try XCTUnwrap(simulations[0].chestStates.first?.definition)
     XCTAssertEqual(levelOneChest.interactionAnchor, LevelOneDefinition.make().chestAnchor)
@@ -186,19 +187,21 @@ import XCTest
     XCTAssertEqual(lava.player.position, approach)
   }
 
-  func testCompletionIsOneShotAndDoesNotTransitionToLevelNine() throws {
+  func testCompletionIsOneShotAndTransitionsToLevelNine() throws {
     let simulation = try LevelEightSimulation(seed: 8)
     var transition: LevelTransitionRequest?
     simulation.onLevelTransition = { transition = $0 }
     simulation.player.position = .init(row: 3, column: 50)
     simulation.update(deltaTime: 0.01)
-    XCTAssertEqual(simulation.outcome, .won)
+    XCTAssertNil(simulation.outcome)
     XCTAssertEqual(simulation.player.score, 100)
     XCTAssertEqual(simulation.completedLevelIDs, [.levelEight])
-    XCTAssertNil(transition)
+    XCTAssertEqual(transition?.destinationLevelID, .levelNine)
+    XCTAssertEqual(transition?.destinationEntry, .bottom)
+    XCTAssertEqual(transition?.reason, .completedForward)
     simulation.update(deltaTime: 1)
     XCTAssertEqual(simulation.player.score, 100)
-    XCTAssertNil(transition)
+    XCTAssertEqual(transition?.carryover.completedLevelIDs, [.levelEight])
   }
 
   func testPhysicalReverseDoorsReturnToTheirIndependentBranchesWithoutReward() throws {
@@ -222,7 +225,7 @@ import XCTest
     }
   }
 
-  func testRuntimeFactorySupportsBothLevelEightEntriesAndRejectsLevelNine() throws {
+  func testRuntimeFactorySupportsLevelEightEntriesAndLevelNine() throws {
     let factory = DefaultGameLevelRuntimeFactory()
     let configuration = GameConfiguration(reducedMotion: false, controlHintsEnabled: true)
     let bottom = try factory.makeRuntime(
@@ -236,10 +239,11 @@ import XCTest
       LevelEightDefinition.fromLevelSevenStart)
     XCTAssertEqual(
       left.simulation.renderSnapshot.player.coordinate, LevelEightDefinition.fromLevelSixStart)
-    let levelNine = LevelID(rawValue: "level-9")
-    XCTAssertThrowsError(
-      try factory.makeRuntime(levelID: levelNine, configuration: configuration, seed: 9)
-    ) { XCTAssertEqual($0 as? GameLoadingError, .unsupportedLevel(levelNine)) }
+    let levelNine = try factory.makeRuntime(
+      levelID: .levelNine, configuration: configuration, seed: 9, entryPosition: .bottom,
+      carryover: nil)
+    XCTAssertEqual(levelNine.presentation.levelID, .levelNine)
+    XCTAssertEqual(levelNine.assetManifest, .levelNine)
   }
 
   func testCarryoverRestoresPlayerAndCompletionState() throws {
