@@ -87,7 +87,9 @@ final class LevelOneAnimationCatalog: AnimationCatalogProviding {
   init(textureCatalog: any TextureCatalogProviding) { self.textureCatalog = textureCatalog }
   func frames(for animationID: RenderAnimationID) throws -> [SKTexture] {
     let assets: [RenderAssetID]
-    if animationID == LevelOneRenderAnimations.coinSpin {
+    if let registered = RenderAnimationRegistry.assetFrames[animationID] {
+      assets = registered
+    } else if animationID == LevelOneRenderAnimations.coinSpin {
       assets = (1...9).map { RenderAssetID(rawValue: "level-one.coin.\($0)") }
     } else if animationID.rawValue.hasPrefix("character.lidia.walk.") {
       let direction = String(animationID.rawValue.split(separator: ".").last ?? "right")
@@ -147,6 +149,32 @@ enum LevelOneTextureCatalog {
       .init(x: 291, y: 95, width: 25, height: 29, sheetWidth: 320, sheetHeight: 384))
     for i in 1...9 { add(.init(rawValue: "level-one.coin.\(i)"), "goldCoin\(i).png") }
     add(.init(rawValue: "level-one.coin"), "goldCoin1.png")
+    func sheet(
+      _ name: String, _ file: String, _ x: Double, _ y: Double, _ w: Double, _ h: Double,
+      _ sw: Double, _ sh: Double
+    ) {
+      add(
+        .init(rawValue: "country-road.\(name)"), file,
+        .init(x: x, y: y, width: w, height: h, sheetWidth: sw, sheetHeight: sh))
+    }
+    sheet("grass", "country1.png", 2, 350, 40, 40, 512, 512)
+    sheet("bridge", "country1.png", 385, 95, 90, 100, 512, 512)
+    sheet("market", "country1.png", 400, 0, 112, 95, 512, 512)
+    sheet("market-1", "country1.png", 385, 223, 127, 40, 512, 512)
+    sheet("market-2", "country1.png", 385, 290, 127, 40, 512, 512)
+    sheet("wheat", "country1.png", 290, 257, 62, 62, 512, 512)
+    sheet("bags", "country1.png", 225, 326, 64, 27, 512, 512)
+    sheet("cobble", "terrain.png", 580, 750, 90, 80, 1024, 2048)
+    sheet("road", "terrain.png", 580, 1093, 90, 85, 1024, 2048)
+    sheet("lake", "terrain.png", 96, 516, 95, 90, 1024, 2048)
+    sheet("cliff", "terrain.png", 865, 739, 95, 90, 1024, 2048)
+    sheet("water", "water.png", 390, 290, 100, 50, 576, 386)
+    sheet("island", "water.png", 416, 35, 65, 60, 576, 386)
+    for frame in 0..<4 {
+      sheet("waterfall.\(frame)", "water.png", Double(frame * 96), 0, 96, 193, 576, 386)
+    }
+    sheet("castle-wall", "castle1.png", 76, 0, 40, 30, 176, 192)
+    sheet("castle-door", "castle1.png", 145, 71, 16, 24, 176, 192)
     let directions = [0, 1, 2, 3]
     for direction in directions {
       for frame in 0..<9 {

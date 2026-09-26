@@ -1081,7 +1081,7 @@ final class RenderLayoutContextTests: XCTestCase {
     let factory = DefaultGameSimulationFactory()
     let levelIDs: [LevelID] = [
       .levelOne, .levelTwo, .levelThree, .levelFour, .levelFive,
-      .levelSix, .levelSeven, .levelEight, .levelNine, .levelTen,
+      .levelSix, .levelSeven, .levelEight, .levelNine, .levelTen, .countryRoad,
     ]
     for levelID in levelIDs {
       for seed: UInt64 in [1, 42, 496_913] {
@@ -1118,10 +1118,20 @@ final class RenderLayoutContextTests: XCTestCase {
     XCTAssertEqual(level.exitAnchor, .init(row: 0, column: 51))
     XCTAssertEqual(level.entryRegion, .init(rows: 56..<60, columns: 27..<33))
     XCTAssertEqual(level.exitRegion, .init(rows: 0..<4, columns: 51..<57))
-    for anchor in [GridPosition(row: 20, column: 8), .init(row: 48, column: 48), .init(row: 12, column: 4), .init(row: 32, column: 20), .init(row: 24, column: 36), .init(row: 52, column: 8), .init(row: 44, column: 16), .init(row: 52, column: 32), .init(row: 16, column: 36), .init(row: 4, column: 48), .init(row: 24, column: 24)] {
+    for anchor in [
+      GridPosition(row: 20, column: 8), .init(row: 48, column: 48), .init(row: 12, column: 4),
+      .init(row: 32, column: 20), .init(row: 24, column: 36), .init(row: 52, column: 8),
+      .init(row: 44, column: 16), .init(row: 52, column: 32), .init(row: 16, column: 36),
+      .init(row: 4, column: 48), .init(row: 24, column: 24),
+    ] {
       XCTAssertTrue(LevelSixDefinition.wallAnchors.contains(anchor))
     }
-    for anchor in [GridPosition(row: 4, column: 8), .init(row: 16, column: 28), .init(row: 28, column: 48), .init(row: 48, column: 28), .init(row: 28, column: 52), .init(row: 24, column: 4), .init(row: 40, column: 8), .init(row: 48, column: 12), .init(row: 44, column: 4), .init(row: 52, column: 24), .init(row: 32, column: 48)] {
+    for anchor in [
+      GridPosition(row: 4, column: 8), .init(row: 16, column: 28), .init(row: 28, column: 48),
+      .init(row: 48, column: 28), .init(row: 28, column: 52), .init(row: 24, column: 4),
+      .init(row: 40, column: 8), .init(row: 48, column: 12), .init(row: 44, column: 4),
+      .init(row: 52, column: 24), .init(row: 32, column: 48),
+    ] {
       XCTAssertTrue(LevelSixDefinition.lavaAnchors.contains(anchor))
     }
   }
@@ -1129,9 +1139,16 @@ final class RenderLayoutContextTests: XCTestCase {
   func testTwoChestsRenderAndOpenIndependently() throws {
     let simulation = try LevelSixSimulation(seed: 496_913)
     XCTAssertEqual(simulation.chestStates.count, 2)
-    XCTAssertEqual(simulation.chestStates.map(\.definition.interactionAnchor), [.init(row: 4, column: 24), .init(row: 44, column: 8)])
-    XCTAssertEqual(simulation.chestStates.map(\.definition.renderAnchor), [.init(row: 4, column: 24), .init(row: 44, column: 8)])
-    XCTAssertEqual(simulation.renderSnapshot.entities.filter { [LevelSixRenderAssets.chestSide, LevelSixRenderAssets.chestFront].contains($0.asset) }.count, 2)
+    XCTAssertEqual(
+      simulation.chestStates.map(\.definition.interactionAnchor),
+      [.init(row: 4, column: 24), .init(row: 44, column: 8)])
+    XCTAssertEqual(
+      simulation.chestStates.map(\.definition.renderAnchor),
+      [.init(row: 4, column: 24), .init(row: 44, column: 8)])
+    XCTAssertEqual(
+      simulation.renderSnapshot.entities.filter {
+        [LevelSixRenderAssets.chestSide, LevelSixRenderAssets.chestFront].contains($0.asset)
+      }.count, 2)
     simulation.player.health = 2
     simulation.player.position = .init(row: 4, column: 24)
     simulation.activateChestAndExit()
@@ -1154,27 +1171,36 @@ final class RenderLayoutContextTests: XCTestCase {
     XCTAssertEqual(first.entities.map(\.kind).filter { $0 == .cabbage }.count, 2)
     XCTAssertEqual(first.entities.map(\.kind).filter { $0 == .coin }.count, 10)
     XCTAssertEqual(first.entities.map(\.position), second.entities.map(\.position))
-    XCTAssertEqual(first.enemies.map(\.position), [.init(row: 22, column: 53), .init(row: 10, column: 52)])
+    XCTAssertEqual(
+      first.enemies.map(\.position), [.init(row: 22, column: 53), .init(row: 10, column: 52)])
     XCTAssertEqual(first.enemies.map(\.position), second.enemies.map(\.position))
     XCTAssertEqual(first.enemies.map(\.health), [3, 5])
-    XCTAssertTrue(first.renderSnapshot.entities.contains { $0.asset == EnemyArchetype.skeleton.asset && $0.health != nil })
-    XCTAssertTrue(first.renderSnapshot.entities.contains { $0.asset == EnemyArchetype.flyingTerror.asset && $0.health != nil })
+    XCTAssertTrue(
+      first.renderSnapshot.entities.contains {
+        $0.asset == EnemyArchetype.skeleton.asset && $0.health != nil
+      })
+    XCTAssertTrue(
+      first.renderSnapshot.entities.contains {
+        $0.asset == EnemyArchetype.flyingTerror.asset && $0.health != nil
+      })
   }
 
   func testSpawnsAvoidPlayerAndChestRenderFootprintsFromBothEntries() throws {
     for entry in [LevelEntryPosition.bottom, .top] {
       for seed in [UInt64(1), 42, 496_913, UInt64.max] {
         let simulation = try LevelSixSimulation(seed: seed, entryPosition: entry)
-        let protectedRegions = [
-          CollisionProfile.player.region(at: LevelSixDefinition.bottomStart),
-          CollisionProfile.player.region(at: LevelSixDefinition.topStart),
-          simulation.level.entryRegion, simulation.level.exitRegion,
-        ] + simulation.chestStates.flatMap {
+        let protectedRegions =
           [
-            CollisionProfile.chest.region(at: $0.definition.interactionAnchor),
-            $0.definition.spawnExclusionRegion,
+            CollisionProfile.player.region(at: LevelSixDefinition.bottomStart),
+            CollisionProfile.player.region(at: LevelSixDefinition.topStart),
+            simulation.level.entryRegion, simulation.level.exitRegion,
           ]
-        } + simulation.enemies.map { $0.archetype.footprint.region(at: $0.position) }
+          + simulation.chestStates.flatMap {
+            [
+              CollisionProfile.chest.region(at: $0.definition.interactionAnchor),
+              $0.definition.spawnExclusionRegion,
+            ]
+          } + simulation.enemies.map { $0.archetype.footprint.region(at: $0.position) }
 
         for entity in simulation.entities {
           let footprint = CollisionProfile.footprint(for: entity.kind).region(at: entity.position)
@@ -1214,9 +1240,10 @@ final class RenderLayoutContextTests: XCTestCase {
     let firstVisit = try LevelFiveSimulation(seed: 496_913)
     let chestRegion = try XCTUnwrap(firstVisit.chestStates.first).definition.spawnExclusionRegion
     XCTAssertEqual(chestRegion, .init(rows: 52..<56, columns: 8..<12))
-    XCTAssertTrue(firstVisit.entities.allSatisfy {
-      !CollisionProfile.footprint(for: $0.kind).region(at: $0.position).intersects(chestRegion)
-    })
+    XCTAssertTrue(
+      firstVisit.entities.allSatisfy {
+        !CollisionProfile.footprint(for: $0.kind).region(at: $0.position).intersects(chestRegion)
+      })
 
     firstVisit.player.position = .init(row: 52, column: 4)
     firstVisit.activateChestAndExit()

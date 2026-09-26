@@ -2,6 +2,11 @@ import Foundation
 
 struct RenderAssetID: Hashable, Codable, Sendable { let rawValue: String }
 struct RenderAnimationID: Hashable, Codable, Sendable { let rawValue: String }
+enum RenderAnimationRegistry {
+  static let assetFrames: [RenderAnimationID: [RenderAssetID]] = [
+    .init(rawValue: "country-road.waterfall"): CountryRoadRenderAssets.waterfallFrames
+  ]
+}
 struct RenderLayerID: Hashable, Codable, Sendable { let rawValue: String }
 struct LogicalRenderSize: Equatable, Sendable {
   let width: Double
