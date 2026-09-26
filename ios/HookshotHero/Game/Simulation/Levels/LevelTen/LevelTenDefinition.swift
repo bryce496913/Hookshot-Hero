@@ -7,7 +7,9 @@ enum LevelTenDefinition {
   static let endingExitRegion = GridRegion(rows: 25..<32, columns: 25..<32)
   static let rightStart = GridPosition(row: 27, column: 50)
   static let bossStart = GridPosition(row: 25, column: 25)
-  static let chestAnchor = GridPosition(row: 28, column: 29)
+  // Keep the reward interaction south of the central ending portal so opening it can never
+  // complete the level in the same update.
+  static let chestAnchor = GridPosition(row: 36, column: 29)
 
   static func make() -> LevelDefinition {
     let boundary = LevelBoundaryGeometry(
