@@ -67,7 +67,7 @@ struct AppEnvironment {
     let implemented: Set<LevelID> = [
       .levelOne, .levelTwo, .levelThree, .levelFour, .levelFive, .levelSix, .levelSeven,
       .levelEight,
-      .levelNine, .levelTen,
+      .levelNine, .levelTen, .countryRoad,
     ]
     return requested.flatMap { implemented.contains($0) ? $0 : nil } ?? .levelOne
   }

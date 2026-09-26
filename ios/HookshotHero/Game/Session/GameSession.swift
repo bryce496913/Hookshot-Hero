@@ -13,9 +13,13 @@ extension LevelID {
   static let levelEight = Self(rawValue: "level-8")
   static let levelNine = Self(rawValue: "level-9")
   static let levelTen = Self(rawValue: "level-10")
+  static let countryRoad = Self(rawValue: "country-road")
 }
 extension LevelID {
-  var displayName: String { rawValue.split(separator: "-").last.map { "Level \($0)" } ?? rawValue }
+  var displayName: String {
+    self == .countryRoad
+      ? "Country Road" : rawValue.split(separator: "-").last.map { "Level \($0)" } ?? rawValue
+  }
 }
 struct MissionID: RawRepresentable, Codable, Hashable, Sendable { let rawValue: String }
 struct UnlockID: RawRepresentable, Codable, Hashable, Sendable { let rawValue: String }

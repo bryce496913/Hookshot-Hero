@@ -5,16 +5,16 @@ import XCTest
 @MainActor final class AppRouterTests: XCTestCase {
   func testDebugLevelSelectContainsEveryLevelInOrder() {
     #if DEBUG
-      XCTAssertEqual(DebugLevelSelectView.levels.map(\.number), Array(1...10))
+      XCTAssertEqual(DebugLevelSelectView.levels.map(\.number), Array(1...11))
       XCTAssertEqual(
         DebugLevelSelectView.levels.map(\.levelID),
         [
           .levelOne, .levelTwo, .levelThree, .levelFour, .levelFive,
-          .levelSix, .levelSeven, .levelEight, .levelNine, .levelTen,
+          .levelSix, .levelSeven, .levelEight, .levelNine, .levelTen, .countryRoad,
         ])
       XCTAssertEqual(
         DebugLevelSelectView.levels.map(\.accessibilityIdentifier),
-        (1...10).map { "debugLevel\($0)Button" })
+        (1...11).map { "debugLevel\($0)Button" })
     #endif
   }
 
@@ -155,16 +155,26 @@ import XCTest
   func makeSimulation(levelID: LevelID, configuration: GameConfiguration, seed: UInt64?) throws
     -> any GameSimulation
   {
-    try makeSimulation(levelID: levelID, configuration: configuration, seed: seed, entryPosition: .bottom, carryover: nil)
+    try makeSimulation(
+      levelID: levelID, configuration: configuration, seed: seed, entryPosition: .bottom,
+      carryover: nil)
   }
-  func makeSimulation(levelID: LevelID, configuration: GameConfiguration, seed: UInt64?, entryPosition: LevelEntryPosition, carryover: PlayerCarryoverState?) throws -> any GameSimulation {
-    requests.append(.init(levelID: levelID, configuration: configuration, seed: seed, entryPosition: entryPosition, carryover: carryover))
+  func makeSimulation(
+    levelID: LevelID, configuration: GameConfiguration, seed: UInt64?,
+    entryPosition: LevelEntryPosition, carryover: PlayerCarryoverState?
+  ) throws -> any GameSimulation {
+    requests.append(
+      .init(
+        levelID: levelID, configuration: configuration, seed: seed, entryPosition: entryPosition,
+        carryover: carryover))
     if failuresBeforeSuccess > 0 {
       failuresBeforeSuccess -= 1
       throw GameLoadingError.unsupportedLevel(levelID)
     }
     guard levelID == supportedLevel else { throw GameLoadingError.unsupportedLevel(levelID) }
-    return try LevelOneSimulation(configuration: configuration, seed: seed ?? 1, entryPosition: entryPosition, carryover: carryover)
+    return try LevelOneSimulation(
+      configuration: configuration, seed: seed ?? 1, entryPosition: entryPosition,
+      carryover: carryover)
   }
 }
 
