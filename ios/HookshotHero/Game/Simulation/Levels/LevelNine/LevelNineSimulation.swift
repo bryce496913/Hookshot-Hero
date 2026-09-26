@@ -34,11 +34,12 @@ import Foundation
     // Separate native footprints keep that doorway reachable while retaining both archetypes.
     enemies = [
       .init(
-        id: EntityID(), archetype: .skeleton, position: .init(row: 9, column: 18), facing: .right,
+        id: EntityID(), archetype: .skeleton, position: LevelNineDefinition.skeletonStart,
+        facing: .right,
         health: 3, maximumHealth: 3, behaviorState: .patrol, decisionAccumulator: 0,
         animationTime: 0),
       .init(
-        id: EntityID(), archetype: .flyingTerror, position: .init(row: 11, column: 26),
+        id: EntityID(), archetype: .flyingTerror, position: LevelNineDefinition.flyingTerrorStart,
         facing: .left, health: 5, maximumHealth: 5, behaviorState: .patrol, decisionAccumulator: 0,
         animationTime: 0),
     ]
@@ -50,7 +51,7 @@ import Foundation
     guard !enemyRegions[0].intersects(enemyRegions[1]),
       enemyRegions.allSatisfy({ region in
         !level.isBlocked(region) && !doorRegions.contains(where: region.intersects)
-      })
+      }), !level.overlapsLava(enemyRegions[0])
     else { throw GameLoadingError.invalidInitialState(.levelNine) }
     var rng = SeededRandomNumberGenerator(seed: seed ^ 0x99)
     let protected =
