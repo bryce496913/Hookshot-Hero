@@ -216,6 +216,12 @@ chest are recorded in `PlayerCarryoverState.worldState`, so revisiting Level 10 
 does not respawn the boss or grant chest/completion rewards twice. This intentionally replaces
 the Java implementation's process-global `Minotaur.BossIsDead` coupling.
 
+Level 10 also restores Java's standard single-player population of three mines, two cabbages,
+and ten coins. Seeded spawning reserves the right-side arrival and reverse doorway, the central
+portal, both the special chest's interaction and rendered footprints, and the Ghost Wizard's
+initial footprint, so the population remains deterministic, reachable, and valid across the
+boss-defeat transition.
+
 Java continues to `CountryRoad` and `HeroWelcome`, but neither ending area has a native runtime.
 Until they are implemented, the unlocked center portal is the only Level 10 victory path and
 finishes the session on the existing Results screen; it never requests an unregistered level.

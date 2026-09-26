@@ -74,6 +74,25 @@ struct GhostProjectileState: Identifiable, Equatable, Sendable {
       boss.map { [$0] } ?? [], in: level, entryPositions: [LevelTenDefinition.rightStart],
       levelID: levelID)
     configureDefeatChest()
+
+    // Match the standard Java single-player population while keeping every persistent or
+    // phase-dependent Level 10 interaction clear. In particular, reserve the defeat chest even
+    // while it is hidden so the same seeded population remains valid before and after the boss.
+    var rng = SeededRandomNumberGenerator(seed: seed ^ 0xAA)
+    let bossRegion = EnemyArchetype.ghostWizard.footprint.region(at: LevelTenDefinition.bossStart)
+    entities = try SpawnService.spawn(
+      in: level,
+      requirements: [
+        .init(kind: .mine, count: 3), .init(kind: .cabbage, count: 2),
+        .init(kind: .coin, count: 10),
+      ],
+      protectedRegions: [
+        CollisionProfile.player.region(at: LevelTenDefinition.rightStart),
+        LevelTenDefinition.rightDoorRegion, LevelTenDefinition.endingExitRegion,
+        CollisionProfile.chest.region(at: LevelTenDefinition.chestAnchor),
+        LevelTenDefinition.chestRenderRegion,
+        bossRegion,
+      ], using: &rng)
   }
 
   override func update(deltaTime: TimeInterval) {
