@@ -909,7 +909,7 @@ final class RenderLayoutContextTests: XCTestCase {
     let flyingTerrorRegion = flyingTerror.archetype.footprint.region(at: flyingTerror.position)
 
     XCTAssertEqual(skeleton.position, LevelFiveSimulation.skeletonStart)
-    XCTAssertEqual(skeletonRegion, .init(rows: 26..<31, columns: 28..<33))
+    XCTAssertEqual(skeletonRegion, .init(rows: 11..<16, columns: 7..<12))
     XCTAssertTrue(skeletonRegion.cells.allSatisfy(simulation.level.isInside))
     XCTAssertFalse(simulation.level.walls.contains(where: skeletonRegion.intersects))
     XCTAssertFalse(simulation.level.overlapsLava(skeletonRegion))
@@ -928,17 +928,24 @@ final class RenderLayoutContextTests: XCTestCase {
 
   func testCorrectedLevelFiveStartsAndSkeletonAreSafeOnCompleteProductionMap() {
     let level = LevelFiveDefinition.make()
-    let footprints = [
+    let playerFootprints = [
       CollisionProfile.player.region(at: LevelFiveDefinition.leftStart),
       CollisionProfile.player.region(at: .init(row: 5, column: 29)),
-      EnemyArchetype.skeleton.footprint.region(at: LevelFiveSimulation.skeletonStart),
     ]
+    let skeletonFootprint =
+      EnemyArchetype.skeleton.footprint.region(at: LevelFiveSimulation.skeletonStart)
+    let flyingTerrorFootprint =
+      EnemyArchetype.flyingTerror.footprint.region(at: .init(row: 10, column: 40))
 
-    for footprint in footprints {
+    for footprint in playerFootprints + [skeletonFootprint] {
       XCTAssertTrue(footprint.cells.allSatisfy(level.isInside))
       XCTAssertFalse(level.isBlocked(footprint))
       XCTAssertFalse(level.overlapsLava(footprint))
     }
+    XCTAssertFalse(skeletonFootprint.intersects(flyingTerrorFootprint))
+    XCTAssertFalse(skeletonFootprint.intersects(level.entryRegion))
+    XCTAssertFalse(skeletonFootprint.intersects(level.exitRegion))
+    XCTAssertFalse(playerFootprints.contains(where: skeletonFootprint.intersects))
   }
 
   func testLevelFiveDeterministicSpawnsAvoidAllStartsAndPreserveContent() throws {
