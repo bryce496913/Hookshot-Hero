@@ -96,6 +96,7 @@ struct MainMenuView: View {
       .init(number: 9, levelID: .levelNine),
       .init(number: 10, levelID: .levelTen),
       .init(number: 11, levelID: .countryRoad),
+      .init(number: 12, levelID: .heroWelcome),
     ]
 
     var body: some View {
