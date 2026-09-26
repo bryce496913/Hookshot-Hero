@@ -49,7 +49,7 @@ The repository intentionally has no CI workflow. The commands above are the requ
 * Optional bouncing balls.
 * Mission-mode guide.
 
-Levels 2 through 9 are registered native gameplay levels. Levels 5, 6, 7, and 9 reproduce their Java maze, lava, doors, smoke emitters, Skeleton, Flying Terror, three mines, two cabbages, and ten coins. Level 5 and Level 9 have one side-view chest; Levels 6 and 7 each have two independent chests. Level 8 implements its native maze, lava, three doors, Skeleton, Flying Terror, three mines, two cabbages, and ten coins. In DEBUG builds, the scrollable direct level selector includes Levels 1–10.
+Levels 2 through 9 are registered native gameplay levels. Levels 5, 6, 7, and 9 reproduce their Java maze, lava, doors, smoke emitters, Skeleton, Flying Terror, three mines, two cabbages, and ten coins. Level 5 and Level 9 have one side-view chest; Levels 6 and 7 each have two independent chests. Level 8 implements its native maze, lava, three doors, Skeleton, Flying Terror, three mines, two cabbages, and ten coins. The main menu's scrollable level selector includes every implemented area, Levels 1–10, Country Road, and Hero's Welcome, in both Debug and Release builds.
 
 See [Conversion decisions](Documentation/ConversionDecisions.md), [Responsibility map](Documentation/ResponsibilityMap.md), and [Temporary assets](Resources/TemporaryAssets.md).
 
