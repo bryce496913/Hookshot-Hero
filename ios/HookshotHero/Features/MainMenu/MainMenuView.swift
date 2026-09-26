@@ -70,7 +70,7 @@ struct MainMenuView: View {
   }
 }
 
-struct LevelDestination: Identifiable, Equatable {
+struct LevelSelectionOption: Identifiable, Equatable {
   let number: Int
   let levelID: LevelID
 
@@ -81,7 +81,7 @@ struct LevelDestination: Identifiable, Equatable {
 
 struct LevelSelectView: View {
   let playLevel: (LevelID) -> Void
-  static let levels: [LevelDestination] = [
+  static let levels: [LevelSelectionOption] = [
     .init(number: 1, levelID: .levelOne),
     .init(number: 2, levelID: .levelTwo),
     .init(number: 3, levelID: .levelThree),
