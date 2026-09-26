@@ -34,6 +34,96 @@ import XCTest
     XCTAssertNil(simulation.outcome)
   }
 
+  func testStandardPopulationHasExactDeterministicSeededPositions() throws {
+    let first = try LevelTenSimulation(seed: 10)
+    let second = try LevelTenSimulation(seed: 10)
+    let expected: [(EntityKind, GridPosition)] = [
+      (.mine, .init(row: 26, column: 47)),
+      (.mine, .init(row: 45, column: 13)),
+      (.mine, .init(row: 25, column: 13)),
+      (.cabbage, .init(row: 49, column: 29)),
+      (.cabbage, .init(row: 19, column: 17)),
+      (.coin, .init(row: 54, column: 4)),
+      (.coin, .init(row: 40, column: 7)),
+      (.coin, .init(row: 18, column: 37)),
+      (.coin, .init(row: 42, column: 4)),
+      (.coin, .init(row: 14, column: 17)),
+      (.coin, .init(row: 26, column: 35)),
+      (.coin, .init(row: 38, column: 34)),
+      (.coin, .init(row: 51, column: 19)),
+      (.coin, .init(row: 22, column: 53)),
+      (.coin, .init(row: 13, column: 44)),
+    ]
+
+    XCTAssertEqual(first.entities.count, expected.count)
+    XCTAssertEqual(second.entities.count, expected.count)
+    for ((firstEntity, secondEntity), expectedEntity) in zip(
+      zip(first.entities, second.entities), expected)
+    {
+      XCTAssertEqual(firstEntity.kind, expectedEntity.0)
+      XCTAssertEqual(firstEntity.position, expectedEntity.1)
+      XCTAssertEqual(secondEntity.kind, expectedEntity.0)
+      XCTAssertEqual(
+        secondEntity.position, expectedEntity.1,
+        "A fixed seed must reproduce the full ordered population")
+    }
+    XCTAssertEqual(first.entities.filter { $0.kind == .mine }.count, 3)
+    XCTAssertEqual(first.entities.filter { $0.kind == .cabbage }.count, 2)
+    XCTAssertEqual(first.entities.filter { $0.kind == .coin }.count, 10)
+  }
+
+  func testPopulationFootprintsAvoidAllProtectedRegionsAndRemainReachable() throws {
+    let simulation = try LevelTenSimulation(seed: 10)
+    let bossRegion = try XCTUnwrap(simulation.boss).archetype.footprint.region(
+      at: LevelTenDefinition.bossStart)
+    let protected = [
+      CollisionProfile.player.region(at: LevelTenDefinition.rightStart),
+      LevelTenDefinition.rightDoorRegion, LevelTenDefinition.endingExitRegion,
+      CollisionProfile.chest.region(at: LevelTenDefinition.chestAnchor),
+      LevelTenDefinition.chestRenderRegion, bossRegion,
+    ]
+
+    for entity in simulation.entities {
+      let footprint = CollisionProfile.footprint(for: entity.kind).region(at: entity.position)
+      XCTAssertTrue(footprint.cells.allSatisfy(simulation.level.isInside))
+      XCTAssertFalse(simulation.level.isBlocked(footprint))
+      XCTAssertFalse(simulation.level.overlapsLava(footprint))
+      XCTAssertFalse(protected.contains(where: footprint.intersects))
+      XCTAssertTrue(isCollectable(entity, in: simulation))
+    }
+    for (index, entity) in simulation.entities.enumerated() {
+      let footprint = CollisionProfile.footprint(for: entity.kind).region(at: entity.position)
+      for other in simulation.entities.dropFirst(index + 1) {
+        XCTAssertFalse(
+          footprint.intersects(
+            CollisionProfile.footprint(for: other.kind).region(at: other.position)))
+      }
+    }
+    XCTAssertTrue(isReachable(.init(row: 30, column: 54), in: simulation))
+    XCTAssertTrue(isReachable(LevelTenDefinition.chestAnchor, in: simulation))
+    XCTAssertTrue(isReachable(.init(row: 27, column: 27), in: simulation))
+
+    let positionsBeforeDefeat = simulation.entities.map(\.position)
+    simulation.defeatBossForTesting()
+    XCTAssertEqual(simulation.entities.map(\.position), positionsBeforeDefeat)
+    XCTAssertTrue(simulation.entities.allSatisfy { isCollectable($0, in: simulation) })
+  }
+
+  func testCollectingStandardItemDoesNotDefeatBossOrCompleteLevel() throws {
+    let simulation = try LevelTenSimulation(seed: 10)
+    let coin = try XCTUnwrap(simulation.entities.first { $0.kind == .coin })
+    simulation.player.position = .init(row: coin.position.row, column: coin.position.column - 2)
+    simulation.player.lastSafePosition = simulation.player.position
+    simulation.input.send(.move(.right))
+    simulation.update(deltaTime: 0)
+
+    XCTAssertFalse(simulation.entities.contains { $0.id == coin.id })
+    XCTAssertNotNil(simulation.boss)
+    XCTAssertFalse(simulation.isExitUnlocked)
+    XCTAssertFalse(simulation.completedLevelIDs.contains(.levelTen))
+    XCTAssertNil(simulation.outcome)
+  }
+
   func testChestDialogueThenDeliberatePortalEntryCompletesLevel() throws {
     let simulation = try LevelTenSimulation()
     let session = GameSession(simulation: simulation)
@@ -194,5 +284,16 @@ import XCTest
       }
     }
     return false
+  }
+
+  private func isCollectable(_ entity: WorldEntity, in simulation: LevelTenSimulation) -> Bool {
+    let itemRegion = CollisionProfile.footprint(for: entity.kind).region(at: entity.position)
+    return (0..<simulation.level.grid.rows).contains { row in
+      (0..<simulation.level.grid.columns).contains { column in
+        let position = GridPosition(row: row, column: column)
+        return CollisionProfile.player.region(at: position).intersects(itemRegion)
+          && isReachable(position, in: simulation)
+      }
+    }
   }
 }
