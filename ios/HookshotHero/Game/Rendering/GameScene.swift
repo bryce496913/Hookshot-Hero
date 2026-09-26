@@ -175,6 +175,36 @@ enum LevelOneTextureCatalog {
     }
     sheet("castle-wall", "castle1.png", 76, 0, 40, 30, 176, 192)
     sheet("castle-door", "castle1.png", 145, 71, 16, 24, 176, 192)
+    func heroSheet(
+      _ id: RenderAssetID, _ file: String, _ x: Double, _ y: Double, _ width: Double,
+      _ height: Double, _ sheetWidth: Double, _ sheetHeight: Double
+    ) {
+      add(
+        id, file,
+        .init(
+          x: x, y: y, width: width, height: height, sheetWidth: sheetWidth,
+          sheetHeight: sheetHeight))
+    }
+    heroSheet(HeroWelcomeRenderAssets.floor, "castle1.png", 79, 95, 32, 32, 176, 192)
+    heroSheet(HeroWelcomeRenderAssets.wallFront, "castle1.png", 76, 0, 40, 30, 176, 192)
+    heroSheet(HeroWelcomeRenderAssets.sideWall, "castle1.png", 169, 0, 7, 40, 176, 192)
+    heroSheet(HeroWelcomeRenderAssets.column, "castle1.png", 64, 96, 16, 50, 176, 192)
+    heroSheet(HeroWelcomeRenderAssets.door, "castle1.png", 145, 71, 16, 24, 176, 192)
+    heroSheet(HeroWelcomeRenderAssets.wallFlags, "castle1.png", 112, 37, 50, 25, 176, 192)
+    heroSheet(HeroWelcomeRenderAssets.redCarpet, "castle1.png", 112, 96, 64, 64, 176, 192)
+    heroSheet(HeroWelcomeRenderAssets.carpet, "castle1.png", 0, 97, 47, 31, 176, 192)
+    heroSheet(HeroWelcomeRenderAssets.flower1, "castle1.png", 150, 165, 20, 27, 176, 192)
+    heroSheet(HeroWelcomeRenderAssets.flower2, "castle1.png", 127, 165, 16, 27, 176, 192)
+    heroSheet(HeroWelcomeRenderAssets.knight, "castle2.png", 47, 75, 16, 23, 160, 160)
+    heroSheet(HeroWelcomeRenderAssets.desk, "castle2.png", 80, 122, 30, 23, 160, 160)
+    heroSheet(HeroWelcomeRenderAssets.bookshelf, "castle2.png", 53, 100, 20, 27, 160, 160)
+    heroSheet(HeroWelcomeRenderAssets.silverChest, "chests.png", 259, 67, 25, 25, 320, 384)
+    add(HeroWelcomeRenderAssets.barrels, "barrels.png")
+    heroSheet(HeroWelcomeRenderAssets.aristocrat, "a1.png", 0, 64, 24, 32, 72, 128)
+    heroSheet(HeroWelcomeRenderAssets.king, "k1.png", 0, 64, 24, 32, 72, 128)
+    heroSheet(HeroWelcomeRenderAssets.queen, "q1.png", 0, 64, 24, 32, 72, 128)
+    heroSheet(HeroWelcomeRenderAssets.prince, "p1.png", 0, 64, 24, 32, 72, 128)
+    heroSheet(HeroWelcomeRenderAssets.princess, "pr1.png", 0, 64, 24, 32, 72, 128)
     let directions = [0, 1, 2, 3]
     for direction in directions {
       for frame in 0..<9 {
