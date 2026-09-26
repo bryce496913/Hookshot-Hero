@@ -1172,9 +1172,12 @@ final class RenderLayoutContextTests: XCTestCase {
     XCTAssertEqual(first.entities.map(\.kind).filter { $0 == .coin }.count, 10)
     XCTAssertEqual(first.entities.map(\.position), second.entities.map(\.position))
     XCTAssertEqual(
-      first.enemies.map(\.position), [.init(row: 22, column: 53), .init(row: 10, column: 52)])
+      first.enemies.map(\.position), [.init(row: 17, column: 45), .init(row: 10, column: 52)])
     XCTAssertEqual(first.enemies.map(\.position), second.enemies.map(\.position))
     XCTAssertEqual(first.enemies.map(\.health), [3, 5])
+    let skeletonRegion = first.enemies[0].archetype.footprint.region(
+      at: first.enemies[0].position)
+    XCTAssertFalse(first.level.overlapsLava(skeletonRegion))
     XCTAssertTrue(
       first.renderSnapshot.entities.contains {
         $0.asset == EnemyArchetype.skeleton.asset && $0.health != nil
