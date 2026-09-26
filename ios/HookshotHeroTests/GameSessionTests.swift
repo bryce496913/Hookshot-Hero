@@ -1044,6 +1044,56 @@ final class RenderLayoutContextTests: XCTestCase {
   }
 }
 
+@MainActor final class EnemyInitialStateValidationTests: XCTestCase {
+  private let syntheticLavaLevel = LevelDefinition(
+    grid: .init(rows: 20, columns: 20), start: .init(row: 15, column: 10),
+    exitAnchor: .init(row: 0, column: 10), entryAnchor: .init(row: 19, column: 10),
+    chestAnchor: .init(row: 5, column: 5),
+    boundary: .init(
+      topWallRegions: [], bottomWallRegions: [], leftWallRegions: [], rightWallRegions: [],
+      topExitRegion: .init(rows: 0..<1, columns: 10..<11),
+      bottomDoorRegion: .init(rows: 19..<20, columns: 10..<11)),
+    walls: [], lava: [.init(rows: 8..<12, columns: 8..<12)], internalWallAnchors: [],
+    displayName: "Synthetic Lava")
+
+  private func enemy(_ archetype: EnemyArchetype) -> EnemyState {
+    .init(
+      id: EntityID(), archetype: archetype, position: .init(row: 10, column: 10), facing: .right,
+      health: archetype.maximumHealth, maximumHealth: archetype.maximumHealth,
+      behaviorState: .patrol, decisionAccumulator: 0, animationTime: 0)
+  }
+
+  func testSkeletonInitialFootprintCannotOverlapLava() {
+    XCTAssertThrowsError(
+      try EnemyInitialStateValidator.validate(
+        [enemy(.skeleton)], in: syntheticLavaLevel, entryPositions: [], levelID: .levelOne)
+    ) {
+      XCTAssertEqual($0 as? GameLoadingError, .invalidInitialState(.levelOne))
+    }
+  }
+
+  func testFlyingTerrorRetainsAirborneLavaException() throws {
+    try EnemyInitialStateValidator.validate(
+      [enemy(.flyingTerror)], in: syntheticLavaLevel, entryPositions: [], levelID: .levelOne)
+  }
+
+  func testAllImplementedLevelsConstructAtRepresentativeDeterministicSeeds() throws {
+    let factory = DefaultGameSimulationFactory()
+    let levelIDs: [LevelID] = [
+      .levelOne, .levelTwo, .levelThree, .levelFour, .levelFive,
+      .levelSix, .levelSeven, .levelEight, .levelNine, .levelTen,
+    ]
+    for levelID in levelIDs {
+      for seed: UInt64 in [1, 42, 496_913] {
+        let simulation = try factory.makeSimulation(
+          levelID: levelID,
+          configuration: .init(reducedMotion: false, controlHintsEnabled: true), seed: seed)
+        XCTAssertEqual(simulation.levelID, levelID, "Level \(levelID.rawValue), seed \(seed)")
+      }
+    }
+  }
+}
+
 @MainActor final class LevelSixLoadingTests: XCTestCase {
   func testCorrectedLevelSixStartsAreSafeOnCompleteProductionMap() {
     let level = LevelSixDefinition.make()

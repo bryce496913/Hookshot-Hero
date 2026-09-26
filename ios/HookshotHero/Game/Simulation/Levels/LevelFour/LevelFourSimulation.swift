@@ -75,6 +75,8 @@ import Foundation
       initialPlayerPosition: start, entities: [])
     if completedLevelIDs.contains(.levelFour) { boss = nil }
     chestStates = []
+    try EnemyInitialStateValidator.validate(
+      boss.map { [$0] } ?? [], in: level, entryPositions: [start], levelID: levelID)
   }
   override func update(deltaTime: TimeInterval) {
     super.update(deltaTime: deltaTime)

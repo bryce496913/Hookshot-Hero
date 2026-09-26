@@ -70,6 +70,9 @@ struct GhostProjectileState: Identifiable, Equatable, Sendable {
         facing: .right, health: 10, maximumHealth: 10, behaviorState: .seek,
         decisionAccumulator: 0, animationTime: 0)
     }
+    try EnemyInitialStateValidator.validate(
+      boss.map { [$0] } ?? [], in: level, entryPositions: [LevelTenDefinition.rightStart],
+      levelID: levelID)
     configureDefeatChest()
   }
 

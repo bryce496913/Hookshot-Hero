@@ -385,16 +385,8 @@ import Foundation
     }
   }
   func validateEnemyFootprints(entryPositions: [GridPosition]) throws {
-    let entryRegions = entryPositions.map { CollisionProfile.player.region(at: $0) }
-    for enemy in enemies {
-      let region = enemy.archetype.footprint.region(at: enemy.position)
-      guard region.cells.allSatisfy(level.isInside),
-        enemy.archetype == .flyingTerror || !level.isBlocked(region),
-        !entryRegions.contains(where: region.intersects)
-      else {
-        throw GameLoadingError.invalidInitialState(levelID)
-      }
-    }
+    try EnemyInitialStateValidator.validate(
+      enemies, in: level, entryPositions: entryPositions, levelID: levelID)
   }
   func updateEnemySystem(_ rawDeltaTime: TimeInterval) {
     guard outcome == nil else { return }
