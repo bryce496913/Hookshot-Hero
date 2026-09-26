@@ -54,12 +54,40 @@ enum EnemyArchetype: Equatable, Sendable {
     case .skeleton, .minotaur, .ghostWizard: .init(rowOffsets: -2..<3, columnOffsets: -2..<3)
     }
   }
+  /// Whether this archetype's established movement model permits lava beneath its footprint.
+  /// Minotaurs and Ghost Wizards intentionally use wall-only boss navigation, while Skeletons
+  /// are ground-based. Flying Terrors retain their airborne terrain exception.
+  var allowsLavaOverlap: Bool {
+    switch self {
+    case .skeleton: false
+    case .flyingTerror, .minotaur, .ghostWizard: true
+    }
+  }
   var renderSize: LogicalRenderSize {
     switch self {
     case .skeleton: .init(width: 4.9, height: 4.7)
     case .flyingTerror: .init(width: 12.8, height: 12.8)
     case .minotaur: .init(width: 4.8, height: 6.4)
     case .ghostWizard: .init(width: 3, height: 5.8)
+    }
+  }
+}
+
+enum EnemyInitialStateValidator {
+  static func validate(
+    _ enemies: [EnemyState], in level: LevelDefinition, entryPositions: [GridPosition],
+    levelID: LevelID
+  ) throws {
+    let entryRegions = entryPositions.map { CollisionProfile.player.region(at: $0) }
+    for enemy in enemies {
+      let region = enemy.archetype.footprint.region(at: enemy.position)
+      guard region.cells.allSatisfy(level.isInside),
+        enemy.archetype == .flyingTerror || !level.isBlocked(region),
+        enemy.archetype.allowsLavaOverlap || !level.overlapsLava(region),
+        !entryRegions.contains(where: region.intersects)
+      else {
+        throw GameLoadingError.invalidInitialState(levelID)
+      }
     }
   }
 }
