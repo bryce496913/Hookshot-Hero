@@ -21,7 +21,7 @@ import XCTest
       levelNine.level.isBlocked(CollisionProfile.player.region(at: levelNine.player.position)))
   }
 
-  func testExitIsLockedUntilBossDefeatThenEndsAtRenderedPortal() throws {
+  func testExitIsLockedUntilBossDefeat() throws {
     let simulation = try LevelTenSimulation()
     simulation.player.position = .init(row: 27, column: 27)
     simulation.update(deltaTime: 0)
@@ -31,16 +31,85 @@ import XCTest
     simulation.defeatBossForTesting()
     XCTAssertTrue(simulation.isExitUnlocked)
     XCTAssertEqual(simulation.chestStates.count, 1)
-    simulation.update(deltaTime: 0)
+    XCTAssertNil(simulation.outcome)
+  }
+
+  func testChestDialogueThenDeliberatePortalEntryCompletesLevel() throws {
+    let simulation = try LevelTenSimulation()
+    let session = GameSession(simulation: simulation)
+    XCTAssertTrue(session.initializeWorld())
+    XCTAssertTrue(session.start())
+
+    simulation.defeatBossForTesting()
+    XCTAssertTrue(simulation.isExitUnlocked)
+    XCTAssertEqual(simulation.chestStates.count, 1)
+
+    simulation.player.health = 2
+    let scoreBeforeChest = simulation.player.score
+    simulation.player.position = .init(row: 36, column: 32)
+    simulation.input.send(.move(.left))
+    session.advance(by: 0)
+
+    XCTAssertTrue(simulation.chestStates.first?.isOpened == true)
+    XCTAssertEqual(simulation.player.score, scoreBeforeChest + 100)
+    XCTAssertEqual(simulation.player.health, 4)
+    XCTAssertEqual(session.state, .dialogue("The Ghost Wizard's treasure is yours."))
+    XCTAssertNil(simulation.outcome)
+
+    XCTAssertTrue(session.continueDialogue())
+    XCTAssertEqual(session.state, .running)
+    session.advance(by: 0)
+    XCTAssertEqual(simulation.player.score, scoreBeforeChest + 100)
+    XCTAssertEqual(simulation.player.health, 4)
+    XCTAssertNil(simulation.outcome)
+
+    simulation.player.position = .init(row: 33, column: 27)
+    simulation.input.send(.move(.up))
+    session.advance(by: 0)
     XCTAssertEqual(simulation.outcome, .won)
+    XCTAssertEqual(session.state, .won)
     XCTAssertTrue(simulation.completedLevelIDs.contains(.levelTen))
+    XCTAssertEqual(simulation.player.score, scoreBeforeChest + 200)
+  }
+
+  func testChestAndPortalInteractionFootprintsAreDisjointAndReachable() throws {
+    let simulation = try LevelTenSimulation()
+    let chestRegion = CollisionProfile.chest.region(at: LevelTenDefinition.chestAnchor)
+    let legalChestInteractions = (0..<simulation.level.grid.rows).flatMap { row in
+      (0..<simulation.level.grid.columns).compactMap { column -> GridPosition? in
+        let position = GridPosition(row: row, column: column)
+        let playerRegion = CollisionProfile.player.region(at: position)
+        return playerRegion.intersects(chestRegion) && !simulation.level.isBlocked(playerRegion)
+          ? position : nil
+      }
+    }
+
+    XCTAssertFalse(legalChestInteractions.isEmpty)
+    for position in legalChestInteractions {
+      XCTAssertFalse(
+        CollisionProfile.player.region(at: position).intersects(
+          LevelTenDefinition.endingExitRegion),
+        "Chest interaction at \(position) must not overlap the ending portal")
+    }
+    XCTAssertTrue(isReachable(LevelTenDefinition.chestAnchor, in: simulation))
+    XCTAssertTrue(isReachable(.init(row: 27, column: 27), in: simulation))
+
+    simulation.defeatBossForTesting()
+    let chest = try XCTUnwrap(simulation.chestStates.first)
+    XCTAssertEqual(chest.definition.interactionAnchor, .init(row: 36, column: 29))
+    XCTAssertEqual(chest.definition.renderAnchor, chest.definition.interactionAnchor)
+    XCTAssertTrue(
+      simulation.renderSnapshot.entities.contains {
+        $0.asset == LevelTenRenderAssets.specialChest
+          && $0.coordinate == LevelTenDefinition.chestAnchor
+      })
   }
 
   func testBossDefeatAndChestPersistAcrossReturnWithoutRepeatedReward() throws {
     let first = try LevelTenSimulation()
     first.defeatBossForTesting()
     first.player.position = LevelTenDefinition.chestAnchor
-    first.activateChestAndExit()
+    first.update(deltaTime: 0)
     let rewarded = first.makeCarryoverState()
     XCTAssertTrue(rewarded.worldState.defeatedBossLevelIDs.contains(.levelTen))
     XCTAssertTrue(
@@ -59,7 +128,7 @@ import XCTest
     let simulation = try LevelTenSimulation()
     simulation.defeatBossForTesting()
     simulation.player.position = LevelTenDefinition.chestAnchor
-    simulation.activateChestAndExit()
+    simulation.update(deltaTime: 0)
     XCTAssertTrue(simulation.chestStates.first?.isOpened == true)
     XCTAssertTrue(
       simulation.renderSnapshot.entities.contains { $0.asset == LevelOneRenderAssets.chestOpen })
@@ -106,5 +175,24 @@ import XCTest
     XCTAssertEqual(request?.carryover.characterID, id)
     XCTAssertEqual(request?.carryover.health, 2)
     XCTAssertEqual(request?.carryover.score, 37)
+  }
+
+  private func isReachable(_ destination: GridPosition, in simulation: LevelTenSimulation) -> Bool {
+    var visited: Set<GridPosition> = [LevelTenDefinition.rightStart]
+    var pending = [LevelTenDefinition.rightStart]
+    while !pending.isEmpty {
+      let position = pending.removeFirst()
+      if position == destination { return true }
+      for direction in GridDirection.allCases {
+        let next = position.moved(direction)
+        let footprint = CollisionProfile.player.region(at: next)
+        guard footprint.cells.allSatisfy(simulation.level.isInside),
+          !simulation.level.isBlocked(footprint), !visited.contains(next)
+        else { continue }
+        visited.insert(next)
+        pending.append(next)
+      }
+    }
+    return false
   }
 }
