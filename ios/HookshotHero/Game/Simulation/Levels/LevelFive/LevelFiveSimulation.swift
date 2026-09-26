@@ -1,7 +1,7 @@
 import Foundation
 
 @MainActor final class LevelFiveSimulation: LevelOneSimulation {
-  static let skeletonStart = GridPosition(row: 28, column: 30)
+  static let skeletonStart = GridPosition(row: 13, column: 9)
 
   override var levelID: LevelID { .levelFive }
   override var levelName: String { "Level 5" }
