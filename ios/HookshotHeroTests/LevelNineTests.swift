@@ -65,19 +65,56 @@ import XCTest
         hasMovementPath(
           from: simulation.player.position, to: LevelNineDefinition.bottomDoorRegion,
           in: simulation.level))
+      XCTAssertEqual(runtime.assetManifest, .levelNine)
     }
+
+    let textures = TextureCatalog(entries: LevelOneTextureCatalog.entries)
+    try DefaultAssetPreflight().validate(
+      manifest: .levelNine, textureCatalog: textures,
+      animationCatalog: LevelOneAnimationCatalog(textureCatalog: textures))
   }
 
-  func testSpawnPopulationAndEnemiesAreDeterministic() throws {
-    let first = try LevelNineSimulation(seed: 496_913)
-    let second = try LevelNineSimulation(seed: 496_913)
-    XCTAssertEqual(first.entities.map(\.position), second.entities.map(\.position))
-    XCTAssertEqual(first.entities.filter { $0.kind == .mine }.count, 3)
-    XCTAssertEqual(first.entities.filter { $0.kind == .cabbage }.count, 2)
-    XCTAssertEqual(first.entities.filter { $0.kind == .coin }.count, 10)
-    XCTAssertEqual(first.enemies.map(\.archetype), [.skeleton, .flyingTerror])
-    XCTAssertEqual(
-      first.enemies.map(\.position), [.init(row: 9, column: 18), .init(row: 11, column: 26)])
+  func testSkeletonSpawnHasACompletelySafeFootprint() throws {
+    let simulation = try LevelNineSimulation(seed: 496_913)
+    let skeleton = try XCTUnwrap(simulation.enemies.first { $0.archetype == .skeleton })
+    let flyingTerror = try XCTUnwrap(
+      simulation.enemies.first { $0.archetype == .flyingTerror })
+    let skeletonRegion = skeleton.archetype.footprint.region(at: skeleton.position)
+    let flyingTerrorRegion = flyingTerror.archetype.footprint.region(at: flyingTerror.position)
+    let playerStarts = [LevelNineDefinition.bottomStart, LevelNineDefinition.leftStart].map {
+      CollisionProfile.player.region(at: $0)
+    }
+
+    XCTAssertEqual(skeleton.position, LevelNineDefinition.skeletonStart)
+    XCTAssertEqual(skeletonRegion.cells.count, 25)
+    XCTAssertTrue(skeletonRegion.cells.allSatisfy(simulation.level.isInside))
+    XCTAssertFalse(simulation.level.isBlocked(skeletonRegion))
+    XCTAssertFalse(simulation.level.overlapsLava(skeletonRegion))
+    XCTAssertFalse(skeletonRegion.intersects(LevelNineDefinition.forwardDoorRegion))
+    XCTAssertFalse(skeletonRegion.intersects(LevelNineDefinition.bottomDoorRegion))
+    XCTAssertFalse(playerStarts.contains(where: skeletonRegion.intersects))
+    XCTAssertFalse(skeletonRegion.intersects(flyingTerrorRegion))
+  }
+
+  func testSpawnPopulationAndEnemiesAreDeterministicAndExcludeEnemyFootprints() throws {
+    for seed: UInt64 in [496_913, 9, 42] {
+      let first = try LevelNineSimulation(seed: seed)
+      let second = try LevelNineSimulation(seed: seed)
+      XCTAssertEqual(first.entities.map(\.position), second.entities.map(\.position))
+      XCTAssertEqual(first.entities.filter { $0.kind == .mine }.count, 3)
+      XCTAssertEqual(first.entities.filter { $0.kind == .cabbage }.count, 2)
+      XCTAssertEqual(first.entities.filter { $0.kind == .coin }.count, 10)
+      XCTAssertEqual(first.enemies.map(\.archetype), [.skeleton, .flyingTerror])
+      XCTAssertEqual(
+        first.enemies.map(\.position),
+        [LevelNineDefinition.skeletonStart, LevelNineDefinition.flyingTerrorStart])
+
+      let enemyRegions = first.enemies.map { $0.archetype.footprint.region(at: $0.position) }
+      for entity in first.entities {
+        let itemRegion = CollisionProfile.footprint(for: entity.kind).region(at: entity.position)
+        XCTAssertFalse(enemyRegions.contains(where: itemRegion.intersects))
+      }
+    }
   }
 
   func testChestPersistsAcrossLevelNineReconstruction() throws {
