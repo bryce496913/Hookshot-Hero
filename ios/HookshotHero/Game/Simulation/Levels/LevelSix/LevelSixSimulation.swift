@@ -26,7 +26,9 @@ import Foundation
     ]
     restoreOpenedChestStates()
     enemies = [
-      .init(id: EntityID(), archetype: .skeleton, position: .init(row: 22, column: 53), facing: .left, health: 3, maximumHealth: 3, behaviorState: .patrol, decisionAccumulator: 0, animationTime: 0),
+      // The legacy upper-right anchor overlaps adjacent wall and lava tiles with the native 5x5
+      // footprint. This is the nearest footprint-safe anchor that also stays clear of the flyer.
+      .init(id: EntityID(), archetype: .skeleton, position: .init(row: 17, column: 45), facing: .left, health: 3, maximumHealth: 3, behaviorState: .patrol, decisionAccumulator: 0, animationTime: 0),
       .init(id: EntityID(), archetype: .flyingTerror, position: .init(row: 10, column: 52), facing: .left, health: 5, maximumHealth: 5, behaviorState: .patrol, decisionAccumulator: 0, animationTime: 0),
     ]
     try validateEnemyFootprints(entryPositions: [LevelSixDefinition.bottomStart, LevelSixDefinition.topStart])
