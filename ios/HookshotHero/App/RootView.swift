@@ -9,7 +9,7 @@ struct RootView: View {
         NavigationStack(path: $router.path) {
             MainMenuView(
                 play: { router.startNewGame(configuration: settingsStore.configuration(systemReduceMotion: systemReduceMotion)) },
-                debugPlayLevel: { levelID in
+                playLevel: { levelID in
                     router.setGameConfiguration(settingsStore.configuration(systemReduceMotion: systemReduceMotion))
                     router.startGame(levelID: levelID)
                 },

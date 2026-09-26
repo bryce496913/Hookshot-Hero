@@ -2,7 +2,7 @@ import SwiftUI
 
 struct MainMenuView: View {
   let play: () -> Void
-  let debugPlayLevel: (LevelID) -> Void
+  let playLevel: (LevelID) -> Void
   let settings: () -> Void
   let help: () -> Void
 
@@ -32,19 +32,17 @@ struct MainMenuView: View {
           Spacer(minLength: 12)
           menuButton("Play", systemImage: "play.fill", style: .primary, action: play)
             .accessibilityIdentifier("playButton")
+          NavigationLink {
+            LevelSelectView(playLevel: playLevel)
+          } label: {
+            Label("Level Select", systemImage: "list.number")
+          }
+          .buttonStyle(AppSecondaryButtonStyle())
+          .accessibilityIdentifier("levelSelectButton")
           menuButton("Settings", systemImage: "gearshape", style: .secondary, action: settings)
             .accessibilityIdentifier("settingsButton")
           menuButton("Help", systemImage: "questionmark.circle", style: .secondary, action: help)
             .accessibilityIdentifier("helpButton")
-          #if DEBUG
-            NavigationLink {
-              DebugLevelSelectView(playLevel: debugPlayLevel)
-            } label: {
-              Label("Debug Level Select", systemImage: "hammer")
-            }
-            .buttonStyle(AppSecondaryButtonStyle())
-            .accessibilityIdentifier("debugLevelSelectButton")
-          #endif
           Spacer(minLength: 20)
         }
         .frame(maxWidth: .infinity, minHeight: 640)
@@ -72,51 +70,49 @@ struct MainMenuView: View {
   }
 }
 
-#if DEBUG
-  struct DebugLevelDestination: Identifiable, Equatable {
-    let number: Int
-    let levelID: LevelID
+struct LevelDestination: Identifiable, Equatable {
+  let number: Int
+  let levelID: LevelID
 
-    var id: LevelID { levelID }
-    var title: String { levelID.displayName }
-    var accessibilityIdentifier: String { "debugLevel\(number)Button" }
-  }
+  var id: LevelID { levelID }
+  var title: String { levelID.displayName }
+  var accessibilityIdentifier: String { "level\(number)Button" }
+}
 
-  struct DebugLevelSelectView: View {
-    let playLevel: (LevelID) -> Void
-    static let levels: [DebugLevelDestination] = [
-      .init(number: 1, levelID: .levelOne),
-      .init(number: 2, levelID: .levelTwo),
-      .init(number: 3, levelID: .levelThree),
-      .init(number: 4, levelID: .levelFour),
-      .init(number: 5, levelID: .levelFive),
-      .init(number: 6, levelID: .levelSix),
-      .init(number: 7, levelID: .levelSeven),
-      .init(number: 8, levelID: .levelEight),
-      .init(number: 9, levelID: .levelNine),
-      .init(number: 10, levelID: .levelTen),
-      .init(number: 11, levelID: .countryRoad),
-      .init(number: 12, levelID: .heroWelcome),
-    ]
+struct LevelSelectView: View {
+  let playLevel: (LevelID) -> Void
+  static let levels: [LevelDestination] = [
+    .init(number: 1, levelID: .levelOne),
+    .init(number: 2, levelID: .levelTwo),
+    .init(number: 3, levelID: .levelThree),
+    .init(number: 4, levelID: .levelFour),
+    .init(number: 5, levelID: .levelFive),
+    .init(number: 6, levelID: .levelSix),
+    .init(number: 7, levelID: .levelSeven),
+    .init(number: 8, levelID: .levelEight),
+    .init(number: 9, levelID: .levelNine),
+    .init(number: 10, levelID: .levelTen),
+    .init(number: 11, levelID: .countryRoad),
+    .init(number: 12, levelID: .heroWelcome),
+  ]
 
-    var body: some View {
-      ZStack {
-        AppTheme.Colors.background.ignoresSafeArea()
-        ScrollView {
-          VStack(spacing: 14) {
-            Text("Debug Level Select").appTextStyle(.h1).accessibilityAddTraits(.isHeader)
-            Text("Start directly in any implemented level.")
-              .appTextStyle(.paragraph).foregroundStyle(AppTheme.Colors.text.opacity(0.7))
-            ForEach(Self.levels) { level in
-              Button(level.title) { playLevel(level.levelID) }
-                .buttonStyle(AppPrimaryButtonStyle())
-                .accessibilityIdentifier(level.accessibilityIdentifier)
-            }
-          }.padding(24)
-        }
+  var body: some View {
+    ZStack {
+      AppTheme.Colors.background.ignoresSafeArea()
+      ScrollView {
+        VStack(spacing: 14) {
+          Text("Level Select").appTextStyle(.h1).accessibilityAddTraits(.isHeader)
+          Text("Start directly in any level.")
+            .appTextStyle(.paragraph).foregroundStyle(AppTheme.Colors.text.opacity(0.7))
+          ForEach(Self.levels) { level in
+            Button(level.title) { playLevel(level.levelID) }
+              .buttonStyle(AppPrimaryButtonStyle())
+              .accessibilityIdentifier(level.accessibilityIdentifier)
+          }
+        }.padding(24)
       }
-      .navigationTitle("Levels")
-      .appNavigationStyle()
     }
+    .navigationTitle("Levels")
+    .appNavigationStyle()
   }
-#endif
+}

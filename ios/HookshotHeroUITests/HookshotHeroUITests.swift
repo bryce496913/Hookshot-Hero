@@ -44,6 +44,15 @@ final class HookshotHeroUITests: XCTestCase {
     app.switches["reducedMotionToggle"].tap()
     app.buttons["settingsDoneButton"].tap()
   }
+  func testHelpIncludesJavaStoryIntro() {
+    launch()
+    app.buttons["helpButton"].tap()
+    XCTAssertTrue(app.otherElements["storyIntro"].waitForExistence(timeout: 5))
+    XCTAssertTrue(app.staticTexts["The Story"].exists)
+    XCTAssertTrue(
+      app.staticTexts.matching(NSPredicate(format: "label CONTAINS %@", "Eldoria")).firstMatch
+        .exists)
+  }
   func testLeftHandedLayoutSwapsControlsWithoutChangingAccessibilityIdentity() {
     launch()
     app.buttons["settingsButton"].tap()
@@ -60,22 +69,22 @@ final class HookshotHeroUITests: XCTestCase {
     XCTAssertEqual(joystick.label, "Movement joystick")
     XCTAssertEqual(grapple.label, "Fire grapple")
   }
-  func testDebugLevelSelectIsReachableAndStartsLevelFive() {
+  func testLevelSelectIsReachableAndStartsLevelFive() {
     launch()
-    let levelSelect = app.buttons["debugLevelSelectButton"]
+    let levelSelect = app.buttons["levelSelectButton"]
     XCTAssertTrue(levelSelect.waitForExistence(timeout: 5))
     levelSelect.tap()
-    app.buttons["debugLevel5Button"].tap()
+    app.buttons["level5Button"].tap()
     XCTAssertTrue(app.otherElements["gameplayHUD"].waitForExistence(timeout: 5))
     XCTAssertTrue(app.staticTexts["Level 5"].exists)
     let coordinate = app.staticTexts["playerPosition"]
     XCTAssertTrue(coordinate.waitForExistence(timeout: 5))
     XCTAssertEqual(position(coordinate), levelFiveLeftStart)
   }
-  func testDebugLevelSelectStartsLevelSixWithControls() {
+  func testLevelSelectStartsLevelSixWithControls() {
     launch()
-    app.buttons["debugLevelSelectButton"].tap()
-    app.buttons["debugLevel6Button"].tap()
+    app.buttons["levelSelectButton"].tap()
+    app.buttons["level6Button"].tap()
     XCTAssertTrue(app.otherElements["gameplayHUD"].waitForExistence(timeout: 5))
     XCTAssertTrue(app.staticTexts["Level 6"].exists)
     XCTAssertTrue(app.staticTexts["healthValue"].exists)
@@ -100,10 +109,10 @@ final class HookshotHeroUITests: XCTestCase {
       expectedStart: levelSixBottomStart, playableMoveButton: "moveRightButton",
       expectedMovedPosition: [53, 30])
   }
-  func testDebugLevelSelectStartsLevelSevenAndMovesOneCell() {
+  func testLevelSelectStartsLevelSevenAndMovesOneCell() {
     launch()
-    app.buttons["debugLevelSelectButton"].tap()
-    app.buttons["debugLevel7Button"].tap()
+    app.buttons["levelSelectButton"].tap()
+    app.buttons["level7Button"].tap()
     XCTAssertTrue(app.otherElements["gameplayHUD"].waitForExistence(timeout: 5))
     XCTAssertTrue(app.staticTexts["Level 7"].exists)
     XCTAssertTrue(app.buttons["moveUpButton"].isEnabled)
