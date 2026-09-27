@@ -236,8 +236,12 @@ struct GhostProjectileState: Identifiable, Equatable, Sendable {
         completedLevelIDs.insert(.levelTen)
         emit(.levelCompleted(points: 100), at: player.position)
       }
-      // Temporary native ending: CountryRoad and HeroWelcome are not registered yet.
-      setOutcome(.won)
+      cancelAllInput()
+      onLevelTransition?(
+        .init(
+          sourceLevelID: .levelTen, destinationLevelID: .countryRoad,
+          destinationEntry: .bottom, carryover: makeCarryoverState(),
+          reason: .completedForward))
     }
   }
   private func damagePlayerFromGhost() {

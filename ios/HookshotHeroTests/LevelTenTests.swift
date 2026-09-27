@@ -1,3 +1,4 @@
+import Combine
 import XCTest
 
 @testable import HookshotHero
@@ -23,9 +24,13 @@ import XCTest
 
   func testExitIsLockedUntilBossDefeat() throws {
     let simulation = try LevelTenSimulation()
+    var transition: LevelTransitionRequest?
+    simulation.onLevelTransition = { transition = $0 }
     simulation.player.position = .init(row: 27, column: 27)
     simulation.update(deltaTime: 0)
     XCTAssertNil(simulation.outcome)
+    XCTAssertNil(transition)
+    XCTAssertFalse(simulation.completedLevelIDs.contains(.levelTen))
     XCTAssertFalse(simulation.isExitUnlocked)
 
     simulation.defeatBossForTesting()
@@ -124,7 +129,7 @@ import XCTest
     XCTAssertNil(simulation.outcome)
   }
 
-  func testChestDialogueThenDeliberatePortalEntryCompletesLevel() throws {
+  func testChestDialogueDoesNotTransitionAndDeliberatePortalEntryEmitsCarryover() throws {
     let simulation = try LevelTenSimulation()
     let session = GameSession(simulation: simulation)
     XCTAssertTrue(session.initializeWorld())
@@ -156,10 +161,122 @@ import XCTest
     simulation.player.position = .init(row: 33, column: 27)
     simulation.input.send(.move(.up))
     session.advance(by: 0)
-    XCTAssertEqual(simulation.outcome, .won)
-    XCTAssertEqual(session.state, .won)
+    let request = session.pendingTransitionRequest
+    XCTAssertNil(simulation.outcome)
+    XCTAssertEqual(session.state, .transitioning(.countryRoad))
     XCTAssertTrue(simulation.completedLevelIDs.contains(.levelTen))
     XCTAssertEqual(simulation.player.score, scoreBeforeChest + 200)
+    XCTAssertEqual(request?.sourceLevelID, .levelTen)
+    XCTAssertEqual(request?.destinationLevelID, .countryRoad)
+    XCTAssertEqual(request?.destinationEntry, .bottom)
+    XCTAssertEqual(request?.reason, .completedForward)
+    XCTAssertEqual(request?.carryover, simulation.makeCarryoverState())
+  }
+
+  func testUnlockedPortalAwardsCompletionOnceAndCarriesCompletePlayerState() throws {
+    let characterID = EntityID()
+    let priorChest = OpenedChestID(
+      levelID: .levelNine, interactionAnchor: .init(row: 12, column: 14))
+    let carryover = PlayerCarryoverState(
+      characterID: characterID, health: 3, score: 275,
+      completedLevelIDs: [.levelEight, .levelNine],
+      worldState: .init(openedChestIDs: [priorChest]))
+    let simulation = try LevelTenSimulation(carryover: carryover)
+    simulation.defeatBossForTesting()
+    var requests: [LevelTransitionRequest] = []
+    simulation.onLevelTransition = { requests.append($0) }
+    simulation.player.position = .init(row: 27, column: 27)
+
+    simulation.update(deltaTime: 0)
+    simulation.update(deltaTime: 0)
+
+    XCTAssertEqual(requests.count, 2)
+    let request = try XCTUnwrap(requests.first)
+    XCTAssertEqual(request.sourceLevelID, .levelTen)
+    XCTAssertEqual(request.destinationLevelID, .countryRoad)
+    XCTAssertEqual(request.destinationEntry, .bottom)
+    XCTAssertEqual(request.reason, .completedForward)
+    XCTAssertEqual(request.carryover.characterID, characterID)
+    XCTAssertEqual(request.carryover.health, 3)
+    XCTAssertEqual(request.carryover.score, 375)
+    XCTAssertEqual(
+      request.carryover.completedLevelIDs, [.levelEight, .levelNine, .levelTen])
+    XCTAssertTrue(request.carryover.worldState.openedChestIDs.contains(priorChest))
+    XCTAssertTrue(request.carryover.worldState.defeatedBossLevelIDs.contains(.levelTen))
+    XCTAssertEqual(simulation.player.score, 375, "Level completion must only award 100 once")
+    XCTAssertNil(simulation.outcome)
+
+    let revisited = try LevelTenSimulation(carryover: request.carryover)
+    XCTAssertNil(revisited.boss)
+    let scoreBeforeReentry = revisited.player.score
+    revisited.player.position = .init(row: 27, column: 27)
+    revisited.update(deltaTime: 0)
+    XCTAssertEqual(revisited.player.score, scoreBeforeReentry)
+  }
+
+  func testCountryRoadBottomEntryConstructsThroughProductionRuntimeAndPreflight() throws {
+    let carryover = PlayerCarryoverState(
+      characterID: EntityID(), health: 4, score: 500,
+      completedLevelIDs: [.levelTen],
+      worldState: .init(defeatedBossLevelIDs: [.levelTen]))
+
+    let runtime = try DefaultGameLevelRuntimeFactory(
+      simulationFactory: DefaultGameSimulationFactory(), preflight: DefaultAssetPreflight()
+    ).makeRuntime(
+      levelID: .countryRoad, configuration: configuration, seed: 10,
+      entryPosition: .bottom, carryover: carryover)
+
+    let countryRoad = try XCTUnwrap(runtime.simulation as? CountryRoadSimulation)
+    XCTAssertEqual(countryRoad.player.position, CountryRoadDefinition.start)
+    XCTAssertFalse(
+      countryRoad.level.isBlocked(CollisionProfile.player.region(at: countryRoad.player.position)))
+    XCTAssertEqual(countryRoad.makeCarryoverState(), carryover)
+    XCTAssertEqual(runtime.assetManifest, .countryRoad)
+  }
+
+  func testRouterInstallsCountryRoadInSameSessionWithoutResultsAndSceneAttachmentResumesRunning()
+    async throws
+  {
+    let directory = FileManager.default.temporaryDirectory.appending(path: UUID().uuidString)
+    defer { try? FileManager.default.removeItem(at: directory) }
+    let progression = ProgressionStore(
+      repository: ProgressionRepository(fileURL: directory.appending(path: "save.json")))
+    let runtimeFactory = DefaultGameLevelRuntimeFactory()
+    let router = AppRouter(
+      progressionStore: progression, runtimeFactory: runtimeFactory, levelSeed: 10)
+    let runtime = try runtimeFactory.makeRuntime(
+      levelID: .levelTen, configuration: configuration, seed: 10,
+      entryPosition: .right, carryover: nil)
+    let session = GameSession(configuration: configuration, runtime: runtime)
+    let sessionID = session.identifier
+    var states: [GameSessionState] = []
+    let observation = session.$state.sink { states.append($0) }
+    defer { observation.cancel() }
+    router.startGame(session: session)
+    session.advance(by: 1.25)
+    let elapsedBeforePortal = session.elapsedTime
+
+    let levelTen = try XCTUnwrap(session.simulation as? LevelTenSimulation)
+    levelTen.defeatBossForTesting()
+    levelTen.player.position = .init(row: 27, column: 27)
+    session.advance(by: 0)
+
+    await waitUntil { session.runtimeGeneration == 1 }
+    XCTAssertEqual(session.identifier, sessionID)
+    XCTAssertTrue(router.activeSession === session)
+    XCTAssertEqual(session.levelID, .countryRoad)
+    XCTAssertEqual(session.state, .transitioning(.countryRoad))
+    XCTAssertEqual(router.path, [.gameplay])
+    XCTAssertFalse(states.contains(.won))
+    XCTAssertEqual(session.elapsedTime, elapsedBeforePortal)
+
+    session.runtimeSceneDidAttach(
+      generation: session.runtimeGeneration, levelID: session.runtime.presentation.levelID)
+
+    XCTAssertEqual(session.state, .running)
+    XCTAssertEqual(session.levelID, .countryRoad)
+    XCTAssertEqual(session.simulation.renderSnapshot.player.coordinate, CountryRoadDefinition.start)
+    XCTAssertFalse(router.path.contains { if case .results = $0 { true } else { false } })
   }
 
   func testChestAndPortalInteractionFootprintsAreDisjointAndReachable() throws {
@@ -294,6 +411,15 @@ import XCTest
         return CollisionProfile.player.region(at: position).intersects(itemRegion)
           && isReachable(position, in: simulation)
       }
+    }
+  }
+
+  private func waitUntil(
+    timeout: TimeInterval = 2, condition: @escaping @MainActor () -> Bool
+  ) async {
+    let deadline = Date().addingTimeInterval(timeout)
+    while !condition(), Date() < deadline {
+      await Task.yield()
     }
   }
 }
