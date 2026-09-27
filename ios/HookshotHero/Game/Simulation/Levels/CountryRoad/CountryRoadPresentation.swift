@@ -7,6 +7,8 @@ enum CountryRoadRenderAssets {
   static let market = id("market"), market1 = id("market-1"), market2 = id("market-2")
   static let wheat = id("wheat"), bags = id("bags"), island = id("island"), lake = id("lake")
   static let castleWall = id("castle-wall"), castleDoor = id("castle-door")
+  static let child = id("npc.child"), olderResident = id("npc.older-resident")
+  static let townfolk = id("npc.townfolk")
   static let waterfallFrames = (0..<4).map { id("waterfall.\($0)") }
 }
 
@@ -24,6 +26,8 @@ extension LevelAssetManifest {
         .init(rawValue: "country-road.island"),
         .init(rawValue: "country-road.lake"), .init(rawValue: "country-road.castle-wall"),
         .init(rawValue: "country-road.castle-door"),
+        CountryRoadRenderAssets.child, CountryRoadRenderAssets.olderResident,
+        CountryRoadRenderAssets.townfolk,
       ] + CountryRoadRenderAssets.waterfallFrames
     ).union(sharedPlayerTextureAssetIDs).union(
       LevelAssetManifest.levelOne.textureAssetIDs.filter {

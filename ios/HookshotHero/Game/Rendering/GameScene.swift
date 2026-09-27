@@ -175,6 +175,9 @@ enum LevelOneTextureCatalog {
     }
     sheet("castle-wall", "castle1.png", 76, 0, 40, 30, 176, 192)
     sheet("castle-door", "castle1.png", 145, 71, 16, 24, 176, 192)
+    sheet("npc.child", "c1.png", 0, 64, 24, 32, 153, 128)
+    sheet("npc.older-resident", "o1.png", 0, 64, 24, 32, 153, 128)
+    sheet("npc.townfolk", "t1.png", 0, 64, 24, 32, 153, 128)
     func heroSheet(
       _ id: RenderAssetID, _ file: String, _ x: Double, _ y: Double, _ width: Double,
       _ height: Double, _ sheetWidth: Double, _ sheetHeight: Double
