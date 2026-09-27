@@ -1,3 +1,5 @@
+import Combine
+import SpriteKit
 import XCTest
 
 @testable import HookshotHero
@@ -46,8 +48,10 @@ import XCTest
       runtime.assetManifest.animationIDs.contains(.init(rawValue: "country-road.waterfall")))
   }
 
-  func testCastleExitIsReachableAndWinsWithoutHeroWelcome() throws {
+  func testCastleExitIsReachableAndRequestsHeroWelcome() throws {
     let simulation = try CountryRoadSimulation(seed: 7)
+    var transitions: [LevelTransitionRequest] = []
+    simulation.onLevelTransition = { transitions.append($0) }
     var visited: Set<GridPosition> = [CountryRoadDefinition.start]
     var pending = [CountryRoadDefinition.start]
     var reached: GridPosition?
@@ -68,7 +72,99 @@ import XCTest
     }
     simulation.player.position = try XCTUnwrap(reached)
     simulation.update(deltaTime: 0)
-    XCTAssertEqual(simulation.outcome, .won)
+    simulation.update(deltaTime: 0)
+
+    XCTAssertNil(simulation.outcome)
     XCTAssertTrue(simulation.completedLevelIDs.contains(.countryRoad))
+    let request = try XCTUnwrap(transitions.first)
+    XCTAssertEqual(transitions.count, 1)
+    XCTAssertEqual(request.sourceLevelID, .countryRoad)
+    XCTAssertEqual(request.destinationLevelID, .heroWelcome)
+    XCTAssertEqual(request.destinationEntry, .bottom)
+    XCTAssertEqual(request.reason, .completedForward)
+    XCTAssertEqual(request.carryover, simulation.makeCarryoverState())
+  }
+
+  func testCountryRoadTransitionsThroughRouterAndAttachesHeroWelcome() async throws {
+    let directory = FileManager.default.temporaryDirectory.appending(path: UUID().uuidString)
+    defer { try? FileManager.default.removeItem(at: directory) }
+    let progression = ProgressionStore(
+      repository: ProgressionRepository(fileURL: directory.appending(path: "save.json")))
+    let runtimeFactory = DefaultGameLevelRuntimeFactory(
+      simulationFactory: DefaultGameSimulationFactory(), preflight: DefaultAssetPreflight())
+    let router = AppRouter(
+      progressionStore: progression, runtimeFactory: runtimeFactory, levelSeed: 496_913)
+    let characterID = EntityID()
+    let openedChest = OpenedChestID(
+      levelID: .levelTwo, interactionAnchor: .init(row: 4, column: 4))
+    let carryover = PlayerCarryoverState(
+      characterID: characterID, health: 2, score: 37, completedLevelIDs: [.levelTen],
+      worldState: .init(openedChestIDs: [openedChest]))
+    let sourceRuntime = try runtimeFactory.makeRuntime(
+      levelID: .countryRoad,
+      configuration: .init(reducedMotion: false, controlHintsEnabled: true), seed: 496_913,
+      entryPosition: .bottom, carryover: carryover)
+    let session = GameSession(
+      configuration: .init(reducedMotion: false, controlHintsEnabled: true),
+      runtime: sourceRuntime)
+    var observedStates: [GameSessionState] = []
+    let observation = session.$state.sink { observedStates.append($0) }
+    defer { observation.cancel() }
+    router.startGame(session: session)
+    session.advance(by: 1.25)
+
+    let countryRoad = try XCTUnwrap(session.simulation as? CountryRoadSimulation)
+    countryRoad.player.position = .init(row: 3, column: 29)
+    session.advance(by: 0.01)
+    let elapsedBeforeTransition = session.elapsedTime
+
+    XCTAssertEqual(session.state, .transitioning(.heroWelcome))
+    let request = try XCTUnwrap(session.pendingTransitionRequest)
+    XCTAssertEqual(request.destinationLevelID, .heroWelcome)
+    XCTAssertEqual(request.destinationEntry, .bottom)
+    XCTAssertEqual(request.carryover.characterID, characterID)
+    XCTAssertEqual(request.carryover.health, 2)
+    XCTAssertEqual(request.carryover.score, 37)
+    XCTAssertEqual(request.carryover.completedLevelIDs, [.levelTen, .countryRoad])
+    XCTAssertEqual(request.carryover.worldState.openedChestIDs, [openedChest])
+    XCTAssertEqual(router.path, [.gameplay])
+
+    await waitUntil { session.runtimeGeneration == 1 }
+    XCTAssertTrue(session.simulation is HeroWelcomeSimulation)
+    XCTAssertEqual(session.runtime.assetManifest, .heroWelcome)
+    XCTAssertEqual(session.levelID, .heroWelcome)
+    XCTAssertEqual(session.state, .transitioning(.heroWelcome))
+    XCTAssertEqual(router.path, [.gameplay])
+
+    let sceneView = SKView(frame: .init(x: 0, y: 0, width: 600, height: 600))
+    let scene = GameScene(
+      session: session, runtime: session.runtime, generation: session.runtimeGeneration)
+    sceneView.presentScene(scene)
+    await waitUntil { session.state == .running }
+
+    XCTAssertTrue(sceneView.scene === scene)
+    XCTAssertEqual(session.state, .running)
+    XCTAssertEqual(session.levelID, .heroWelcome)
+    XCTAssertEqual(
+      session.simulation.renderSnapshot.player.coordinate, HeroWelcomeDefinition.start)
+    XCTAssertEqual(session.simulation.renderSnapshot.player.id, characterID)
+    XCTAssertEqual(session.health, 2)
+    XCTAssertEqual(session.score, 37)
+    XCTAssertEqual(session.elapsedTime, elapsedBeforeTransition)
+    let heroWelcome = try XCTUnwrap(session.simulation as? HeroWelcomeSimulation)
+    XCTAssertEqual(heroWelcome.completedLevelIDs, [.levelTen, .countryRoad])
+    XCTAssertEqual(heroWelcome.worldState.openedChestIDs, [openedChest])
+    XCTAssertTrue(observedStates.contains(.transitioning(.heroWelcome)))
+    XCTAssertFalse(observedStates.contains(.won))
+    XCTAssertEqual(router.path, [.gameplay])
+  }
+
+  private func waitUntil(
+    attempts: Int = 100, condition: @MainActor () -> Bool
+  ) async {
+    for _ in 0..<attempts {
+      if condition() { return }
+      await Task.yield()
+    }
   }
 }

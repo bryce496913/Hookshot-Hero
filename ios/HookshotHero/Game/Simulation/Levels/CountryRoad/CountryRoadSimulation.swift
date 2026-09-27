@@ -3,6 +3,7 @@ import Foundation
 @MainActor final class CountryRoadSimulation: LevelOneSimulation {
   override var levelID: LevelID { .countryRoad }
   override var levelName: String { "Country Road" }
+  private var didRequestHeroWelcome = false
 
   init(
     configuration: GameConfiguration = .init(reducedMotion: false, controlHintsEnabled: true),
@@ -28,13 +29,18 @@ import Foundation
 
   override func update(deltaTime: TimeInterval) {
     super.update(deltaTime: deltaTime)
-    guard outcome == nil else { return }
+    guard outcome == nil, !didRequestHeroWelcome else { return }
     if CollisionProfile.player.region(at: player.position).intersects(
       CountryRoadDefinition.exitRegion)
     {
-      // HeroWelcome is intentionally not a native runtime yet; direct Country Road play ends here.
+      didRequestHeroWelcome = true
       completedLevelIDs.insert(.countryRoad)
-      setOutcome(.won)
+      cancelAllInput()
+      onLevelTransition?(
+        .init(
+          sourceLevelID: .countryRoad, destinationLevelID: .heroWelcome,
+          destinationEntry: .bottom, carryover: makeCarryoverState(),
+          reason: .completedForward))
     }
   }
 }
