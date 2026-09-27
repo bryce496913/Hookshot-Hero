@@ -12,17 +12,67 @@ import XCTest
     XCTAssertTrue(level.walls.contains(CountryRoadDefinition.sceneryWalls[0]))
   }
 
-  func testJavaCollectibleAndNPCPopulationContract() throws {
+  func testJavaCollectibleAndRuntimeNPCPopulationContract() throws {
     let first = try CountryRoadSimulation(seed: 42)
     let second = try CountryRoadSimulation(seed: 42)
     XCTAssertEqual(first.entities.map(\.kind), second.entities.map(\.kind))
     XCTAssertEqual(first.entities.filter { $0.kind == .cabbage }.count, 5)
     XCTAssertEqual(first.entities.filter { $0.kind == .coin }.count, 15)
-    XCTAssertEqual(CountryRoadDefinition.population.children, 9)
-    XCTAssertEqual(CountryRoadDefinition.population.old, 5)
-    XCTAssertEqual(CountryRoadDefinition.population.townfolk, 15)
+    XCTAssertEqual(first.npcStates.filter { $0.archetype == .child }.count, 9)
+    XCTAssertEqual(first.npcStates.filter { $0.archetype == .olderResident }.count, 5)
+    XCTAssertEqual(first.npcStates.filter { $0.archetype == .townfolk }.count, 15)
+    XCTAssertEqual(first.npcStates.count, 29)
+    XCTAssertEqual(Set(first.npcStates.map(\.id)).count, 29)
+    XCTAssertEqual(first.npcStates.map(\.position), second.npcStates.map(\.position))
+    XCTAssertEqual(first.npcStates.map(\.facing), second.npcStates.map(\.facing))
     XCTAssertFalse(first.entities.contains { $0.kind == .mine })
     XCTAssertTrue(first.enemies.isEmpty)
+  }
+
+  func testNPCFootprintsAreSafeAndSeparated() throws {
+    let simulation = try CountryRoadSimulation(seed: 496_913)
+    let playerStart = CollisionProfile.player.region(at: CountryRoadDefinition.start)
+    for (index, npc) in simulation.npcStates.enumerated() {
+      let footprint = CollisionProfile.player.region(at: npc.position)
+      XCTAssertTrue(footprint.cells.allSatisfy(simulation.level.isInside))
+      XCTAssertFalse(simulation.level.isBlocked(footprint))
+      XCTAssertFalse(footprint.intersects(playerStart))
+      XCTAssertFalse(footprint.intersects(CountryRoadDefinition.exitRegion))
+      XCTAssertFalse(footprint.intersects(CountryRoadDefinition.doorwayRegion))
+      for other in simulation.npcStates.dropFirst(index + 1) {
+        XCTAssertFalse(
+          footprint.intersects(CollisionProfile.player.region(at: other.position)),
+          "NPC footprints overlap at \(npc.position) and \(other.position)")
+      }
+    }
+  }
+
+  func testNPCsRenderMoveDeterministicallyAndSurviveCollection() throws {
+    let first = try CountryRoadSimulation(seed: 73)
+    let second = try CountryRoadSimulation(seed: 73)
+    let npcIDs = Set(first.npcStates.map(\.id))
+    let npcAssets: Set<RenderAssetID> = [
+      CountryRoadRenderAssets.child, CountryRoadRenderAssets.olderResident,
+      CountryRoadRenderAssets.townfolk,
+    ]
+    let renderedNPCs = first.renderSnapshot.entities.filter { npcIDs.contains($0.id) }
+    XCTAssertEqual(renderedNPCs.count, 29)
+    XCTAssertEqual(Set(renderedNPCs.map(\.asset)), npcAssets)
+
+    let startingPositions = first.npcStates.map(\.position)
+    for _ in 0..<30 {
+      first.update(deltaTime: 0.1)
+      second.update(deltaTime: 0.1)
+    }
+    XCTAssertEqual(first.npcStates.map(\.position), second.npcStates.map(\.position))
+    XCTAssertEqual(first.npcStates.map(\.facing), second.npcStates.map(\.facing))
+    XCTAssertNotEqual(first.npcStates.map(\.position), startingPositions)
+
+    let collectible = try XCTUnwrap(first.entities.first)
+    first.player.position = collectible.position
+    first.update(deltaTime: 0)
+    XCTAssertEqual(first.npcStates.count, 29)
+    XCTAssertEqual(Set(first.npcStates.map(\.id)), npcIDs)
   }
 
   func testCollectibleFootprintsAvoidGeometryEntryAndExit() throws {
@@ -46,6 +96,10 @@ import XCTest
     XCTAssertEqual(runtime.assetManifest, .countryRoad)
     XCTAssertTrue(
       runtime.assetManifest.animationIDs.contains(.init(rawValue: "country-road.waterfall")))
+    XCTAssertTrue(runtime.assetManifest.textureAssetIDs.contains(CountryRoadRenderAssets.child))
+    XCTAssertTrue(
+      runtime.assetManifest.textureAssetIDs.contains(CountryRoadRenderAssets.olderResident))
+    XCTAssertTrue(runtime.assetManifest.textureAssetIDs.contains(CountryRoadRenderAssets.townfolk))
   }
 
   func testCastleExitIsReachableAndRequestsHeroWelcome() throws {
