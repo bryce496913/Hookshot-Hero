@@ -133,6 +133,7 @@ extension TextureCatalogError {
   var gameLoadingError: GameLoadingError {
     switch self {
     case .missingAsset(let id): .missingRequiredAsset(id.rawValue)
+    case .undecodableAsset(let id): .missingRequiredAsset(id.rawValue)
     case .invalidRegion(let id): .invalidTextureRegion(id.rawValue)
     }
   }
