@@ -344,10 +344,10 @@ struct RenderLayoutContext {
 }
 
 enum GrappleRenderLayer {
-  // Gameplay effects currently occupy zPosition 9. Keep the grapple above every gameplay node;
-  // SwiftUI owns the HUD and overlays outside this SpriteKit scene.
-  static let chain: CGFloat = 10
-  static let hookHead: CGFloat = chain + 1
+  // The player renders at zPosition 8. Keep both grapple parts behind the player while still
+  // drawing them above enemies, health bars, and world scenery.
+  static let chain: CGFloat = 7.75
+  static let hookHead: CGFloat = 7.9
 }
 
 @MainActor final class GameScene: SKScene {

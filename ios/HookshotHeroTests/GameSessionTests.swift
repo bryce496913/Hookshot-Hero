@@ -407,30 +407,38 @@ final class GameSceneRenderLayerTests: XCTestCase {
       obstructingLayers.allSatisfy { Double(GrappleRenderLayer.chain) > $0.zPosition })
   }
 
-  func testHookHeadAndChainExceedEnemiesBossAndAllGameplaySprites() throws {
-    var sprites: [RenderEntitySnapshot] = []
+  func testHookHeadAndChainRenderBelowPlayerAndAboveOtherGameplaySprites() throws {
+    var players: [RenderEntitySnapshot] = []
+    var otherSprites: [RenderEntitySnapshot] = []
     for levelID in levelIDs {
       let snapshot = try makeRuntime(levelID).simulation.renderSnapshot
-      sprites += [snapshot.player] + snapshot.entities
+      players.append(snapshot.player)
+      otherSprites += snapshot.entities
     }
 
-    XCTAssertTrue(sprites.contains { $0.asset == EnemyArchetype.skeleton.asset })
-    XCTAssertTrue(sprites.contains { $0.asset == LevelTenRenderAssets.ghostWizard })
-    let highestSpriteZ = try XCTUnwrap(
-      sprites.map { $0.zPosition + ($0.health == nil ? 0 : 0.5) }.max())
-    XCTAssertGreaterThan(Double(GrappleRenderLayer.chain), highestSpriteZ)
-    XCTAssertGreaterThan(Double(GrappleRenderLayer.hookHead), highestSpriteZ)
+    XCTAssertTrue(otherSprites.contains { $0.asset == EnemyArchetype.skeleton.asset })
+    XCTAssertTrue(otherSprites.contains { $0.asset == LevelTenRenderAssets.ghostWizard })
+    let highestOtherSpriteZ = try XCTUnwrap(
+      otherSprites.map { $0.zPosition + ($0.health == nil ? 0 : 0.5) }.max())
+    XCTAssertGreaterThan(Double(GrappleRenderLayer.chain), highestOtherSpriteZ)
+    XCTAssertGreaterThan(Double(GrappleRenderLayer.hookHead), highestOtherSpriteZ)
+    XCTAssertTrue(
+      players.allSatisfy { Double(GrappleRenderLayer.chain) < $0.zPosition },
+      "Grapple chain must render below the player")
+    XCTAssertTrue(
+      players.allSatisfy { Double(GrappleRenderLayer.hookHead) < $0.zPosition },
+      "Grapple hook must render below the player")
     XCTAssertGreaterThan(GrappleRenderLayer.hookHead, GrappleRenderLayer.chain)
   }
 
-  func testGrappleExceedsGameplayEffects() {
+  func testGameplayEffectsExceedGrapple() {
     let effects = [
       RenderEffectDescriptor.mineDestruction(reducedMotion: false),
       RenderEffectDescriptor.enemyDefeat(reducedMotion: false),
     ]
 
-    XCTAssertTrue(effects.allSatisfy { Double(GrappleRenderLayer.chain) > $0.zPosition })
-    XCTAssertTrue(effects.allSatisfy { Double(GrappleRenderLayer.hookHead) > $0.zPosition })
+    XCTAssertTrue(effects.allSatisfy { Double(GrappleRenderLayer.chain) < $0.zPosition })
+    XCTAssertTrue(effects.allSatisfy { Double(GrappleRenderLayer.hookHead) < $0.zPosition })
   }
 
   func testBuildAppliesGrappleLayersWithoutDuplicatingNodesAfterReattachment() throws {
