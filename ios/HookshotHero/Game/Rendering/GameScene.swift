@@ -30,10 +30,12 @@ struct MineDestructionEffectDescriptor: Equatable {
 
 enum TextureCatalogError: LocalizedError {
   case missingAsset(RenderAssetID)
+  case undecodableAsset(RenderAssetID)
   case invalidRegion(RenderAssetID)
   var errorDescription: String? {
     switch self {
     case .missingAsset(let id): "Required render asset is missing: \(id.rawValue)"
+    case .undecodableAsset(let id): "Required render asset could not be decoded: \(id.rawValue)"
     case .invalidRegion(let id): "Invalid texture region: \(id.rawValue)"
     }
   }
@@ -67,7 +69,10 @@ final class TextureCatalog: TextureCatalogProviding {
     guard let url = Bundle.main.url(forResource: entry.filename, withExtension: nil) else {
       throw TextureCatalogError.missingAsset(assetID)
     }
-    let base = SKTexture(imageNamed: url.lastPathComponent)
+    guard let image = UIImage(contentsOfFile: url.path) else {
+      throw TextureCatalogError.undecodableAsset(assetID)
+    }
+    let base = SKTexture(image: image)
     base.filteringMode = .nearest
     guard let r = entry.source else { return base }
     guard r.x >= 0, r.y >= 0, r.x + r.width <= r.sheetWidth, r.y + r.height <= r.sheetHeight else {
