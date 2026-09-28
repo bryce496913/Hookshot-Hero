@@ -201,27 +201,27 @@ Level 8 implements the branch convergence. Its left-side door navigates backward
 
 Native corrections shared by these levels include full-footprint deterministic item spawning, independent random streams for items and each enemy, bounded enemy movement, stable entity identity, two-phase render cleanup, a maximum health of five, time-based damage cooldowns, and deduplicated completion rewards. Audio remains deferred. PRs #64–#67 added or corrected source and test coverage, but their Xcode suites were not executed in the Codex Linux environment. Full macOS/Xcode validation therefore remains outstanding; this environment does not provide `xcodebuild` or Simulator runtimes.
 
-## Level 10 and the temporary native ending
+## Level 10 and the native ending
 
 Level 10 is now a registered native boss arena. Level 9's left door enters through Level 10's
 right-side door, and that same door returns to Level 9 at a footprint-safe left entry. The Java
 level draws only that right-side door but declares its forward exit at the center of the arena;
-the native version resolves the mismatch by rendering a large locked/open portal directly over
-the center trigger. The portal cannot complete the level while the Ghost Wizard lives.
+the native version likewise leaves that center trigger visually unmarked. The trigger cannot
+complete the level while the Ghost Wizard lives.
 
 The Ghost Wizard moves toward the player, inflicts contact damage, launches a projectile every
 three seconds while the player is in sight, takes one damage per grapple, displays animated
-sprites and a health bar, and unlocks the ending portal when defeated. Its defeat and the special
-chest are recorded in `PlayerCarryoverState.worldState`, so revisiting Level 10 in the same run
-does not respawn the boss or grant chest/completion rewards twice. This intentionally replaces
-the Java implementation's process-global `Minotaur.BossIsDead` coupling.
+sprites and a health bar, and unlocks the logical ending region when defeated. Its defeat and the
+special chest are recorded in `PlayerCarryoverState.worldState`, so revisiting Level 10 in the
+same run does not respawn the boss or grant chest/completion rewards twice. This intentionally
+replaces the Java implementation's process-global `Minotaur.BossIsDead` coupling.
 
 Level 10 also restores Java's standard single-player population of three mines, two cabbages,
 and ten coins. Seeded spawning reserves the right-side arrival and reverse doorway, the central
-portal, both the special chest's interaction and rendered footprints, and the Ghost Wizard's
+ending region, both the special chest's interaction and rendered footprints, and the Ghost Wizard's
 initial footprint, so the population remains deterministic, reachable, and valid across the
 boss-defeat transition.
 
-Java continues to `CountryRoad` and `HeroWelcome`, but neither ending area has a native runtime.
-Until they are implemented, the unlocked center portal is the only Level 10 victory path and
-finishes the session on the existing Results screen; it never requests an unregistered level.
+After the boss is defeated, deliberate entry into the center ending region transitions to the
+native `CountryRoad` runtime. The ending region remains logical only and does not render a second
+grey doorway in the boss arena.

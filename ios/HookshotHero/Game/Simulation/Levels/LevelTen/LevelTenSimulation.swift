@@ -38,16 +38,9 @@ struct GhostProjectileState: Identifiable, Equatable, Sendable {
         coordinate: shot.position, renderSize: .init(width: 1.2, height: 1.2), anchor: .center,
         zPosition: 7.5, orientation: .none, animation: nil, opacity: 1, isHidden: false)
     }
-    let door = RenderEntitySnapshot(
-      id: EntityID(UUID(uuid: (0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 10, 1))),
-      asset: isExitUnlocked
-        ? LevelTenRenderAssets.endingDoorOpen : LevelTenRenderAssets.endingDoorClosed,
-      coordinate: .init(row: 25, column: 25), renderSize: .init(width: 7, height: 7),
-      anchor: .bottomLeft, zPosition: 3, orientation: .none, animation: nil, opacity: 1,
-      isHidden: false)
     return .init(
       player: base.player,
-      entities: base.entities + [door] + (bossRender.map { [$0] } ?? []) + shots,
+      entities: base.entities + (bossRender.map { [$0] } ?? []) + shots,
       grapple: base.grapple, effects: base.effects)
   }
 

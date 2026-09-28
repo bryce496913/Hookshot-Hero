@@ -2,8 +2,8 @@ import Foundation
 
 enum LevelTenDefinition {
   static let rightDoorRegion = GridRegion(rows: 27..<34, columns: 56..<60)
-  // Java reports (27,27) as the exit while drawing a right-side door. Native keeps the
-  // right door as the Level 9 entrance and renders the ending portal over this trigger.
+  // Java reports (27,27) as the exit while drawing only the right-side door. Keep the
+  // center as an invisible progression trigger rather than inventing a second doorway.
   static let endingExitRegion = GridRegion(rows: 25..<32, columns: 25..<32)
   static let rightStart = GridPosition(row: 27, column: 50)
   static let bossStart = GridPosition(row: 25, column: 25)
