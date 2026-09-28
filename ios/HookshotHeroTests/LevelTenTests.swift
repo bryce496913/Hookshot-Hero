@@ -1,10 +1,120 @@
 import Combine
+import SpriteKit
+import UIKit
 import XCTest
 
 @testable import HookshotHero
 
 @MainActor final class LevelTenTests: XCTestCase {
   private let configuration = GameConfiguration(reducedMotion: false, controlHintsEnabled: true)
+
+  func testGhostWizardUsesJavaDirectionalRowsAndTwoRegisteredFrames() throws {
+    let expected: [(RenderOrientation, Int)] = [
+      (.down, 0), (.right, 1), (.left, 2), (.up, 3),
+    ]
+
+    for (direction, row) in expected {
+      let animationID = LevelTenRenderAnimations.ghostWizard(direction)
+      let frameIDs = (0..<2).map {
+        LevelTenRenderAssets.ghostWizardFrame(row: row, frame: $0)
+      }
+      XCTAssertEqual(LevelTenRenderAnimations.row(for: direction), row)
+      XCTAssertEqual(LevelTenRenderAnimations.frames(direction), frameIDs)
+      XCTAssertEqual(RenderAnimationRegistry.assetFrames[animationID], frameIDs)
+      XCTAssertTrue(LevelAssetManifest.levelTen.animationIDs.contains(animationID))
+      XCTAssertTrue(frameIDs.allSatisfy(LevelAssetManifest.levelTen.textureAssetIDs.contains))
+    }
+    XCTAssertEqual(LevelTenRenderAnimations.row(for: .none), 0)
+  }
+
+  func testGhostWizardTextureCropsCoverTrackedSheetWithoutInvalidRegions() throws {
+    let idle = try XCTUnwrap(LevelOneTextureCatalog.entries[LevelTenRenderAssets.ghostWizard])
+    XCTAssertEqual(idle.filename, "minotaurWithAxe.png")
+    XCTAssertEqual(
+      idle.source,
+      .init(x: 0, y: 0, width: 45, height: 58, sheetWidth: 90, sheetHeight: 232))
+
+    for row in 0..<4 {
+      for frame in 0..<2 {
+        let id = LevelTenRenderAssets.ghostWizardFrame(row: row, frame: frame)
+        let entry = try XCTUnwrap(LevelOneTextureCatalog.entries[id])
+        let source = try XCTUnwrap(entry.source)
+        XCTAssertEqual(entry.filename, "minotaurWithAxe.png")
+        XCTAssertEqual(
+          source,
+          .init(
+            x: Double(frame * 45), y: Double(row * 58), width: 45, height: 58,
+            sheetWidth: 90, sheetHeight: 232))
+        XCTAssertGreaterThanOrEqual(source.x, 0)
+        XCTAssertGreaterThanOrEqual(source.y, 0)
+        XCTAssertLessThanOrEqual(source.x + source.width, source.sheetWidth)
+        XCTAssertLessThanOrEqual(source.y + source.height, source.sheetHeight)
+      }
+    }
+
+    let sheetURL = try XCTUnwrap(
+      Bundle.main.url(forResource: "minotaurWithAxe.png", withExtension: nil))
+    let sheet = try XCTUnwrap(UIImage(contentsOfFile: sheetURL.path)?.cgImage)
+    XCTAssertEqual(sheet.width, 90)
+    XCTAssertEqual(sheet.height, 232)
+
+    let textures = TextureCatalog(entries: LevelOneTextureCatalog.entries)
+    let animations = LevelOneAnimationCatalog(textureCatalog: textures)
+    for direction in [
+      RenderOrientation.down, .right, .left, .up,
+    ] {
+      let frames = try animations.frames(for: LevelTenRenderAnimations.ghostWizard(direction))
+      XCTAssertEqual(frames.count, 2)
+      XCTAssertTrue(frames.allSatisfy { $0.size() == CGSize(width: 45, height: 58) })
+    }
+  }
+
+  func testGhostWizardIdleMovementDamageAndDefeatVisualStates() throws {
+    let simulation = try LevelTenSimulation()
+    let initialBoss = try XCTUnwrap(simulation.boss)
+    var rendered = try XCTUnwrap(
+      simulation.renderSnapshot.entities.first { $0.id == initialBoss.id })
+    XCTAssertEqual(rendered.asset, LevelTenRenderAssets.ghostWizard)
+    XCTAssertEqual(rendered.renderSize, .init(width: 4.5, height: 5.8))
+    XCTAssertEqual(rendered.animation?.frameIndex, 0)
+    XCTAssertEqual(rendered.health, .init(current: 10, maximum: 10))
+
+    simulation.update(deltaTime: 0.1)
+    rendered = try XCTUnwrap(
+      simulation.renderSnapshot.entities.first { $0.id == initialBoss.id })
+    XCTAssertEqual(rendered.animation?.frameIndex, 0)
+    simulation.update(deltaTime: 0.1)
+    rendered = try XCTUnwrap(
+      simulation.renderSnapshot.entities.first { $0.id == initialBoss.id })
+    XCTAssertEqual(rendered.animation?.frameIndex, 1)
+    simulation.update(deltaTime: 0.1)
+    rendered = try XCTUnwrap(
+      simulation.renderSnapshot.entities.first { $0.id == initialBoss.id })
+    XCTAssertEqual(rendered.animation?.frameIndex, 0)
+
+    let damageSimulation = try LevelTenSimulation()
+    damageSimulation.player.position = .init(row: 25, column: 15)
+    damageSimulation.player.facing = .right
+    damageSimulation.inputController.send(.fireHook)
+    for _ in 0..<12 { damageSimulation.update(deltaTime: 0.05) }
+    let damaged = try XCTUnwrap(damageSimulation.boss)
+    rendered = try XCTUnwrap(
+      damageSimulation.renderSnapshot.entities.first { $0.id == damaged.id })
+    XCTAssertEqual(rendered.asset, LevelTenRenderAssets.ghostWizard)
+    XCTAssertEqual(rendered.health?.current, damaged.health)
+    XCTAssertLessThan(damaged.health, damaged.maximumHealth)
+
+    damageSimulation.defeatBossForTesting()
+    XCTAssertFalse(
+      damageSimulation.renderSnapshot.entities.contains {
+        $0.asset == LevelTenRenderAssets.ghostWizard
+      })
+    XCTAssertTrue(
+      damageSimulation.renderSnapshot.effects.contains {
+        $0.descriptor == .enemyDefeat(reducedMotion: false)
+      })
+    XCTAssertTrue(damageSimulation.isExitUnlocked)
+  }
 
   func testFactoryManifestAndFootprintSafeEntries() throws {
     let runtime = try DefaultGameLevelRuntimeFactory().makeRuntime(

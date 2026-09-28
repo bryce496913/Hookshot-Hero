@@ -107,9 +107,6 @@ final class LevelOneAnimationCatalog: AnimationCatalogProviding {
       let direction = String(animationID.rawValue.split(separator: ".").last ?? "right")
       let row = ["left": 0, "up": 2, "right": 4, "down": 6][direction] ?? 4
       assets = (0..<10).map { RenderAssetID(rawValue: "enemy.flying-terror.\(row)-\($0)") }
-    } else if animationID.rawValue.hasPrefix("enemy.ghost-wizard.") {
-      let row = Int(animationID.rawValue.split(separator: ".").last ?? "0") ?? 0
-      assets = (0..<3).map { RenderAssetID(rawValue: "enemy.ghost-wizard.\(row)-\($0)") }
     } else if animationID.rawValue.hasPrefix("enemy.minotaur.") {
       let parts = animationID.rawValue.split(separator: ".")
       let sprite = parts.last.map(String.init) ?? "0-0"
@@ -286,13 +283,13 @@ enum LevelOneTextureCatalog {
       .init(x: 0, y: 0, width: 20, height: 20, sheetWidth: 120, sheetHeight: 26))
     add(
       .init(rawValue: "enemy.ghost-wizard"), "minotaurWithAxe.png",
-      .init(x: 0, y: 0, width: 30, height: 58, sheetWidth: 90, sheetHeight: 232))
+      .init(x: 0, y: 0, width: 45, height: 58, sheetWidth: 90, sheetHeight: 232))
     for row in 0..<4 {
-      for frame in 0..<3 {
+      for frame in 0..<LevelTenRenderAnimations.frameCount {
         add(
-          .init(rawValue: "enemy.ghost-wizard.\(row)-\(frame)"), "minotaurWithAxe.png",
+          LevelTenRenderAssets.ghostWizardFrame(row: row, frame: frame), "minotaurWithAxe.png",
           .init(
-            x: Double(frame * 30), y: Double(row * 58), width: 30, height: 58,
+            x: Double(frame * 45), y: Double(row * 58), width: 45, height: 58,
             sheetWidth: 90, sheetHeight: 232))
       }
     }

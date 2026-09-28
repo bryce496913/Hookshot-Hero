@@ -11,18 +11,30 @@ enum LevelTenRenderAssets {
   static let specialChest = LevelOneRenderAssets.chestClosed
   static let ghostWizard = RenderAssetID(rawValue: "enemy.ghost-wizard")
   static let projectile = RenderAssetID(rawValue: "enemy.ghost-wizard.projectile")
+
+  static func ghostWizardFrame(row: Int, frame: Int) -> RenderAssetID {
+    .init(rawValue: "enemy.ghost-wizard.\(row)-\(frame)")
+  }
 }
 enum LevelTenRenderAnimations {
+  static let frameCount = 2
+
+  static func row(for direction: RenderOrientation) -> Int {
+    switch direction {
+    case .down, .none: 0
+    case .right: 1
+    case .left: 2
+    case .up: 3
+    }
+  }
+
   static func ghostWizard(_ direction: RenderOrientation) -> RenderAnimationID {
-    let row =
-      switch direction {
-      case .down: 0
-      case .left: 1
-      case .right: 2
-      case .up: 3
-      case .none: 0
-      }
-    return .init(rawValue: "enemy.ghost-wizard.\(row)")
+    .init(rawValue: "enemy.ghost-wizard.\(row(for: direction))")
+  }
+
+  static func frames(_ direction: RenderOrientation) -> [RenderAssetID] {
+    let row = row(for: direction)
+    return (0..<frameCount).map { LevelTenRenderAssets.ghostWizardFrame(row: row, frame: $0) }
   }
 }
 extension LevelAssetManifest {
@@ -36,7 +48,9 @@ extension LevelAssetManifest {
       LevelTenRenderAssets.projectile,
     ]).union(sharedPlayerTextureAssetIDs).union(
       (0..<4).flatMap { row in
-        (0..<3).map { RenderAssetID(rawValue: "enemy.ghost-wizard.\(row)-\($0)") }
+        (0..<LevelTenRenderAnimations.frameCount).map {
+          LevelTenRenderAssets.ghostWizardFrame(row: row, frame: $0)
+        }
       }),
     animationIDs: Set([
       LevelOneRenderAnimations.lidiaWalk(.up), LevelOneRenderAnimations.lidiaWalk(.down),

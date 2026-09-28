@@ -68,7 +68,7 @@ enum EnemyArchetype: Equatable, Sendable {
     case .skeleton: .init(width: 4.9, height: 4.7)
     case .flyingTerror: .init(width: 12.8, height: 12.8)
     case .minotaur: .init(width: 4.8, height: 6.4)
-    case .ghostWizard: .init(width: 3, height: 5.8)
+    case .ghostWizard: .init(width: 4.5, height: 5.8)
     }
   }
 }
