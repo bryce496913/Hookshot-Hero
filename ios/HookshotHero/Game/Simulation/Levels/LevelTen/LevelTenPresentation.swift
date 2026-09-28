@@ -6,8 +6,6 @@ enum LevelTenRenderAssets {
   static let wallLeft = LevelSevenRenderAssets.wallLeft
   static let wallRight = LevelSevenRenderAssets.wallRight
   static let entranceDoor = LevelFourRenderAssets.doorOpenSide
-  static let endingDoorOpen = LevelOneRenderAssets.exitDoor
-  static let endingDoorClosed = LevelOneRenderAssets.entryDoor
   static let specialChest = LevelOneRenderAssets.chestClosed
   static let ghostWizard = RenderAssetID(rawValue: "enemy.ghost-wizard")
   static let projectile = RenderAssetID(rawValue: "enemy.ghost-wizard.projectile")
@@ -42,7 +40,6 @@ extension LevelAssetManifest {
     textureAssetIDs: Set([
       LevelTenRenderAssets.floor, LevelTenRenderAssets.wallFront, LevelTenRenderAssets.wallLeft,
       LevelTenRenderAssets.wallRight, LevelTenRenderAssets.entranceDoor,
-      LevelTenRenderAssets.endingDoorOpen, LevelTenRenderAssets.endingDoorClosed,
       LevelTenRenderAssets.specialChest, LevelOneRenderAssets.chestOpen,
       LevelTenRenderAssets.ghostWizard,
       LevelTenRenderAssets.projectile,

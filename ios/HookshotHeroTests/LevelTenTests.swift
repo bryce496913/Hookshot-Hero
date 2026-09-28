@@ -132,6 +132,56 @@ import XCTest
       levelNine.level.isBlocked(CollisionProfile.player.region(at: levelNine.player.position)))
   }
 
+  func testPresentationRendersOnlyJavaRightSideDoorAndNoCenterDoorEntity() throws {
+    let presentation = LevelTenPresentationDefinition.make(from: LevelTenDefinition.make())
+    let doors = presentation.staticObjects.filter {
+      $0.asset == LevelFourRenderAssets.doorOpenSide
+        || $0.asset == LevelOneRenderAssets.entryDoor
+        || $0.asset == LevelOneRenderAssets.exitDoor
+    }
+    let rightDoor = try XCTUnwrap(doors.first)
+    let renderedRowEnd = rightDoor.coordinate.row + Int(rightDoor.renderSize.height)
+    let renderedColumnEnd = rightDoor.coordinate.column + Int(rightDoor.renderSize.width)
+    let renderedRows = rightDoor.coordinate.row..<renderedRowEnd
+    let renderedColumns = rightDoor.coordinate.column..<renderedColumnEnd
+    let renderedRegion = GridRegion(
+      rows: renderedRows, columns: renderedColumns)
+
+    XCTAssertEqual(doors.count, 1, "Level 10 must render exactly the one door drawn by Java")
+    XCTAssertEqual(rightDoor.asset, LevelTenRenderAssets.entranceDoor)
+    XCTAssertEqual(rightDoor.asset, LevelFourRenderAssets.doorOpenSide)
+    XCTAssertEqual(rightDoor.coordinate, .init(row: 28, column: 56))
+    XCTAssertEqual(rightDoor.renderSize, .init(width: 4, height: 4))
+    XCTAssertEqual(rightDoor.anchor, .bottomLeft)
+    XCTAssertEqual(rightDoor.renderSize.width / rightDoor.renderSize.height, 1)
+    XCTAssertTrue(renderedRegion.intersects(LevelTenDefinition.rightDoorRegion))
+    XCTAssertEqual(renderedRegion.columns, LevelTenDefinition.rightDoorRegion.columns)
+    let sideDoorEntry = try XCTUnwrap(LevelOneTextureCatalog.entries[rightDoor.asset])
+    XCTAssertEqual(sideDoorEntry.filename, "DoorGreyOpenSide.png")
+    let sideDoorURL = try XCTUnwrap(
+      Bundle.main.url(forResource: sideDoorEntry.filename, withExtension: nil))
+    let sideDoorImage = try XCTUnwrap(UIImage(contentsOfFile: sideDoorURL.path)?.cgImage)
+    XCTAssertEqual(sideDoorImage.width, 40)
+    XCTAssertEqual(sideDoorImage.height, 40)
+
+    let simulation = try LevelTenSimulation()
+    let lockedSnapshot = simulation.renderSnapshot
+    simulation.defeatBossForTesting()
+    let unlockedSnapshot = simulation.renderSnapshot
+    for snapshot in [lockedSnapshot, unlockedSnapshot] {
+      XCTAssertFalse(
+        snapshot.entities.contains {
+          ($0.asset == LevelOneRenderAssets.entryDoor
+            || $0.asset == LevelOneRenderAssets.exitDoor)
+            && $0.coordinate == .init(row: 25, column: 25)
+        }, "The logical center exit must not create a Level 1 grey door sprite")
+    }
+    XCTAssertFalse(
+      LevelAssetManifest.levelTen.textureAssetIDs.contains(LevelOneRenderAssets.entryDoor))
+    XCTAssertFalse(
+      LevelAssetManifest.levelTen.textureAssetIDs.contains(LevelOneRenderAssets.exitDoor))
+  }
+
   func testExitIsLockedUntilBossDefeat() throws {
     let simulation = try LevelTenSimulation()
     var transition: LevelTransitionRequest?
