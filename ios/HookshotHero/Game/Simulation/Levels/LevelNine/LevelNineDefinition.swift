@@ -61,8 +61,8 @@ enum LevelNineDefinition {
   static let bottomStart = GridPosition(row: 50, column: 29)
   static let leftStart = GridPosition(row: 10, column: 7)
   static let chestAnchor = GridPosition(row: 52, column: 4)
-  // One column left of the old anchor keeps the 5x5 footprint clear of the lava at (8, 20).
-  static let skeletonStart = GridPosition(row: 9, column: 17)
+  // Java Skeletons may cross lava; this anchor keeps their complete 5x5 footprint wall-free.
+  static let skeletonStart = GridPosition(row: 9, column: 18)
   static let flyingTerrorStart = GridPosition(row: 11, column: 26)
 
   static func make() -> LevelDefinition {

@@ -55,12 +55,11 @@ enum EnemyArchetype: Equatable, Sendable {
     }
   }
   /// Whether this archetype's established movement model permits lava beneath its footprint.
-  /// Minotaurs and Ghost Wizards intentionally use wall-only boss navigation, while Skeletons
-  /// are ground-based. Flying Terrors retain their airborne terrain exception.
+  /// Java Skeletons intentionally ignore lava while remaining blocked by solid walls. Flying
+  /// Terrors retain their airborne exception; the existing boss policies remain unchanged.
   var allowsLavaOverlap: Bool {
     switch self {
-    case .skeleton: false
-    case .flyingTerror, .minotaur, .ghostWizard: true
+    case .skeleton, .flyingTerror, .minotaur, .ghostWizard: true
     }
   }
   var renderSize: LogicalRenderSize {

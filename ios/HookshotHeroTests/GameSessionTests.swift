@@ -1148,18 +1148,85 @@ final class RenderLayoutContextTests: XCTestCase {
       behaviorState: .patrol, decisionAccumulator: 0, animationTime: 0)
   }
 
-  func testSkeletonInitialFootprintCannotOverlapLava() {
+  func testSkeletonInitialFootprintMayOverlapLavaLikeJava() throws {
+    try EnemyInitialStateValidator.validate(
+      [enemy(.skeleton)], in: syntheticLavaLevel, entryPositions: [], levelID: .levelOne)
+  }
+
+  func testSkeletonInitialFootprintCannotOverlapWall() {
+    var level = syntheticLavaLevel
+    level = LevelDefinition(
+      grid: level.grid, start: level.start, exitAnchor: level.exitAnchor,
+      entryAnchor: level.entryAnchor, chestAnchor: level.chestAnchor, boundary: level.boundary,
+      walls: [.init(rows: 8..<12, columns: 8..<12)], lava: [], internalWallAnchors: [],
+      displayName: "Synthetic Wall")
     XCTAssertThrowsError(
       try EnemyInitialStateValidator.validate(
-        [enemy(.skeleton)], in: syntheticLavaLevel, entryPositions: [], levelID: .levelOne)
-    ) {
-      XCTAssertEqual($0 as? GameLoadingError, .invalidInitialState(.levelOne))
-    }
+        [enemy(.skeleton)], in: level, entryPositions: [], levelID: .levelOne))
+  }
+
+  func testSkeletonInitialFootprintCannotLeaveBoard() {
+    var skeleton = enemy(.skeleton)
+    skeleton.position = .init(row: 1, column: 1)
+    XCTAssertThrowsError(
+      try EnemyInitialStateValidator.validate(
+        [skeleton], in: syntheticLavaLevel, entryPositions: [], levelID: .levelOne))
+  }
+
+  func testSkeletonInitialFootprintCannotOverlapProtectedEntry() {
+    XCTAssertThrowsError(
+      try EnemyInitialStateValidator.validate(
+        [enemy(.skeleton)], in: syntheticLavaLevel,
+        entryPositions: [.init(row: 10, column: 10)], levelID: .levelOne))
   }
 
   func testFlyingTerrorRetainsAirborneLavaException() throws {
     try EnemyInitialStateValidator.validate(
       [enemy(.flyingTerror)], in: syntheticLavaLevel, entryPositions: [], levelID: .levelOne)
+  }
+
+  func testBossLavaPoliciesRemainUnchanged() {
+    XCTAssertTrue(EnemyArchetype.minotaur.allowsLavaOverlap)
+    XCTAssertTrue(EnemyArchetype.ghostWizard.allowsLavaOverlap)
+  }
+
+  func testSkeletonRuntimeMovementCrossesLavaButNotWalls() throws {
+    func simulation(walls: [GridRegion]) throws -> LevelOneSimulation {
+      let base = syntheticLavaLevel
+      let level = LevelDefinition(
+        grid: base.grid, start: .init(row: 17, column: 10), exitAnchor: base.exitAnchor,
+        entryAnchor: base.entryAnchor, chestAnchor: base.chestAnchor, boundary: base.boundary,
+        walls: walls, lava: [.init(rows: 8..<13, columns: 13..<14)],
+        internalWallAnchors: [], displayName: "Skeleton Movement")
+      return try LevelOneSimulation(
+        configuration: .init(reducedMotion: false, controlHintsEnabled: true), seed: 1,
+        entryPosition: .bottom, carryover: nil, levelDefinition: level,
+        presentationDefinition: LevelOnePresentationDefinition.make(from: level),
+        initialPlayerPosition: .init(row: 10, column: 16), entities: [])
+    }
+    func skeleton() -> EnemyState {
+      .init(
+        id: EntityID(), archetype: .skeleton, position: .init(row: 10, column: 10),
+        facing: .right, health: 3, maximumHealth: 3, behaviorState: .seek,
+        decisionAccumulator: 0.4, animationTime: 0)
+    }
+
+    let lava = try simulation(walls: [])
+    lava.enemies = [skeleton()]
+    lava.updateEnemySystem(0.1)
+    XCTAssertEqual(lava.enemies[0].position, .init(row: 10, column: 11))
+    XCTAssertTrue(
+      lava.level.overlapsLava(
+        EnemyArchetype.skeleton.footprint.region(at: lava.enemies[0].position)))
+
+    let wallRegion = GridRegion(rows: 8..<13, columns: 13..<14)
+    let wall = try simulation(walls: [wallRegion])
+    wall.enemies = [skeleton()]
+    wall.updateEnemySystem(0.1)
+    XCTAssertNotEqual(wall.enemies[0].position, .init(row: 10, column: 11))
+    XCTAssertFalse(
+      wall.level.isBlocked(
+        EnemyArchetype.skeleton.footprint.region(at: wall.enemies[0].position)))
   }
 
   func testAllImplementedLevelsConstructAtRepresentativeDeterministicSeeds() throws {

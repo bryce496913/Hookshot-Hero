@@ -36,9 +36,16 @@ import XCTest
   }
 
   func testFactoryBuildsBothLevelNineEntriesWithSeparatedFootprintsAndReachableDoors() throws {
-    let factory = DefaultGameLevelRuntimeFactory()
+    let simulationFactory = DefaultGameSimulationFactory()
+    let runtimeFactory = DefaultGameLevelRuntimeFactory()
     for entry: LevelEntryPosition in [.bottom, .left] {
-      let runtime = try factory.makeRuntime(
+      let directSimulation = try simulationFactory.makeSimulation(
+        levelID: .levelNine,
+        configuration: .init(reducedMotion: false, controlHintsEnabled: true), seed: 9,
+        entryPosition: entry, carryover: nil)
+      XCTAssertTrue(directSimulation is LevelNineSimulation)
+
+      let runtime = try runtimeFactory.makeRuntime(
         levelID: .levelNine,
         configuration: .init(reducedMotion: false, controlHintsEnabled: true), seed: 9,
         entryPosition: entry, carryover: nil)
@@ -74,7 +81,7 @@ import XCTest
       animationCatalog: LevelOneAnimationCatalog(textureCatalog: textures))
   }
 
-  func testSkeletonSpawnHasACompletelySafeFootprint() throws {
+  func testSkeletonSpawnIsWallSafeAndIntentionallyMayCrossLava() throws {
     let simulation = try LevelNineSimulation(seed: 496_913)
     let skeleton = try XCTUnwrap(simulation.enemies.first { $0.archetype == .skeleton })
     let flyingTerror = try XCTUnwrap(
@@ -89,11 +96,17 @@ import XCTest
     XCTAssertEqual(skeletonRegion.cells.count, 25)
     XCTAssertTrue(skeletonRegion.cells.allSatisfy(simulation.level.isInside))
     XCTAssertFalse(simulation.level.isBlocked(skeletonRegion))
-    XCTAssertFalse(simulation.level.overlapsLava(skeletonRegion))
+    XCTAssertTrue(
+      simulation.level.overlapsLava(skeletonRegion),
+      "Java Skeletons intentionally ignore lava collision")
     XCTAssertFalse(skeletonRegion.intersects(LevelNineDefinition.forwardDoorRegion))
     XCTAssertFalse(skeletonRegion.intersects(LevelNineDefinition.bottomDoorRegion))
     XCTAssertFalse(playerStarts.contains(where: skeletonRegion.intersects))
     XCTAssertFalse(skeletonRegion.intersects(flyingTerrorRegion))
+    let chest = try XCTUnwrap(simulation.chestStates.first?.definition)
+    XCTAssertFalse(
+      skeletonRegion.intersects(CollisionProfile.chest.region(at: chest.interactionAnchor)))
+    XCTAssertFalse(skeletonRegion.intersects(chest.spawnExclusionRegion))
   }
 
   func testSpawnPopulationAndEnemiesAreDeterministicAndExcludeEnemyFootprints() throws {
