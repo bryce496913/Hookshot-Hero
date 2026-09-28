@@ -148,6 +148,28 @@ import XCTest
     XCTAssertFalse(
       CollisionProfile.player.region(at: session.simulation.renderSnapshot.player.coordinate)
         .intersects(LevelEightDefinition.bottomDoorRegion))
+
+    let sceneView = SKView(frame: .init(x: 0, y: 0, width: 600, height: 600))
+    let replacementScene = GameScene(
+      session: session, runtime: session.runtime, generation: session.runtimeGeneration)
+    sceneView.presentScene(replacementScene)
+    await waitUntil { session.state == .running }
+    XCTAssertTrue(sceneView.scene === replacementScene)
+    XCTAssertEqual(session.state, .running)
+    XCTAssertTrue(session.uiSnapshot.canMove)
+    XCTAssertTrue(session.uiSnapshot.canGrapple)
+  }
+
+  func testLevelFiveExitInstallsPlayableLevelSevenBottomRuntime() async throws {
+    try await assertTransitionInstallsLevelSeven(
+      sourceLevelID: .levelFive, sourceEntry: .left, exit: .init(row: 3, column: 29),
+      expectedEntry: .bottom, expectedStart: LevelSevenDefinition.bottomStart)
+  }
+
+  func testLevelEightReturnInstallsPlayableLevelSevenTopRuntime() async throws {
+    try await assertTransitionInstallsLevelSeven(
+      sourceLevelID: .levelEight, sourceEntry: .bottom, exit: .init(row: 57, column: 29),
+      expectedEntry: .top, expectedStart: LevelSevenDefinition.topStart)
   }
 
   func testLevelFiveReturnLoadsLevelFourAndWaitsForSceneAttachment() async throws {
@@ -395,6 +417,65 @@ import XCTest
     XCTAssertTrue(observedStates.contains(.transitioning(destination)), file: file, line: line)
     XCTAssertEqual(observedStates.last, .running, file: file, line: line)
     XCTAssertEqual(router.path, [.gameplay], file: file, line: line)
+  }
+
+  private func assertTransitionInstallsLevelSeven(
+    sourceLevelID: LevelID, sourceEntry: LevelEntryPosition, exit: GridPosition,
+    expectedEntry: LevelEntryPosition, expectedStart: GridPosition,
+    file: StaticString = #filePath, line: UInt = #line
+  ) async throws {
+    let directory = FileManager.default.temporaryDirectory.appending(path: UUID().uuidString)
+    defer { try? FileManager.default.removeItem(at: directory) }
+    let progression = ProgressionStore(
+      repository: ProgressionRepository(fileURL: directory.appending(path: "save.json")))
+    let logger = TransitionLoadingLogger()
+    let runtimeFactory = DefaultGameLevelRuntimeFactory(
+      simulationFactory: DefaultGameSimulationFactory(), preflight: DefaultAssetPreflight())
+    let router = AppRouter(
+      progressionStore: progression, runtimeFactory: runtimeFactory, levelSeed: seed,
+      logger: logger)
+    let sourceRuntime = try runtimeFactory.makeRuntime(
+      levelID: sourceLevelID, configuration: configuration, seed: seed,
+      entryPosition: sourceEntry, carryover: nil)
+    let session = GameSession(configuration: configuration, runtime: sourceRuntime)
+    router.startGame(session: session)
+
+    let generation = session.runtimeGeneration
+    guard let source = session.simulation as? LevelOneSimulation else {
+      return XCTFail("Expected LevelOneSimulation-compatible source", file: file, line: line)
+    }
+    source.player.position = exit
+    session.advance(by: 0.01)
+
+    let request = try XCTUnwrap(session.pendingTransitionRequest, file: file, line: line)
+    XCTAssertEqual(request.destinationLevelID, .levelSeven, file: file, line: line)
+    XCTAssertEqual(request.destinationEntry, expectedEntry, file: file, line: line)
+    await waitUntil { session.runtimeGeneration == generation + 1 || !logger.failures.isEmpty }
+    XCTAssertTrue(
+      logger.failures.isEmpty,
+      "Level 7 loading failure: \(logger.failures.first?.error.diagnosticCode ?? "unknown")",
+      file: file, line: line)
+    XCTAssertEqual(session.runtimeGeneration, generation + 1, file: file, line: line)
+    XCTAssertEqual(session.levelID, .levelSeven, file: file, line: line)
+    XCTAssertEqual(
+      session.simulation.renderSnapshot.player.coordinate, expectedStart, file: file, line: line)
+    XCTAssertEqual(session.state, .transitioning(.levelSeven), file: file, line: line)
+    XCTAssertFalse(session.canSimulate, file: file, line: line)
+
+    let sceneView = SKView(frame: .init(x: 0, y: 0, width: 600, height: 600))
+    let replacementScene = GameScene(
+      session: session, runtime: session.runtime, generation: session.runtimeGeneration)
+    sceneView.presentScene(replacementScene)
+    await waitUntil { session.state == .running }
+
+    XCTAssertTrue(sceneView.scene === replacementScene, file: file, line: line)
+    XCTAssertEqual(session.state, .running, file: file, line: line)
+    XCTAssertTrue(session.canSimulate, file: file, line: line)
+    XCTAssertTrue(session.uiSnapshot.canMove, file: file, line: line)
+    XCTAssertTrue(session.uiSnapshot.canGrapple, file: file, line: line)
+    XCTAssertFalse(
+      router.path.contains { if case .gameLoadingFailure = $0 { true } else { false } },
+      file: file, line: line)
   }
 
   private func waitUntil(
