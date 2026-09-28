@@ -68,6 +68,18 @@ import XCTest
     XCTAssertEqual(runtime.assetManifest, .levelEight)
   }
 
+  func testDefaultRuntimeFactoryBuildsLevelEightBottomEntryWithRealPreflight() throws {
+    let runtime = try DefaultGameLevelRuntimeFactory().makeRuntime(
+      levelID: .levelEight, configuration: configuration, seed: seed, entryPosition: .bottom,
+      carryover: nil)
+
+    XCTAssertEqual(runtime.presentation.levelID, .levelEight)
+    XCTAssertEqual(
+      runtime.simulation.renderSnapshot.player.coordinate,
+      LevelEightDefinition.fromLevelSevenStart)
+    XCTAssertEqual(runtime.assetManifest, .levelEight)
+  }
+
   func testLevelSixExitLoadsLevelEightAndWaitsForSceneAttachment() async throws {
     let directory = FileManager.default.temporaryDirectory.appending(path: UUID().uuidString)
     defer { try? FileManager.default.removeItem(at: directory) }
@@ -107,6 +119,35 @@ import XCTest
     XCTAssertTrue(sceneView.scene === replacementScene)
     XCTAssertEqual(session.state, .running)
     XCTAssertEqual(session.levelID, .levelEight)
+  }
+
+  func testLevelSevenExitLoadsLevelEightBottomEntryThroughRouter() async throws {
+    let directory = FileManager.default.temporaryDirectory.appending(path: UUID().uuidString)
+    defer { try? FileManager.default.removeItem(at: directory) }
+    let progression = ProgressionStore(
+      repository: ProgressionRepository(fileURL: directory.appending(path: "save.json")))
+    let runtimeFactory = DefaultGameLevelRuntimeFactory()
+    let router = AppRouter(
+      progressionStore: progression, runtimeFactory: runtimeFactory, levelSeed: seed)
+    let sourceRuntime = try runtimeFactory.makeRuntime(
+      levelID: .levelSeven, configuration: configuration, seed: seed, entryPosition: .bottom,
+      carryover: nil)
+    let session = GameSession(configuration: configuration, runtime: sourceRuntime)
+    router.startGame(session: session)
+
+    let source = try XCTUnwrap(session.simulation as? LevelSevenSimulation)
+    source.player.position = .init(row: 3, column: 29)
+    session.advance(by: 0.01)
+
+    await waitUntil { session.runtimeGeneration == 1 }
+    XCTAssertEqual(session.state, .transitioning(.levelEight))
+    XCTAssertEqual(session.levelID, .levelEight)
+    XCTAssertEqual(
+      session.simulation.renderSnapshot.player.coordinate,
+      LevelEightDefinition.fromLevelSevenStart)
+    XCTAssertFalse(
+      CollisionProfile.player.region(at: session.simulation.renderSnapshot.player.coordinate)
+        .intersects(LevelEightDefinition.bottomDoorRegion))
   }
 
   func testLevelFiveReturnLoadsLevelFourAndWaitsForSceneAttachment() async throws {

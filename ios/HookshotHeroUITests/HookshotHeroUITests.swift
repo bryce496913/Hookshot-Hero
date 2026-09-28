@@ -3,6 +3,7 @@ import XCTest
 final class HookshotHeroUITests: XCTestCase {
   private let levelFiveLeftStart = [9, 7]
   private let levelSixBottomStart = [53, 29]
+  private let levelEightBottomStart = [54, 29]
   private let levelFourRightFixture = [29, 54]
   private let levelFourTopFixture = [5, 29]
 
@@ -122,6 +123,19 @@ final class HookshotHeroUITests: XCTestCase {
     XCTAssertEqual(position(coordinate), [53, 27])
     app.buttons["moveDownButton"].tap()
     XCTAssertTrue(waitForPosition(coordinate, [54, 27]))
+    XCTAssertFalse(app.staticTexts["Unable to Load Level"].exists)
+  }
+  func testLevelSelectStartsLevelEightAtSafeBottomEntry() {
+    launch()
+    app.buttons["levelSelectButton"].tap()
+    app.buttons["level8Button"].tap()
+    XCTAssertTrue(app.otherElements["gameplayHUD"].waitForExistence(timeout: 5))
+    XCTAssertTrue(app.staticTexts["Level 8"].exists)
+    let coordinate = app.staticTexts["playerPosition"]
+    XCTAssertTrue(coordinate.waitForExistence(timeout: 5))
+    XCTAssertEqual(position(coordinate), levelEightBottomStart)
+    app.buttons["moveUpButton"].tap()
+    XCTAssertTrue(waitForPosition(coordinate, [53, 29]))
     XCTAssertFalse(app.staticTexts["Unable to Load Level"].exists)
   }
   func testForcedWinAndResultsReturn() {
