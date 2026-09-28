@@ -300,7 +300,11 @@ import Foundation
       }
       remainingTime -= timeToNextStep
       player.hookshot.accumulator = 0
+      let phaseBeforeStep = player.hookshot.phase
       hookStep()
+      if phaseBeforeStep == .extending, player.hookshot.phase == .retracting {
+        return
+      }
     }
   }
   private func hookStep() {
@@ -319,7 +323,9 @@ import Foundation
       }
       player.hookshot.head = next
       player.hookshot.travelled += 1
-      interact(CollisionProfile.hookHead.region(at: next), hooked: true)
+      if interact(CollisionProfile.hookHead.region(at: next), hooked: true) {
+        return
+      }
       if player.hookshot.travelled >= HookshotState.maximumRange {
         player.hookshot.phase = .retracting
       }
@@ -343,13 +349,14 @@ import Foundation
     }
     player.hookshot = HookshotState()
   }
-  private func interact(_ contact: GridRegion, hooked: Bool) {
+  @discardableResult
+  private func interact(_ contact: GridRegion, hooked: Bool) -> Bool {
     // Entity array order is the deterministic collision order. A terminal contact short-circuits the remainder.
     let hits = entities.filter {
       CollisionProfile.footprint(for: $0.kind).region(at: $0.position).intersects(contact)
     }
     for entity in hits {
-      guard outcome == nil else { return }
+      guard outcome == nil else { return true }
       entities.removeAll { $0.id == entity.id }
       switch entity.kind {
       case .coin:
@@ -370,15 +377,18 @@ import Foundation
               id: effectID, coordinate: entity.position,
               descriptor: .mineDestruction(reducedMotion: configuration.reducedMotion),
               createdAt: simulationTime))
+          player.hookshot.phase = .retracting
+          return true
         } else {
           player.health -= 1
           emit(.healthLost(amount: 1, source: .mine), at: entity.position)
           publishStatusIfChanged()
           checkLoss()
-          if outcome != nil { return }
+          if outcome != nil { return true }
         }
       }
     }
+    return false
   }
   var enemyRenderSnapshots: [RenderEntitySnapshot] {
     enemies.map { enemy in
