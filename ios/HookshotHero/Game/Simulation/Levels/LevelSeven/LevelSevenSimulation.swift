@@ -1,8 +1,9 @@
 import Foundation
 
 @MainActor final class LevelSevenSimulation: LevelOneSimulation {
-  /// Keeps the complete 5 x 5 ground-enemy footprint clear of Level 7 terrain and portals.
-  static let skeletonStart = GridPosition(row: 9, column: 25)
+  /// The complete 5 x 5 footprint is in bounds, wall-safe, and separated from starts,
+  /// doors, chests, and the other enemy. Lava overlap is permitted for Java parity.
+  static let skeletonStart = GridPosition(row: 10, column: 40)
 
   override var levelID: LevelID { .levelSeven }
   override var levelName: String { "Level 7" }
@@ -81,7 +82,7 @@ import Foundation
         .init(kind: .coin, count: 10),
       ],
       protectedRegions: [
-        CollisionProfile.player.region(at: player.position),
+        CollisionProfile.player.region(at: LevelSevenDefinition.bottomStart),
         CollisionProfile.player.region(at: LevelSevenDefinition.topStart), level.exitRegion,
         level.entryRegion,
       ] + chestRegions + enemies.map { $0.archetype.footprint.region(at: $0.position) }, using: &rng

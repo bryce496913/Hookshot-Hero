@@ -96,6 +96,91 @@ import XCTest
     }
   }
 
+  func testSkeletonStartUsesCompleteProductionWallGeometryAndPermitsLava() throws {
+    let simulation = try LevelSevenSimulation(seed: 1)
+    let footprint = EnemyArchetype.skeleton.footprint.region(
+      at: LevelSevenSimulation.skeletonStart)
+
+    XCTAssertEqual(LevelSevenSimulation.skeletonStart, .init(row: 10, column: 40))
+    XCTAssertEqual(footprint, .init(rows: 8..<13, columns: 38..<43))
+    XCTAssertTrue(
+      footprint.cells.allSatisfy(simulation.level.isInside),
+      "Skeleton footprint must remain completely inside the production board")
+    XCTAssertFalse(
+      simulation.level.isBlocked(footprint),
+      "Skeleton footprint collides with production wall geometry")
+    XCTAssertTrue(
+      simulation.level.overlapsLava(footprint),
+      "The restored Java-parity anchor intentionally demonstrates permitted lava overlap")
+    XCTAssertTrue(EnemyArchetype.skeleton.allowsLavaOverlap)
+
+    let formerFootprint = EnemyArchetype.skeleton.footprint.region(
+      at: .init(row: 9, column: 25))
+    XCTAssertTrue(
+      simulation.level.isBlocked(formerFootprint),
+      "Regression fixture must continue to expose the former anchor's production-wall collision")
+  }
+
+  func testEverySupportedEntryConstructsDirectlyForFixedSeeds() throws {
+    for seed: UInt64 in [1, 42, 496_913] {
+      for (entry, expectedStart) in [
+        (LevelEntryPosition.bottom, LevelSevenDefinition.bottomStart),
+        (.top, LevelSevenDefinition.topStart),
+      ] {
+        let simulation = try LevelSevenSimulation(seed: seed, entryPosition: entry)
+        XCTAssertEqual(simulation.levelID, .levelSeven)
+        XCTAssertEqual(simulation.player.position, expectedStart, "player start invalid")
+        assertInitialStateIsSafe(simulation)
+      }
+    }
+  }
+
+  func testPlayerEntriesChestsAndFlyingTerrorAreProductionSafe() throws {
+    let simulation = try LevelSevenSimulation(seed: 7)
+    let starts = [LevelSevenDefinition.bottomStart, LevelSevenDefinition.topStart]
+    for start in starts {
+      let region = CollisionProfile.player.region(at: start)
+      XCTAssertTrue(region.cells.allSatisfy(simulation.level.isInside), "player start invalid")
+      XCTAssertFalse(simulation.level.isBlocked(region), "player start invalid: wall collision")
+      XCTAssertFalse(simulation.level.overlapsLava(region), "player start invalid: lava collision")
+    }
+    XCTAssertFalse(
+      CollisionProfile.player.region(at: LevelSevenDefinition.bottomStart).intersects(
+        simulation.level.entryRegion),
+      "bottom start must not immediately trigger the return door")
+    XCTAssertFalse(
+      CollisionProfile.player.region(at: LevelSevenDefinition.topStart).intersects(
+        simulation.level.exitRegion),
+      "top start must not immediately trigger the forward door")
+
+    let flying = try XCTUnwrap(simulation.enemies.first { $0.archetype == .flyingTerror })
+    let flyingRegion = flying.archetype.footprint.region(at: flying.position)
+    XCTAssertTrue(flyingRegion.cells.allSatisfy(simulation.level.isInside))
+    for start in starts {
+      XCTAssertFalse(flyingRegion.intersects(CollisionProfile.player.region(at: start)))
+    }
+
+    XCTAssertEqual(
+      simulation.chestStates.map(\.definition.interactionAnchor),
+      [.init(row: 4, column: 4), .init(row: 52, column: 4)])
+    for chest in simulation.chestStates {
+      let interaction = CollisionProfile.chest.region(at: chest.definition.interactionAnchor)
+      XCTAssertTrue(interaction.cells.allSatisfy(simulation.level.isInside))
+      XCTAssertTrue(
+        chest.definition.spawnExclusionRegion.cells.allSatisfy(simulation.level.isInside))
+      XCTAssertFalse(flyingRegion.intersects(interaction), "enemy-chest collision")
+      XCTAssertFalse(flyingRegion.intersects(chest.definition.spawnExclusionRegion))
+    }
+  }
+
+  func testUnsupportedEntriesRemainInvalid() {
+    for entry in [LevelEntryPosition.left, .right] {
+      XCTAssertThrowsError(try LevelSevenSimulation(seed: 1, entryPosition: entry)) { error in
+        XCTAssertEqual(error as? GameLoadingError, .invalidInitialState(.levelSeven))
+      }
+    }
+  }
+
   func testBothEntriesConstructSafelyThroughRealRuntimeFactoryForFixedSeeds() throws {
     let seeds: [UInt64] = [1, 7, 42, 496_913]
     let entries: [(LevelEntryPosition, GridPosition)] = [
@@ -141,9 +226,17 @@ import XCTest
     _ simulation: LevelSevenSimulation, file: StaticString = #filePath, line: UInt = #line
   ) {
     let playerRegion = CollisionProfile.player.region(at: simulation.player.position)
-    XCTAssertTrue(playerRegion.cells.allSatisfy(simulation.level.isInside), file: file, line: line)
-    XCTAssertFalse(simulation.level.isBlocked(playerRegion), file: file, line: line)
-    XCTAssertFalse(simulation.level.overlapsLava(playerRegion), file: file, line: line)
+    XCTAssertTrue(
+      playerRegion.cells.allSatisfy(simulation.level.isInside),
+      "player start invalid: out of bounds",
+      file: file, line: line)
+    XCTAssertFalse(
+      simulation.level.isBlocked(playerRegion), "player start invalid: wall collision", file: file,
+      line: line)
+    XCTAssertFalse(
+      simulation.level.overlapsLava(playerRegion), "player start invalid: lava collision",
+      file: file,
+      line: line)
 
     let enemyRegions = simulation.enemies.map {
       $0.archetype.footprint.region(at: $0.position)
@@ -153,22 +246,32 @@ import XCTest
     for (enemy, region) in zip(simulation.enemies, enemyRegions) {
       XCTAssertTrue(region.cells.allSatisfy(simulation.level.isInside), file: file, line: line)
       if enemy.archetype == .skeleton {
-        XCTAssertFalse(simulation.level.isBlocked(region), file: file, line: line)
-        XCTAssertFalse(simulation.level.overlapsLava(region), file: file, line: line)
+        XCTAssertFalse(
+          simulation.level.isBlocked(region), "Skeleton wall collision", file: file, line: line)
       }
-      XCTAssertFalse(region.intersects(simulation.level.entryRegion), file: file, line: line)
-      XCTAssertFalse(region.intersects(simulation.level.exitRegion), file: file, line: line)
+      XCTAssertFalse(
+        region.intersects(simulation.level.entryRegion), "enemy-door collision", file: file,
+        line: line)
+      XCTAssertFalse(
+        region.intersects(simulation.level.exitRegion), "enemy-door collision", file: file,
+        line: line)
       for start in [LevelSevenDefinition.bottomStart, LevelSevenDefinition.topStart] {
         XCTAssertFalse(
-          region.intersects(CollisionProfile.player.region(at: start)), file: file, line: line)
+          region.intersects(CollisionProfile.player.region(at: start)), "enemy-entry collision",
+          file: file, line: line)
       }
       for chest in simulation.chestStates {
         XCTAssertFalse(
           region.intersects(CollisionProfile.chest.region(at: chest.definition.interactionAnchor)),
+          "enemy-chest collision", file: file, line: line)
+        XCTAssertFalse(
+          region.intersects(chest.definition.spawnExclusionRegion), "enemy-chest collision",
           file: file, line: line)
       }
     }
-    XCTAssertFalse(enemyRegions[0].intersects(enemyRegions[1]), file: file, line: line)
+    XCTAssertFalse(
+      enemyRegions[0].intersects(enemyRegions[1]), "enemy-enemy collision", file: file,
+      line: line)
 
     XCTAssertEqual(simulation.entities.filter { $0.kind == .mine }.count, 3, file: file, line: line)
     XCTAssertEqual(
@@ -176,14 +279,21 @@ import XCTest
     XCTAssertEqual(
       simulation.entities.filter { $0.kind == .coin }.count, 10, file: file, line: line)
     let protected =
-      enemyRegions + [simulation.level.entryRegion, simulation.level.exitRegion]
+      enemyRegions + [
+        CollisionProfile.player.region(at: LevelSevenDefinition.bottomStart),
+        CollisionProfile.player.region(at: LevelSevenDefinition.topStart),
+        simulation.level.entryRegion,
+        simulation.level.exitRegion,
+      ]
       + simulation.chestStates.map(\.definition.spawnExclusionRegion)
     for entity in simulation.entities {
       let region = CollisionProfile.footprint(for: entity.kind).region(at: entity.position)
       XCTAssertTrue(region.cells.allSatisfy(simulation.level.isInside), file: file, line: line)
       XCTAssertFalse(simulation.level.isBlocked(region), file: file, line: line)
       XCTAssertFalse(simulation.level.overlapsLava(region), file: file, line: line)
-      XCTAssertFalse(protected.contains(where: region.intersects), file: file, line: line)
+      XCTAssertFalse(
+        protected.contains(where: region.intersects), "SpawnService failure: protected overlap",
+        file: file, line: line)
     }
   }
 
