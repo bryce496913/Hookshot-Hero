@@ -353,6 +353,13 @@ struct RenderLayoutContext {
   }
 }
 
+enum GrappleRenderLayer {
+  // Gameplay effects currently occupy zPosition 9. Keep the grapple above every gameplay node;
+  // SwiftUI owns the HUD and overlays outside this SpriteKit scene.
+  static let chain: CGFloat = 10
+  static let hookHead: CGFloat = chain + 1
+}
+
 @MainActor final class GameScene: SKScene {
   private let session: GameSession
   let runtimeGeneration: Int
@@ -369,6 +376,9 @@ struct RenderLayoutContext {
   private var healthNodes: [EntityID: SKNode] = [:]
   private let chain = SKShapeNode()
   private let hook = SKShapeNode(circleOfRadius: 3)
+  var grappleChainZPosition: CGFloat { chain.zPosition }
+  var grappleHookZPosition: CGFloat { hook.zPosition }
+  var attachedGrappleNodeCount: Int { [chain, hook].count { $0.parent === world } }
   private var observation: AnyCancellable?
   private var layout: RenderLayoutContext
   init(
@@ -433,8 +443,10 @@ struct RenderLayoutContext {
       }
       chain.strokeColor = .white
       chain.lineWidth = 0.35
+      chain.zPosition = GrappleRenderLayer.chain
       hook.fillColor = .systemYellow
       hook.setScale(0.15)
+      hook.zPosition = GrappleRenderLayer.hookHead
       world.addChild(chain)
       world.addChild(hook)
       layoutWorld()

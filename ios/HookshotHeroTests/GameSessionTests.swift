@@ -322,6 +322,91 @@ final class GameSessionTests: XCTestCase {
   }
 }
 
+@MainActor
+final class GameSceneRenderLayerTests: XCTestCase {
+  private let levelIDs: [LevelID] = [
+    .levelOne, .levelTwo, .levelThree, .levelFour, .levelFive, .levelSix, .levelSeven,
+    .levelEight, .levelNine, .levelTen,
+  ]
+
+  func testGrappleChainExceedsEveryGameplayTileAndStaticObjectLayer() throws {
+    for levelID in levelIDs {
+      let runtime = try makeRuntime(levelID)
+      let gameplayZPositions =
+        runtime.presentation.tileLayers.map(\.zPosition)
+        + runtime.presentation.staticObjects.map(\.zPosition)
+
+      XCTAssertTrue(
+        gameplayZPositions.allSatisfy { Double(GrappleRenderLayer.chain) > $0 },
+        "Grapple chain must render above every static gameplay node in \(levelID.rawValue)")
+    }
+  }
+
+  func testGrappleExceedsLavaAndWalls() throws {
+    let presentation = try makeRuntime(.levelOne).presentation
+    let obstructingLayers = presentation.tileLayers.filter {
+      ["lava", "walls"].contains($0.id.rawValue)
+    }
+
+    XCTAssertEqual(Set(obstructingLayers.map(\.id.rawValue)), ["lava", "walls"])
+    XCTAssertTrue(
+      obstructingLayers.allSatisfy { Double(GrappleRenderLayer.chain) > $0.zPosition })
+  }
+
+  func testHookHeadAndChainExceedEnemiesBossAndAllGameplaySprites() throws {
+    var sprites: [RenderEntitySnapshot] = []
+    for levelID in levelIDs {
+      let snapshot = try makeRuntime(levelID).simulation.renderSnapshot
+      sprites += [snapshot.player] + snapshot.entities
+    }
+
+    XCTAssertTrue(sprites.contains { $0.asset == EnemyArchetype.skeleton.asset })
+    XCTAssertTrue(sprites.contains { $0.asset == LevelTenRenderAssets.ghostWizard })
+    let highestSpriteZ = try XCTUnwrap(
+      sprites.map { $0.zPosition + ($0.health == nil ? 0 : 0.5) }.max())
+    XCTAssertGreaterThan(Double(GrappleRenderLayer.chain), highestSpriteZ)
+    XCTAssertGreaterThan(Double(GrappleRenderLayer.hookHead), highestSpriteZ)
+    XCTAssertGreaterThan(GrappleRenderLayer.hookHead, GrappleRenderLayer.chain)
+  }
+
+  func testGrappleExceedsGameplayEffects() {
+    let effects = [
+      RenderEffectDescriptor.mineDestruction(reducedMotion: false),
+      RenderEffectDescriptor.enemyDefeat(reducedMotion: false),
+    ]
+
+    XCTAssertTrue(effects.allSatisfy { Double(GrappleRenderLayer.chain) > $0.zPosition })
+    XCTAssertTrue(effects.allSatisfy { Double(GrappleRenderLayer.hookHead) > $0.zPosition })
+  }
+
+  func testBuildAppliesGrappleLayersWithoutDuplicatingNodesAfterReattachment() throws {
+    let runtime = try makeRuntime(.levelOne)
+    let session = GameSession(runtime: runtime)
+    XCTAssertTrue(session.initializeWorld())
+    XCTAssertTrue(session.start())
+    let scene = GameScene(
+      size: .init(width: 100, height: 100), session: session, runtime: runtime,
+      generation: session.runtimeGeneration)
+    let view = SKView()
+
+    scene.didMove(to: view)
+    XCTAssertEqual(scene.grappleChainZPosition, GrappleRenderLayer.chain)
+    XCTAssertEqual(scene.grappleHookZPosition, GrappleRenderLayer.hookHead)
+    XCTAssertEqual(scene.attachedGrappleNodeCount, 2)
+
+    scene.willMove(from: view)
+    XCTAssertEqual(scene.attachedGrappleNodeCount, 0)
+    scene.didMove(to: view)
+    XCTAssertEqual(scene.attachedGrappleNodeCount, 2)
+  }
+
+  private func makeRuntime(_ levelID: LevelID) throws -> GameLevelRuntime {
+    try DefaultGameLevelRuntimeFactory().makeRuntime(
+      levelID: levelID,
+      configuration: .init(reducedMotion: false, controlHintsEnabled: true), seed: 496_913)
+  }
+}
+
 @MainActor private final class TestGameSimulation: GameSimulation {
   let levelID = LevelID(rawValue: "test")
   let levelName = "Test"
