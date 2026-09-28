@@ -174,14 +174,17 @@ import XCTest
         (4..<56).lazy.map { GridPosition(row: row, column: $0) }
       }.first { position in
         let footprint = CollisionProfile.player.region(at: position)
-        return !lava.level.isBlocked(footprint) && !lava.level.overlapsLava(footprint)
+        return !lava.level.isBlocked(footprint)
+          && !lava.level.overlapsLava(CollisionProfile.playerLavaContact.region(at: position))
           && directions.contains { direction in
-            lava.level.overlapsLava(CollisionProfile.player.region(at: position.moved(direction)))
+            lava.level.overlapsLava(
+              CollisionProfile.playerLavaContact.region(at: position.moved(direction)))
           }
       })
     let direction = try XCTUnwrap(
       directions.first {
-        lava.level.overlapsLava(CollisionProfile.player.region(at: approach.moved($0)))
+        lava.level.overlapsLava(
+          CollisionProfile.playerLavaContact.region(at: approach.moved($0)))
       })
     lava.player.position = approach
     lava.player.lastSafePosition = approach

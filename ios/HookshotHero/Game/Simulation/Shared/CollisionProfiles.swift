@@ -16,6 +16,9 @@ struct CollisionFootprint: Equatable, Sendable {
 enum CollisionProfile {
   // Deliberately exclude transparent canvas padding while following the centered render anchor.
   static let player = CollisionFootprint(rowOffsets: -1..<2, columnOffsets: -1..<2)
+  /// The player's logical center is the contact point used for walking into lava.
+  /// Wall, boundary, spawn, and protected-region checks continue to use `player`.
+  static let playerLavaContact = CollisionFootprint(rowOffsets: 0..<1, columnOffsets: 0..<1)
   static let coin = CollisionFootprint(rowOffsets: 0..<1, columnOffsets: 0..<1)
   static let cabbage = CollisionFootprint(rowOffsets: -1..<2, columnOffsets: -1..<2)
   static let mine = CollisionFootprint(rowOffsets: -1..<1, columnOffsets: -1..<1)

@@ -261,7 +261,7 @@ import Foundation
     let next = player.position.moved(d)
     let region = CollisionProfile.player.region(at: next)
     guard !level.isBlocked(region) else { return }
-    if level.overlapsLava(region) {
+    if level.overlapsLava(CollisionProfile.playerLavaContact.region(at: next)) {
       damageFromLava()
       return
     }
@@ -344,7 +344,7 @@ import Foundation
     publishStatusIfChanged()
   }
   private func finishHook() {
-    if !level.overlapsLava(CollisionProfile.player.region(at: player.position)) {
+    if !level.overlapsLava(CollisionProfile.playerLavaContact.region(at: player.position)) {
       player.lastSafePosition = player.position
     }
     player.hookshot = HookshotState()
