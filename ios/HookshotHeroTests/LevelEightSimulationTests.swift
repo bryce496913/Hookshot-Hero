@@ -137,10 +137,14 @@ import XCTest
     ]
     let enemyRegions = first.enemies.map { $0.archetype.footprint.region(at: $0.position) }
     XCTAssertFalse(enemyRegions[0].intersects(enemyRegions[1]))
-    for region in enemyRegions {
+    for (enemy, region) in zip(first.enemies, enemyRegions) {
       XCTAssertTrue(region.cells.allSatisfy(first.level.isInside))
-      XCTAssertFalse(first.level.isBlocked(region))
-      XCTAssertFalse(first.level.overlapsLava(region))
+      if enemy.archetype != .flyingTerror {
+        XCTAssertFalse(first.level.isBlocked(region))
+      }
+      if !enemy.archetype.allowsLavaOverlap {
+        XCTAssertFalse(first.level.overlapsLava(region))
+      }
       XCTAssertFalse((starts + doors).contains(where: region.intersects))
     }
     for entity in first.entities {
@@ -234,11 +238,20 @@ import XCTest
     let left = try factory.makeRuntime(
       levelID: .levelEight, configuration: configuration, seed: 8, entryPosition: .left,
       carryover: nil)
+    let top = try factory.makeRuntime(
+      levelID: .levelEight, configuration: configuration, seed: 8, entryPosition: .top,
+      carryover: nil)
     XCTAssertEqual(
       bottom.simulation.renderSnapshot.player.coordinate,
       LevelEightDefinition.fromLevelSevenStart)
     XCTAssertEqual(
       left.simulation.renderSnapshot.player.coordinate, LevelEightDefinition.fromLevelSixStart)
+    XCTAssertEqual(
+      top.simulation.renderSnapshot.player.coordinate, LevelEightDefinition.topReturnStart)
+    XCTAssertThrowsError(
+      try factory.makeRuntime(
+        levelID: .levelEight, configuration: configuration, seed: 8, entryPosition: .right,
+        carryover: nil))
     let levelNine = try factory.makeRuntime(
       levelID: .levelNine, configuration: configuration, seed: 9, entryPosition: .bottom,
       carryover: nil)

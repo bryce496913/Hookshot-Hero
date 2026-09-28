@@ -32,7 +32,7 @@ import XCTest
     XCTAssertEqual(LevelEightDefinition.leftDoorRegion, .init(rows: 27..<33, columns: 0..<4))
     XCTAssertEqual(level.exitAnchor, .init(row: 0, column: 50))
     XCTAssertEqual(level.entryAnchor, .init(row: 56, column: 27))
-    XCTAssertEqual(LevelEightDefinition.fromLevelSevenStart, .init(row: 50, column: 27))
+    XCTAssertEqual(LevelEightDefinition.fromLevelSevenStart, .init(row: 54, column: 29))
     XCTAssertEqual(LevelEightDefinition.fromLevelSixStart, .init(row: 29, column: 5))
     XCTAssertEqual(LevelEightDefinition.topReturnStart, .init(row: 5, column: 50))
 
@@ -45,6 +45,14 @@ import XCTest
       XCTAssertFalse(level.isBlocked(footprint), "blocked start: \(start)")
       XCTAssertFalse(level.overlapsLava(footprint), "lava start: \(start)")
     }
+
+    let bottomFootprint = CollisionProfile.player.region(
+      at: LevelEightDefinition.fromLevelSevenStart)
+    XCTAssertFalse(bottomFootprint.intersects(LevelEightDefinition.bottomDoorRegion))
+    XCTAssertTrue(
+      reachablePlayerAnchors(in: level, from: LevelEightDefinition.fromLevelSevenStart).contains {
+        $0.row < 48
+      }, "The bottom entry must connect to Level 8's main play area")
   }
 
   func testDoorRenderingMatchesLogicalOpeningsAndEmitters() {
@@ -127,5 +135,25 @@ import XCTest
 
   private func add(_ rows: [Int], _ columns: [Int], to result: inout Set<GridPosition>) {
     for row in rows { for column in columns { result.insert(.init(row: row, column: column)) } }
+  }
+  private func reachablePlayerAnchors(
+    in level: LevelDefinition, from start: GridPosition
+  ) -> Set<GridPosition> {
+    var visited: Set<GridPosition> = [start]
+    var pending = [start]
+    while !pending.isEmpty {
+      let position = pending.removeFirst()
+      for direction in [GridDirection.up, .down, .left, .right] {
+        let candidate = position.moved(direction)
+        let footprint = CollisionProfile.player.region(at: candidate)
+        guard !visited.contains(candidate), footprint.cells.allSatisfy(level.isInside),
+          !level.isBlocked(footprint), !level.overlapsLava(footprint),
+          !footprint.intersects(LevelEightDefinition.bottomDoorRegion)
+        else { continue }
+        visited.insert(candidate)
+        pending.append(candidate)
+      }
+    }
+    return visited
   }
 }

@@ -65,7 +65,9 @@ enum LevelEightDefinition {
   static let leftDoorRegion = GridRegion(rows: 27..<33, columns: 0..<4)
   static let bottomDoorRegion = GridRegion(rows: 56..<60, columns: 27..<33)
 
-  static let fromLevelSevenStart = GridPosition(row: 50, column: 27)
+  // Keep the complete player footprint above the bottom transition while clearing the lava tile
+  // at (48, 24). This remains centered in the doorway and can move upward into the level.
+  static let fromLevelSevenStart = GridPosition(row: 54, column: 29)
   // Java's (27, 5) intersects the wall tile at (24, 4) under the native 3x3 player
   // footprint. (29, 5) is the nearest doorway-aligned position with a complete safe footprint.
   static let fromLevelSixStart = GridPosition(row: 29, column: 5)
