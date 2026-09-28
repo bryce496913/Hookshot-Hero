@@ -100,10 +100,6 @@ final class LevelOneAnimationCatalog: AnimationCatalogProviding {
       let direction = String(animationID.rawValue.split(separator: ".").last ?? "right")
       let row = ["up": 0, "left": 1, "down": 2, "right": 3][direction] ?? 3
       assets = (0..<9).map { RenderAssetID(rawValue: "character.lidia.\(row)-\($0)") }
-    } else if animationID.rawValue == "level-three.smoke.loop" {
-      assets = (1...3).map { RenderAssetID(rawValue: "level-three.smoke.\($0)") }
-    } else if animationID.rawValue == "level-two.smoke.loop" {
-      assets = (1...3).map { RenderAssetID(rawValue: "level-two.smoke.\($0)") }
     } else if animationID.rawValue.hasPrefix("enemy.skeleton.walk.") {
       let direction = String(animationID.rawValue.split(separator: ".").last ?? "right")
       let row = ["up": 8, "left": 9, "down": 10, "right": 11][direction] ?? 11
@@ -230,10 +226,6 @@ enum LevelOneTextureCatalog {
     add(.init(rawValue: "level-two.wall.right"), "wallGreyRightSide.png")
     add(.init(rawValue: "level-two.door.open"), "DoorGreyOpen.png")
     add(.init(rawValue: "level-two.door.closed"), "DoorGreyClosed.png")
-    add(.init(rawValue: "level-two.smoke"), "smoke1.png")
-    add(.init(rawValue: "level-two.smoke.1"), "smoke1.png")
-    add(.init(rawValue: "level-two.smoke.2"), "smoke2.png")
-    add(.init(rawValue: "level-two.smoke.3"), "smoke3.png")
     add(.init(rawValue: "level-three.floor"), "floor.png")
     add(.init(rawValue: "level-three.lava"), "lava.png")
     add(.init(rawValue: "level-three.wall.front"), "wallGreyFront.png")
@@ -241,10 +233,6 @@ enum LevelOneTextureCatalog {
     add(.init(rawValue: "level-three.wall.right"), "wallGreyRightSide.png")
     add(.init(rawValue: "level-three.door.open"), "DoorGreyOpen.png")
     add(.init(rawValue: "level-three.door.closed"), "DoorGreyClosed.png")
-    add(.init(rawValue: "level-three.smoke"), "smoke1.png")
-    add(.init(rawValue: "level-three.smoke.1"), "smoke1.png")
-    add(.init(rawValue: "level-three.smoke.2"), "smoke2.png")
-    add(.init(rawValue: "level-three.smoke.3"), "smoke3.png")
 
     add(.init(rawValue: "level-four.floor"), "floor.png")
     add(.init(rawValue: "level-four.wall.front"), "wallGreyFront.png")
@@ -262,7 +250,6 @@ enum LevelOneTextureCatalog {
     add(.init(rawValue: "level-five.door.open"), "DoorGreyOpen.png")
     add(.init(rawValue: "level-five.door.closed.left"), "DoorGreyClosedLeftSide.png")
     add(.init(rawValue: "level-five.chest.side"), "ChestSide.png")
-    add(.init(rawValue: "level-five.smoke"), "smoke1.png")
     add(.init(rawValue: "level-six.floor"), "floor.png")
     add(.init(rawValue: "level-six.lava"), "lava.png")
     add(.init(rawValue: "level-six.wall.front"), "wallGreyFront.png")
@@ -272,7 +259,6 @@ enum LevelOneTextureCatalog {
     add(.init(rawValue: "level-six.door.closed"), "DoorGreyClosed.png")
     add(.init(rawValue: "level-six.chest.side"), "ChestSide.png")
     add(.init(rawValue: "level-six.chest.front"), "ChestFront.png")
-    add(.init(rawValue: "level-six.smoke"), "smoke1.png")
     add(.init(rawValue: "level-seven.floor"), "floor.png")
     add(.init(rawValue: "level-seven.lava"), "lava.png")
     add(.init(rawValue: "level-seven.wall.front"), "wallGreyFront.png")
@@ -282,7 +268,6 @@ enum LevelOneTextureCatalog {
     add(.init(rawValue: "level-seven.door.closed"), "DoorGreyClosed.png")
     add(.init(rawValue: "level-seven.chest.side"), "ChestSide.png")
     add(.init(rawValue: "level-seven.chest.back"), "ChestBack.png")
-    add(.init(rawValue: "level-seven.smoke"), "smoke1.png")
     add(
       .init(rawValue: "enemy.ghost-wizard.projectile"), "bomb.png",
       .init(x: 0, y: 0, width: 20, height: 20, sheetWidth: 120, sheetHeight: 26))

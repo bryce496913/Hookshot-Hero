@@ -10,7 +10,6 @@ enum LevelSixRenderAssets {
   static let entryDoor = RenderAssetID(rawValue: "level-six.door.closed")
   static let chestSide = RenderAssetID(rawValue: "level-six.chest.side")
   static let chestFront = RenderAssetID(rawValue: "level-six.chest.front")
-  static let smoke = RenderAssetID(rawValue: "level-six.smoke")
 }
 
 extension LevelAssetManifest {
@@ -19,7 +18,7 @@ extension LevelAssetManifest {
       LevelSixRenderAssets.floor, LevelSixRenderAssets.lava, LevelSixRenderAssets.wallFront,
       LevelSixRenderAssets.wallLeft, LevelSixRenderAssets.wallRight, LevelSixRenderAssets.exitDoor,
       LevelSixRenderAssets.entryDoor, LevelSixRenderAssets.chestSide,
-      LevelSixRenderAssets.chestFront, LevelSixRenderAssets.smoke, LevelOneRenderAssets.mine,
+      LevelSixRenderAssets.chestFront, LevelOneRenderAssets.mine,
       LevelOneRenderAssets.cabbage,
     ]).union(sharedPlayerTextureAssetIDs).union(sharedCoinTextureAssetIDs).union(
       sharedEnemyTextureAssetIDs),
@@ -51,8 +50,6 @@ enum LevelSixPresentationDefinition {
       ], staticObjects: [
         .init(id: EntityID(), asset: LevelSixRenderAssets.exitDoor, coordinate: .init(row: 0, column: 52), renderSize: .init(width: 4, height: 4), anchor: .bottomLeft, zPosition: 3),
         .init(id: EntityID(), asset: LevelSixRenderAssets.entryDoor, coordinate: .init(row: 56, column: 28), renderSize: .init(width: 4, height: 4), anchor: .bottomLeft, zPosition: 3),
-        .init(id: EntityID(), asset: LevelSixRenderAssets.smoke, coordinate: .init(row: 13, column: 21), renderSize: .init(width: 4, height: 4), anchor: .bottomLeft, zPosition: 4),
-        .init(id: EntityID(), asset: LevelSixRenderAssets.smoke, coordinate: .init(row: 39, column: 53), renderSize: .init(width: 4, height: 4), anchor: .bottomLeft, zPosition: 4),
       ])
   }
 }

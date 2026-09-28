@@ -10,7 +10,6 @@ enum LevelSevenRenderAssets {
   static let entryDoor = RenderAssetID(rawValue: "level-seven.door.closed")
   static let chestSide = RenderAssetID(rawValue: "level-seven.chest.side")
   static let chestBack = RenderAssetID(rawValue: "level-seven.chest.back")
-  static let smoke = RenderAssetID(rawValue: "level-seven.smoke")
 }
 
 extension LevelAssetManifest {
@@ -20,7 +19,7 @@ extension LevelAssetManifest {
       LevelSevenRenderAssets.wallLeft, LevelSevenRenderAssets.wallRight,
       LevelSevenRenderAssets.exitDoor, LevelSevenRenderAssets.entryDoor,
       LevelSevenRenderAssets.chestSide, LevelSevenRenderAssets.chestBack,
-      LevelSevenRenderAssets.smoke, LevelOneRenderAssets.mine, LevelOneRenderAssets.cabbage,
+      LevelOneRenderAssets.mine, LevelOneRenderAssets.cabbage,
     ]).union(sharedPlayerTextureAssetIDs).union(sharedCoinTextureAssetIDs).union(
       sharedEnemyTextureAssetIDs),
     animationIDs: LevelAssetManifest.levelFive.animationIDs)
@@ -67,18 +66,6 @@ enum LevelSevenPresentationDefinition {
           id: EntityID(), asset: LevelSevenRenderAssets.entryDoor,
           coordinate: .init(row: 56, column: 28), renderSize: .init(width: 4, height: 4),
           anchor: .bottomLeft, zPosition: 3),
-        .init(
-          id: EntityID(), asset: LevelSevenRenderAssets.smoke,
-          coordinate: .init(row: 19, column: 55), renderSize: .init(width: 4, height: 4),
-          anchor: .bottomLeft, zPosition: 4),
-        .init(
-          id: EntityID(), asset: LevelSevenRenderAssets.smoke,
-          coordinate: .init(row: 20, column: 5), renderSize: .init(width: 4, height: 4),
-          anchor: .bottomLeft, zPosition: 4),
-        .init(
-          id: EntityID(), asset: LevelSevenRenderAssets.smoke,
-          coordinate: .init(row: 43, column: 45), renderSize: .init(width: 4, height: 4),
-          anchor: .bottomLeft, zPosition: 4),
       ])
   }
 }

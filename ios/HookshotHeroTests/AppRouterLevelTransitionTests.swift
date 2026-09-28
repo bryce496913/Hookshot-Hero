@@ -224,7 +224,7 @@ import XCTest
       LevelSixRenderAssets.floor, LevelSixRenderAssets.lava, LevelSixRenderAssets.wallFront,
       LevelSixRenderAssets.wallLeft, LevelSixRenderAssets.wallRight, LevelSixRenderAssets.exitDoor,
       LevelSixRenderAssets.entryDoor, LevelSixRenderAssets.chestSide,
-      LevelSixRenderAssets.chestFront, LevelSixRenderAssets.smoke, LevelOneRenderAssets.lidia,
+      LevelSixRenderAssets.chestFront, LevelOneRenderAssets.lidia,
       LevelOneRenderAssets.mine, LevelOneRenderAssets.cabbage, EnemyArchetype.skeleton.asset,
       EnemyArchetype.flyingTerror.asset,
     ]
