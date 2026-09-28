@@ -16,6 +16,7 @@ enum LevelFourDefinition {
       grid: .init(rows: 60, columns: 60), start: .init(row: 50, column: 27),
       exitAnchor: .init(row: 0, column: 27), entryAnchor: .init(row: 56, column: 27),
       chestAnchor: .init(row: -100, column: -100), boundary: boundary, walls: boundary.wallRegions,
-      lava: [], internalWallAnchors: [], displayName: "Level 4")
+      lava: [], grappleLatchRegions: [boundary.topExitRegion, rightExitRegion],
+      internalWallAnchors: [], displayName: "Level 4")
   }
 }

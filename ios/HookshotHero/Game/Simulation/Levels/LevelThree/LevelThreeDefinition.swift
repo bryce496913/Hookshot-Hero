@@ -50,6 +50,7 @@ enum LevelThreeDefinition {
         },
       lava: lavaAnchors.map {
         .init(rows: $0.row..<$0.row + 4, columns: $0.column..<$0.column + 4)
-      }, internalWallAnchors: internalWallAnchors, displayName: "Level 3")
+      }, grappleLatchRegions: [boundary.topExitRegion, boundary.bottomDoorRegion],
+      internalWallAnchors: internalWallAnchors, displayName: "Level 3")
   }
 }

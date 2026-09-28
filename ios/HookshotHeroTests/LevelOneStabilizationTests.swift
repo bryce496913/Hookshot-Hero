@@ -658,6 +658,145 @@ final class LevelOneStabilizationTests: XCTestCase {
         "Mine destroyed. Plus 10 score.",
       ])
   }
+
+  func testEveryVisibleDoorIsRegisteredAsAGrappleLatchSurface() throws {
+    struct DoorCase {
+      let source: String
+      let level: LevelDefinition
+      let region: GridRegion
+      let direction: GridDirection
+    }
+    let cases = [
+      DoorCase(
+        source: "Level 1 top", level: LevelOneDefinition.make(),
+        region: LevelOneDefinition.make().exitRegion, direction: .up),
+      DoorCase(
+        source: "Level 1 bottom", level: LevelOneDefinition.make(),
+        region: LevelOneDefinition.make().entryRegion, direction: .down),
+      DoorCase(
+        source: "Level 2 top", level: LevelTwoDefinition.make(),
+        region: LevelTwoDefinition.make().exitRegion, direction: .up),
+      DoorCase(
+        source: "Level 2 bottom", level: LevelTwoDefinition.make(),
+        region: LevelTwoDefinition.make().entryRegion, direction: .down),
+      DoorCase(
+        source: "Level 3 top", level: LevelThreeDefinition.make(),
+        region: LevelThreeDefinition.make().exitRegion, direction: .up),
+      DoorCase(
+        source: "Level 3 bottom", level: LevelThreeDefinition.make(),
+        region: LevelThreeDefinition.make().entryRegion, direction: .down),
+      DoorCase(
+        source: "Level 4 closed top", level: LevelFourDefinition.make(),
+        region: LevelFourDefinition.make().exitRegion, direction: .up),
+      DoorCase(
+        source: "Level 4 open top", level: LevelFourDefinition.make(),
+        region: LevelFourDefinition.make().exitRegion, direction: .up),
+      DoorCase(
+        source: "Level 4 closed right", level: LevelFourDefinition.make(),
+        region: LevelFourDefinition.rightExitRegion, direction: .right),
+      DoorCase(
+        source: "Level 4 open right", level: LevelFourDefinition.make(),
+        region: LevelFourDefinition.rightExitRegion, direction: .right),
+      DoorCase(
+        source: "Level 5 top", level: LevelFiveDefinition.make(),
+        region: LevelFiveDefinition.make().exitRegion, direction: .up),
+      DoorCase(
+        source: "Level 5 left", level: LevelFiveDefinition.make(),
+        region: LevelFiveDefinition.make().entryRegion, direction: .left),
+      DoorCase(
+        source: "Level 6 top", level: LevelSixDefinition.make(),
+        region: LevelSixDefinition.make().exitRegion, direction: .up),
+      DoorCase(
+        source: "Level 6 bottom", level: LevelSixDefinition.make(),
+        region: LevelSixDefinition.make().entryRegion, direction: .down),
+      DoorCase(
+        source: "Level 7 top", level: LevelSevenDefinition.make(),
+        region: LevelSevenDefinition.make().exitRegion, direction: .up),
+      DoorCase(
+        source: "Level 7 bottom", level: LevelSevenDefinition.make(),
+        region: LevelSevenDefinition.make().entryRegion, direction: .down),
+      DoorCase(
+        source: "Level 8 top", level: LevelEightDefinition.make(),
+        region: LevelEightDefinition.topDoorRegion, direction: .up),
+      DoorCase(
+        source: "Level 8 left", level: LevelEightDefinition.make(),
+        region: LevelEightDefinition.leftDoorRegion, direction: .left),
+      DoorCase(
+        source: "Level 8 bottom", level: LevelEightDefinition.make(),
+        region: LevelEightDefinition.bottomDoorRegion, direction: .down),
+      DoorCase(
+        source: "Level 9 left/forward", level: LevelNineDefinition.make(),
+        region: LevelNineDefinition.forwardDoorRegion, direction: .left),
+      DoorCase(
+        source: "Level 9 bottom", level: LevelNineDefinition.make(),
+        region: LevelNineDefinition.bottomDoorRegion, direction: .down),
+      DoorCase(
+        source: "Level 10 right", level: LevelTenDefinition.make(),
+        region: LevelTenDefinition.rightDoorRegion, direction: .right),
+      DoorCase(
+        source: "Country Road castle", level: CountryRoadDefinition.make(),
+        region: CountryRoadDefinition.doorwayRegion, direction: .down),
+      DoorCase(
+        source: "Hero's Welcome castle", level: HeroWelcomeDefinition.make(),
+        region: HeroWelcomeDefinition.doorwayRegion, direction: .down),
+    ]
+
+    for fixture in cases {
+      let target: GridPosition
+      let start: GridPosition
+      switch fixture.direction {
+      case .up:
+        target = .init(
+          row: fixture.region.rows.upperBound - 1,
+          column: fixture.region.columns.lowerBound + fixture.region.columns.count / 2)
+        start = .init(row: target.row + 5, column: target.column)
+      case .down:
+        target = .init(
+          row: fixture.region.rows.lowerBound,
+          column: fixture.region.columns.lowerBound + fixture.region.columns.count / 2)
+        start = .init(row: target.row - 5, column: target.column)
+      case .left:
+        target = .init(
+          row: fixture.region.rows.lowerBound + fixture.region.rows.count / 2,
+          column: fixture.region.columns.upperBound - 1)
+        start = .init(row: target.row, column: target.column + 5)
+      case .right:
+        target = .init(
+          row: fixture.region.rows.lowerBound + fixture.region.rows.count / 2,
+          column: fixture.region.columns.lowerBound)
+        start = .init(row: target.row, column: target.column - 5)
+      }
+      XCTAssertTrue(fixture.level.grappleLatchRegions.contains(fixture.region), fixture.source)
+      let simulation = try LevelOneSimulation(
+        configuration: .init(reducedMotion: false, controlHintsEnabled: true), seed: 1,
+        entryPosition: .bottom, carryover: nil, levelDefinition: fixture.level,
+        presentationDefinition: LevelOnePresentationDefinition.make(from: fixture.level),
+        initialPlayerPosition: start, entities: [])
+      simulation.player.facing = fixture.direction
+      simulation.fireHook()
+      simulation.update(deltaTime: 5 / LevelOneSimulation.grappleExtensionCellsPerSecond)
+      XCTAssertEqual(simulation.player.hookshot.phase, .latched, fixture.source)
+      XCTAssertEqual(simulation.player.hookshot.head, target, fixture.source)
+    }
+  }
+
+  func testDoorHookContactDoesNotTransitionUntilPlayerFootprintArrives() throws {
+    let level = LevelOneDefinition.make()
+    let simulation = try LevelOneSimulation(
+      seed: 1, startOverride: .init(row: 8, column: 30), entities: [])
+    var transitions: [LevelTransitionRequest] = []
+    simulation.onLevelTransition = { transitions.append($0) }
+    simulation.player.facing = .up
+    simulation.fireHook()
+    simulation.update(deltaTime: 5 / LevelOneSimulation.grappleExtensionCellsPerSecond)
+
+    XCTAssertEqual(simulation.player.hookshot.phase, .latched)
+    XCTAssertTrue(level.exitRegion.contains(try XCTUnwrap(simulation.player.hookshot.head)))
+    XCTAssertTrue(transitions.isEmpty, "A hook head alone must never activate a doorway")
+
+    for _ in 0..<10 where transitions.isEmpty { simulation.update(deltaTime: 0.1) }
+    XCTAssertFalse(transitions.isEmpty, "Normal routing begins once the player's footprint arrives")
+  }
 }
 
 @MainActor private final class RecordingAccessibilityAnnouncer: AccessibilityAnnouncing {

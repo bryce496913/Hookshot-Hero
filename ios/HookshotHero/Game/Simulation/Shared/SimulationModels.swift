@@ -123,8 +123,31 @@ struct LevelDefinition: Sendable {
   let start, exitAnchor, entryAnchor, chestAnchor: GridPosition
   let boundary: LevelBoundaryGeometry
   let walls, lava: [GridRegion]
+  /// Simulation-owned geometry that the hook can latch onto without treating the object as a wall.
+  /// Door rendering is deliberately not consulted by the simulation.
+  let grappleLatchRegions: [GridRegion]
   let internalWallAnchors: [GridPosition]
   let displayName: String
+
+  init(
+    grid: GridSize, start: GridPosition, exitAnchor: GridPosition, entryAnchor: GridPosition,
+    chestAnchor: GridPosition, boundary: LevelBoundaryGeometry, walls: [GridRegion],
+    lava: [GridRegion], grappleLatchRegions: [GridRegion] = [],
+    internalWallAnchors: [GridPosition], displayName: String
+  ) {
+    self.grid = grid
+    self.start = start
+    self.exitAnchor = exitAnchor
+    self.entryAnchor = entryAnchor
+    self.chestAnchor = chestAnchor
+    self.boundary = boundary
+    self.walls = walls
+    self.lava = lava
+    self.grappleLatchRegions = grappleLatchRegions
+    self.internalWallAnchors = internalWallAnchors
+    self.displayName = displayName
+  }
+
   var exitRegion: GridRegion { boundary.topExitRegion }
   var entryRegion: GridRegion { boundary.bottomDoorRegion }
   func isInside(_ p: GridPosition) -> Bool {
@@ -132,6 +155,9 @@ struct LevelDefinition: Sendable {
   }
   func isWall(_ p: GridPosition) -> Bool { walls.contains { $0.contains(p) } }
   func isLava(_ p: GridPosition) -> Bool { lava.contains { $0.contains(p) } }
+  func isGrappleLatchSurface(_ p: GridPosition) -> Bool {
+    grappleLatchRegions.contains { $0.contains(p) }
+  }
   func isBlocked(_ region: GridRegion) -> Bool {
     !region.cells.allSatisfy(isInside) || walls.contains { $0.intersects(region) }
   }

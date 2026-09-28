@@ -61,6 +61,7 @@ enum LevelFiveDefinition {
       lava: lavaAnchors.map {
         .init(rows: $0.row..<($0.row + 4), columns: $0.column..<($0.column + 4))
       },
+      grappleLatchRegions: [boundary.topExitRegion, boundary.bottomDoorRegion],
       internalWallAnchors: wallAnchors, displayName: "Level 5")
   }
 

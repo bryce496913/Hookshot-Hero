@@ -30,7 +30,8 @@ enum HeroWelcomeDefinition {
     return .init(
       grid: grid, start: start, exitAnchor: .init(row: 0, column: 27),
       entryAnchor: .init(row: 56, column: 27), chestAnchor: chestAnchors[0], boundary: boundary,
-      walls: boundary.wallRegions + columnRegions, lava: [], internalWallAnchors: [],
+      walls: boundary.wallRegions + columnRegions, lava: [], grappleLatchRegions: [doorwayRegion],
+      internalWallAnchors: [],
       displayName: "Hero's Welcome")
   }
 }

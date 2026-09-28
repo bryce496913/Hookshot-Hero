@@ -40,7 +40,8 @@ enum CountryRoadDefinition {
       grid: grid, start: start, exitAnchor: .init(row: 0, column: 27),
       entryAnchor: .init(row: 56, column: 27), chestAnchor: .init(row: 52, column: 52),
       boundary: boundary,
-      walls: boundary.wallRegions + sceneryWalls, lava: [], internalWallAnchors: [],
+      walls: boundary.wallRegions + sceneryWalls, lava: [], grappleLatchRegions: [doorwayRegion],
+      internalWallAnchors: [],
       displayName: "Country Road")
   }
 }

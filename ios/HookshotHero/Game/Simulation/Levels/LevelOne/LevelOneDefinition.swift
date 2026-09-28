@@ -25,6 +25,7 @@ enum LevelOneDefinition {
       grid: levelOneGrid, start: .init(row: 50, column: 27), exitAnchor: .init(row: 0, column: 27),
       entryAnchor: .init(row: 56, column: 27), chestAnchor: .init(row: 44, column: 29),
       boundary: boundary, walls: boundary.wallRegions + internalWalls, lava: lava,
+      grappleLatchRegions: [boundary.topExitRegion, boundary.bottomDoorRegion],
       internalWallAnchors: anchors, displayName: "Level 1")
   }
 }
