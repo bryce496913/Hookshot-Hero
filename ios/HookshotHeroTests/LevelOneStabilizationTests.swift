@@ -86,6 +86,54 @@ final class LevelOneStabilizationTests: XCTestCase {
     XCTAssertEqual(wallSimulation.player.position, .init(row: 54, column: 27))
   }
 
+  func testMineContactImmediatelyRetractsAndStopsTheOutwardStep() throws {
+    for mineColumn in [28, 32] {
+      let mine = WorldEntity(
+        id: EntityID(), kind: .mine, position: .init(row: 50, column: mineColumn))
+      let coinBeyondMine = WorldEntity(
+        id: EntityID(), kind: .coin, position: .init(row: 50, column: mineColumn + 1))
+      let simulation = try LevelOneSimulation(seed: 1, entities: [mine, coinBeyondMine])
+      let startingPosition = simulation.player.position
+
+      simulation.player.facing = .right
+      simulation.fireHook()
+      simulation.update(deltaTime: 0.1)
+      if mineColumn == 32 {
+        simulation.update(deltaTime: 0.1)
+      }
+
+      XCTAssertEqual(simulation.player.hookshot.phase, .retracting)
+      XCTAssertEqual(
+        simulation.player.hookshot.head,
+        .init(row: mine.position.row, column: mineColumn == 28 ? 28 : mineColumn - 1))
+      XCTAssertEqual(simulation.player.position, startingPosition)
+      XCTAssertFalse(simulation.entities.contains { $0.id == mine.id })
+      XCTAssertTrue(simulation.entities.contains { $0.id == coinBeyondMine.id })
+      XCTAssertEqual(simulation.player.score, 10)
+      XCTAssertEqual(
+        simulation.feedbackEvents.filter {
+          if case .mineDestroyed(points: 10) = $0.kind { true } else { false }
+        }.count, 1)
+      XCTAssertEqual(simulation.effectEvents.count, 1)
+
+      simulation.update(deltaTime: 0.1)
+      XCTAssertEqual(simulation.player.hookshot.phase, .idle)
+      XCTAssertEqual(simulation.player.score, 10)
+      XCTAssertEqual(simulation.effectEvents.count, 1)
+
+      let secondShotCoin = WorldEntity(
+        id: EntityID(), kind: .coin, position: .init(row: 50, column: 26))
+      simulation.entities.append(secondShotCoin)
+      simulation.player.facing = .left
+      simulation.fireHook()
+      XCTAssertEqual(simulation.player.hookshot.phase, .extending)
+      simulation.update(deltaTime: 0.05)
+      XCTAssertFalse(simulation.entities.contains { $0.id == secondShotCoin.id })
+      XCTAssertEqual(simulation.player.score, 20)
+      XCTAssertEqual(simulation.player.hookshot.phase, .extending)
+    }
+  }
+
   func testReducedMotionDoesNotChangeFasterGrappleTiming() throws {
     let standard = try LevelOneSimulation(seed: 1, entities: [])
     let reduced = try LevelOneSimulation(
