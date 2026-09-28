@@ -35,7 +35,9 @@ enum LevelSixDefinition {
   static func make() -> LevelDefinition {
     let boundary = LevelBoundaryGeometry(
       topWallRegions: [.init(rows: 0..<4, columns: 0..<51), .init(rows: 0..<4, columns: 57..<60)],
-      bottomWallRegions: [.init(rows: 56..<60, columns: 0..<27), .init(rows: 56..<60, columns: 33..<60)],
+      bottomWallRegions: [
+        .init(rows: 56..<60, columns: 0..<27), .init(rows: 56..<60, columns: 33..<60),
+      ],
       leftWallRegions: [.init(rows: 4..<56, columns: 0..<4)],
       rightWallRegions: [.init(rows: 4..<56, columns: 56..<60)],
       topExitRegion: .init(rows: 0..<4, columns: 51..<57),
@@ -44,10 +46,13 @@ enum LevelSixDefinition {
       grid: .init(rows: 60, columns: 60), start: bottomStart,
       exitAnchor: .init(row: 0, column: 51), entryAnchor: .init(row: 56, column: 27),
       chestAnchor: .init(row: 4, column: 24), boundary: boundary,
-      walls: boundary.wallRegions + wallAnchors.map {
+      walls: boundary.wallRegions
+        + wallAnchors.map {
+          .init(rows: $0.row..<$0.row + 4, columns: $0.column..<$0.column + 4)
+        },
+      lava: lavaAnchors.map {
         .init(rows: $0.row..<$0.row + 4, columns: $0.column..<$0.column + 4)
-      }, lava: lavaAnchors.map {
-        .init(rows: $0.row..<$0.row + 4, columns: $0.column..<$0.column + 4)
-      }, internalWallAnchors: wallAnchors, displayName: "Level 6")
+      }, grappleLatchRegions: [boundary.topExitRegion, boundary.bottomDoorRegion],
+      internalWallAnchors: wallAnchors, displayName: "Level 6")
   }
 }

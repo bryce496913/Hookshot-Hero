@@ -60,8 +60,10 @@ import Foundation
     entities fixture: [WorldEntity]? = nil
   ) throws {
     let levelDefinition = LevelOneDefinition.make()
-    let initialPlayerPosition = try startOverride ?? Self.startPosition(
-      for: entryPosition, levelDefinition: levelDefinition)
+    let initialPlayerPosition =
+      try startOverride
+      ?? Self.startPosition(
+        for: entryPosition, levelDefinition: levelDefinition)
     try self.init(
       configuration: configuration, seed: seed, entryPosition: entryPosition, carryover: carryover,
       levelDefinition: levelDefinition,
@@ -323,7 +325,13 @@ import Foundation
       }
       player.hookshot.head = next
       player.hookshot.travelled += 1
+      // Entity contact keeps its established priority over non-wall latch surfaces: mines and
+      // enemies retract immediately, while collectibles are collected before a door is latched.
       if interact(CollisionProfile.hookHead.region(at: next), hooked: true) {
+        return
+      }
+      if level.isGrappleLatchSurface(next) {
+        player.hookshot.phase = .latched
         return
       }
       if player.hookshot.travelled >= HookshotState.maximumRange {
@@ -506,7 +514,8 @@ import Foundation
     let playerRegion = CollisionProfile.player.region(at: player.position)
     if let index = chestStates.firstIndex(where: {
       !$0.isOpened
-        && playerRegion.intersects(CollisionProfile.chest.region(at: $0.definition.interactionAnchor))
+        && playerRegion.intersects(
+          CollisionProfile.chest.region(at: $0.definition.interactionAnchor))
     }) {
       guard outcome == nil else { return }
       chestStates[index].isOpened = true

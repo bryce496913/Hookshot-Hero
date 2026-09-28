@@ -24,6 +24,6 @@ enum LevelTenDefinition {
       grid: .init(rows: 60, columns: 60), start: rightStart,
       exitAnchor: .init(row: 27, column: 27), entryAnchor: .init(row: 27, column: 56),
       chestAnchor: chestAnchor, boundary: boundary, walls: boundary.wallRegions, lava: [],
-      internalWallAnchors: [], displayName: "Level 10")
+      grappleLatchRegions: [rightDoorRegion], internalWallAnchors: [], displayName: "Level 10")
   }
 }

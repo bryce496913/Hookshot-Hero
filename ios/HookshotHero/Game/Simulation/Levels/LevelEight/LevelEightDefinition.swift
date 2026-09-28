@@ -97,6 +97,7 @@ enum LevelEightDefinition {
         },
       lava: lavaAnchors.map {
         .init(rows: $0.row..<$0.row + 4, columns: $0.column..<$0.column + 4)
-      }, internalWallAnchors: wallAnchors, displayName: "Level 8")
+      }, grappleLatchRegions: [topDoorRegion, leftDoorRegion, bottomDoorRegion],
+      internalWallAnchors: wallAnchors, displayName: "Level 8")
   }
 }
