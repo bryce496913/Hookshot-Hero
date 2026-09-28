@@ -1,6 +1,9 @@
 import Foundation
 
 @MainActor final class LevelSevenSimulation: LevelOneSimulation {
+  /// Keeps the complete 5 x 5 ground-enemy footprint clear of Level 7 terrain and portals.
+  static let skeletonStart = GridPosition(row: 9, column: 25)
+
   override var levelID: LevelID { .levelSeven }
   override var levelName: String { "Level 7" }
   init(
@@ -40,7 +43,7 @@ import Foundation
     // Java's exit-derived spawns overlap. These deterministic anchors separate both enemies and leave the exit clear.
     enemies = [
       .init(
-        id: EntityID(), archetype: .skeleton, position: .init(row: 10, column: 40), facing: .down,
+        id: EntityID(), archetype: .skeleton, position: Self.skeletonStart, facing: .down,
         health: 3, maximumHealth: 3, behaviorState: .patrol, decisionAccumulator: 0,
         animationTime: 0),
       .init(
@@ -51,6 +54,19 @@ import Foundation
     try validateEnemyFootprints(entryPositions: [
       LevelSevenDefinition.bottomStart, LevelSevenDefinition.topStart,
     ])
+    let enemyRegions = enemies.map { $0.archetype.footprint.region(at: $0.position) }
+    let protectedLevelRegions = [
+      level.entryRegion, level.exitRegion,
+      CollisionProfile.chest.region(at: chestStates[0].definition.interactionAnchor),
+      CollisionProfile.chest.region(at: chestStates[1].definition.interactionAnchor),
+    ]
+    guard !enemyRegions[0].intersects(enemyRegions[1]),
+      enemyRegions.allSatisfy({ region in
+        !protectedLevelRegions.contains(where: region.intersects)
+      })
+    else {
+      throw GameLoadingError.invalidInitialState(.levelSeven)
+    }
     var rng = SeededRandomNumberGenerator(seed: seed ^ 0x77)
     let chestRegions = chestStates.flatMap {
       [
