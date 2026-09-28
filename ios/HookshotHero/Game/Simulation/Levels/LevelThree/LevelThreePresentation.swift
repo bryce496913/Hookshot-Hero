@@ -7,13 +7,8 @@ enum LevelThreeRenderAssets {
     wallLeft = RenderAssetID(rawValue: "level-three.wall.left"),
     wallRight = RenderAssetID(rawValue: "level-three.wall.right"),
     exitDoor = RenderAssetID(rawValue: "level-three.door.open"),
-    entryDoor = RenderAssetID(rawValue: "level-three.door.closed"),
-    smoke = RenderAssetID(rawValue: "level-three.smoke")
+    entryDoor = RenderAssetID(rawValue: "level-three.door.closed")
 }
-enum LevelThreeRenderAnimations {
-  static let smokeLoop = RenderAnimationID(rawValue: "level-three.smoke.loop")
-}
-
 enum LevelThreePresentationDefinition {
   static func make(from level: LevelDefinition) -> LevelPresentationDefinition {
     func tile(_ r: GridRegion, _ a: RenderAssetID) -> TileRenderPlacement {
@@ -66,19 +61,6 @@ enum LevelThreePresentationDefinition {
           id: EntityID(), asset: LevelThreeRenderAssets.entryDoor,
           coordinate: .init(row: 56, column: 28), renderSize: .init(width: 4, height: 4),
           anchor: .bottomLeft, zPosition: 3),
-        .init(
-          id: EntityID(), asset: LevelThreeRenderAssets.smoke,
-          coordinate: .init(row: 9, column: 5),
-          renderSize: .init(width: 4, height: 4), anchor: .bottomLeft, zPosition: 4,
-          animationID: LevelThreeRenderAnimations.smokeLoop),
-        .init(
-          id: EntityID(), asset: LevelThreeRenderAssets.smoke,
-          coordinate: .init(row: 56, column: 20), renderSize: .init(width: 4, height: 4),
-          anchor: .bottomLeft, zPosition: 4, animationID: LevelThreeRenderAnimations.smokeLoop),
-        .init(
-          id: EntityID(), asset: LevelThreeRenderAssets.smoke,
-          coordinate: .init(row: 42, column: 49), renderSize: .init(width: 4, height: 4),
-          anchor: .bottomLeft, zPosition: 4, animationID: LevelThreeRenderAnimations.smokeLoop),
       ])
   }
 }

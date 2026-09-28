@@ -333,7 +333,8 @@ final class GameSessionTests: XCTestCase {
     XCTAssertTrue(replacementScene.staticAssetIDs.contains(LevelTwoRenderAssets.lava))
     XCTAssertTrue(replacementScene.staticAssetIDs.contains(LevelTwoRenderAssets.exitDoor))
     XCTAssertTrue(replacementScene.staticAssetIDs.contains(LevelTwoRenderAssets.entryDoor))
-    XCTAssertTrue(replacementScene.staticAssetIDs.contains(LevelTwoRenderAssets.smoke))
+    XCTAssertFalse(
+      replacementScene.staticAssetIDs.contains { $0.rawValue.localizedCaseInsensitiveContains("smoke") })
     XCTAssertFalse(replacementScene.staticAssetIDs.contains(LevelOneRenderAssets.exitDoor))
     XCTAssertTrue(
       session.simulation.renderSnapshot.entities.contains {
@@ -357,8 +358,30 @@ final class GameSessionTests: XCTestCase {
 final class GameSceneRenderLayerTests: XCTestCase {
   private let levelIDs: [LevelID] = [
     .levelOne, .levelTwo, .levelThree, .levelFour, .levelFive, .levelSix, .levelSeven,
-    .levelEight, .levelNine, .levelTen,
+    .levelEight, .levelNine, .levelTen, .countryRoad, .heroWelcome,
   ]
+
+  func testImplementedNativeLevelsDoNotRenderOrPreflightSmoke() throws {
+    for levelID in levelIDs {
+      let runtime = try makeRuntime(levelID)
+
+      XCTAssertFalse(
+        runtime.presentation.staticObjects.contains {
+          $0.asset.rawValue.localizedCaseInsensitiveContains("smoke")
+        },
+        "Static presentation objects must not render smoke in \(levelID.rawValue)")
+      XCTAssertFalse(
+        runtime.assetManifest.textureAssetIDs.contains {
+          $0.rawValue.localizedCaseInsensitiveContains("smoke")
+        },
+        "Texture preflight must not require smoke in \(levelID.rawValue)")
+      XCTAssertFalse(
+        runtime.assetManifest.animationIDs.contains {
+          $0.rawValue.localizedCaseInsensitiveContains("smoke")
+        },
+        "Animation preflight must not require smoke in \(levelID.rawValue)")
+    }
+  }
 
   func testGrappleChainExceedsEveryGameplayTileAndStaticObjectLayer() throws {
     for levelID in levelIDs {
@@ -735,11 +758,7 @@ final class LevelTwoDefinitionTests: XCTestCase {
     XCTAssertEqual(entryDoor.coordinate, GridPosition(row: 56, column: 28))
     XCTAssertEqual(entryDoor.renderSize, LogicalRenderSize(width: 4, height: 4))
 
-    let smokeObjects = presentation.staticObjects.filter { $0.asset == LevelTwoRenderAssets.smoke }
-    XCTAssertEqual(
-      smokeObjects.map(\.coordinate),
-      [GridPosition(row: 39, column: 5), GridPosition(row: 55, column: 50)])
-    XCTAssertTrue(smokeObjects.allSatisfy { $0.anchor == .bottomLeft })
+    XCTAssertEqual(presentation.staticObjects.count, 2)
   }
 
   func testLevelTwoManifestDoesNotPreflightUnrelatedFutureLevelAssets() {

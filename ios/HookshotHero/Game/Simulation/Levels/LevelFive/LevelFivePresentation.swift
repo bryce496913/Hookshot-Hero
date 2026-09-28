@@ -8,15 +8,14 @@ enum LevelFiveRenderAssets {
     wallRight = RenderAssetID(rawValue: "level-five.wall.right"),
     exitDoor = RenderAssetID(rawValue: "level-five.door.open"),
     entryDoor = RenderAssetID(rawValue: "level-five.door.closed.left"),
-    chest = RenderAssetID(rawValue: "level-five.chest.side"),
-    smoke = RenderAssetID(rawValue: "level-five.smoke")
+    chest = RenderAssetID(rawValue: "level-five.chest.side")
 }
 extension LevelAssetManifest {
   static let levelFive = LevelAssetManifest(
     textureAssetIDs: Set([
       LevelFiveRenderAssets.floor, LevelFiveRenderAssets.lava, LevelFiveRenderAssets.wallFront,
       LevelFiveRenderAssets.wallLeft, LevelFiveRenderAssets.wallRight,
-      LevelFiveRenderAssets.exitDoor, LevelFiveRenderAssets.entryDoor, LevelFiveRenderAssets.smoke,
+      LevelFiveRenderAssets.exitDoor, LevelFiveRenderAssets.entryDoor,
       LevelFiveRenderAssets.chest, LevelOneRenderAssets.mine, LevelOneRenderAssets.cabbage,
     ]).union(sharedPlayerTextureAssetIDs).union(sharedCoinTextureAssetIDs).union(
       sharedEnemyTextureAssetIDs),
@@ -76,14 +75,6 @@ enum LevelFivePresentationDefinition {
           id: EntityID(), asset: LevelFiveRenderAssets.entryDoor,
           coordinate: .init(row: 8, column: 0), renderSize: .init(width: 4, height: 4),
           anchor: .bottomLeft, zPosition: 3),
-        .init(
-          id: EntityID(), asset: LevelFiveRenderAssets.smoke,
-          coordinate: .init(row: 55, column: 16), renderSize: .init(width: 4, height: 4),
-          anchor: .bottomLeft, zPosition: 4),
-        .init(
-          id: EntityID(), asset: LevelFiveRenderAssets.smoke,
-          coordinate: .init(row: 26, column: 43), renderSize: .init(width: 4, height: 4),
-          anchor: .bottomLeft, zPosition: 4),
       ])
   }
 }

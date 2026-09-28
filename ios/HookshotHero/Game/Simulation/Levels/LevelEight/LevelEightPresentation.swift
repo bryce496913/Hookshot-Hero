@@ -1,7 +1,7 @@
 import Foundation
 
 enum LevelEightRenderAssets {
-  // Level Eight reuses the already tracked grey-environment and smoke resources.
+  // Level Eight reuses the already tracked grey-environment resources.
   static let floor = LevelSevenRenderAssets.floor
   static let lava = LevelSevenRenderAssets.lava
   static let wallFront = LevelSevenRenderAssets.wallFront
@@ -10,7 +10,6 @@ enum LevelEightRenderAssets {
   static let exitDoor = LevelSevenRenderAssets.exitDoor
   static let bottomDoor = LevelSevenRenderAssets.entryDoor
   static let leftDoor = LevelFiveRenderAssets.entryDoor
-  static let smoke = LevelSevenRenderAssets.smoke
 }
 
 extension LevelAssetManifest {
@@ -19,7 +18,7 @@ extension LevelAssetManifest {
       LevelEightRenderAssets.floor, LevelEightRenderAssets.lava, LevelEightRenderAssets.wallFront,
       LevelEightRenderAssets.wallLeft, LevelEightRenderAssets.wallRight,
       LevelEightRenderAssets.exitDoor, LevelEightRenderAssets.bottomDoor,
-      LevelEightRenderAssets.leftDoor, LevelEightRenderAssets.smoke, LevelOneRenderAssets.mine,
+      LevelEightRenderAssets.leftDoor, LevelOneRenderAssets.mine,
       LevelOneRenderAssets.cabbage,
     ]).union(sharedPlayerTextureAssetIDs).union(sharedCoinTextureAssetIDs).union(
       sharedEnemyTextureAssetIDs),
@@ -73,14 +72,6 @@ enum LevelEightPresentationDefinition {
           id: EntityID(), asset: LevelEightRenderAssets.bottomDoor,
           coordinate: .init(row: 56, column: 28), renderSize: .init(width: 4, height: 4),
           anchor: .bottomLeft, zPosition: 3),
-        .init(
-          id: EntityID(), asset: LevelEightRenderAssets.smoke,
-          coordinate: .init(row: 9, column: 25), renderSize: .init(width: 4, height: 4),
-          anchor: .bottomLeft, zPosition: 4),
-        .init(
-          id: EntityID(), asset: LevelEightRenderAssets.smoke,
-          coordinate: .init(row: 51, column: 50), renderSize: .init(width: 4, height: 4),
-          anchor: .bottomLeft, zPosition: 4),
       ])
   }
 }

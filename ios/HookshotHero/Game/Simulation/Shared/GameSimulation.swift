@@ -192,13 +192,12 @@ extension LevelAssetManifest {
     textureAssetIDs: Set([
       LevelTwoRenderAssets.floor, LevelTwoRenderAssets.lava, LevelTwoRenderAssets.wallFront,
       LevelTwoRenderAssets.wallLeft, LevelTwoRenderAssets.wallRight, LevelTwoRenderAssets.exitDoor,
-      LevelTwoRenderAssets.entryDoor, LevelTwoRenderAssets.smoke, LevelOneRenderAssets.mine,
+      LevelTwoRenderAssets.entryDoor, LevelOneRenderAssets.mine,
       LevelOneRenderAssets.cabbage,
     ])
     .union(sharedPlayerTextureAssetIDs)
     .union(sharedCoinTextureAssetIDs)
-    .union(sharedEnemyTextureAssetIDs)
-    .union((1...3).map { RenderAssetID(rawValue: "level-two.smoke.\($0)") }),
+    .union(sharedEnemyTextureAssetIDs),
     animationIDs: Set([
       LevelOneRenderAnimations.coinSpin, LevelOneRenderAnimations.lidiaWalk(.up),
       LevelOneRenderAnimations.lidiaWalk(.down), LevelOneRenderAnimations.lidiaWalk(.left),
@@ -216,18 +215,17 @@ extension LevelAssetManifest {
       LevelThreeRenderAssets.floor, LevelThreeRenderAssets.lava, LevelThreeRenderAssets.wallFront,
       LevelThreeRenderAssets.wallLeft, LevelThreeRenderAssets.wallRight,
       LevelThreeRenderAssets.exitDoor,
-      LevelThreeRenderAssets.entryDoor, LevelThreeRenderAssets.smoke, LevelOneRenderAssets.mine,
+      LevelThreeRenderAssets.entryDoor, LevelOneRenderAssets.mine,
       LevelOneRenderAssets.cabbage, LevelOneRenderAssets.chestClosed,
       LevelOneRenderAssets.chestOpen,
     ])
     .union(sharedPlayerTextureAssetIDs)
     .union(sharedCoinTextureAssetIDs)
-    .union(sharedEnemyTextureAssetIDs)
-    .union((1...3).map { RenderAssetID(rawValue: "level-three.smoke.\($0)") }),
+    .union(sharedEnemyTextureAssetIDs),
     animationIDs: Set([
       LevelOneRenderAnimations.coinSpin, LevelOneRenderAnimations.lidiaWalk(.up),
       LevelOneRenderAnimations.lidiaWalk(.down), LevelOneRenderAnimations.lidiaWalk(.left),
-      LevelOneRenderAnimations.lidiaWalk(.right), LevelThreeRenderAnimations.smokeLoop,
+      LevelOneRenderAnimations.lidiaWalk(.right),
       LevelTwoRenderAnimations.enemy(.skeleton, .up),
       LevelTwoRenderAnimations.enemy(.skeleton, .down),
       LevelTwoRenderAnimations.enemy(.skeleton, .left),

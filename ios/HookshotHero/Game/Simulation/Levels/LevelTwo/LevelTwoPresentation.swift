@@ -7,8 +7,7 @@ enum LevelTwoRenderAssets {
     wallLeft = RenderAssetID(rawValue: "level-two.wall.left"),
     wallRight = RenderAssetID(rawValue: "level-two.wall.right"),
     exitDoor = RenderAssetID(rawValue: "level-two.door.open"),
-    entryDoor = RenderAssetID(rawValue: "level-two.door.closed"),
-    smoke = RenderAssetID(rawValue: "level-two.smoke")
+    entryDoor = RenderAssetID(rawValue: "level-two.door.closed")
 }
 enum LevelTwoRenderAnimations {
   static func enemy(_ a: EnemyArchetype, _ d: RenderOrientation) -> RenderAnimationID {
@@ -89,14 +88,6 @@ enum LevelTwoPresentationDefinition {
           id: EntityID(), asset: LevelTwoRenderAssets.entryDoor,
           coordinate: .init(row: 56, column: 28), renderSize: .init(width: 4, height: 4),
           anchor: .bottomLeft, zPosition: 3),
-        .init(
-          id: EntityID(), asset: LevelTwoRenderAssets.smoke,
-          coordinate: .init(row: 39, column: 5),
-          renderSize: .init(width: 4, height: 4), anchor: .bottomLeft, zPosition: 4),
-        .init(
-          id: EntityID(), asset: LevelTwoRenderAssets.smoke,
-          coordinate: .init(row: 55, column: 50),
-          renderSize: .init(width: 4, height: 4), anchor: .bottomLeft, zPosition: 4),
       ])
   }
 }
