@@ -4,6 +4,101 @@ import XCTest
 
 @MainActor
 final class LevelOneStabilizationTests: XCTestCase {
+  func testGrappleExtensionIsExactlyTwentyPercentFasterAcrossFrameSequences() throws {
+    let legacyRate = 18.0
+    XCTAssertEqual(LevelOneSimulation.grappleExtensionCellsPerSecond / legacyRate, 1.2)
+    XCTAssertEqual(LevelOneSimulation.grapplePullAndRetractionCellsPerSecond, legacyRate)
+
+    let frameSequences = [
+      Array(repeating: 0.05, count: 10),
+      Array(repeating: 0.1, count: 5),
+      [0.03, 0.07, 0.02, 0.08, 0.1, 0.04, 0.06, 0.1],
+    ]
+    for frames in frameSequences {
+      let simulation = try LevelOneSimulation(seed: 1, entities: [])
+      simulation.player.facing = .right
+      simulation.fireHook()
+      for frame in frames { simulation.update(deltaTime: frame) }
+
+      let elapsed = frames.reduce(0, +)
+      let legacyDistance = Int((elapsed * legacyRate).rounded(.down))
+      let expectedDistance = Int(
+        (elapsed * LevelOneSimulation.grappleExtensionCellsPerSecond).rounded(.down))
+      XCTAssertEqual(simulation.player.hookshot.travelled, expectedDistance)
+      XCTAssertEqual(expectedDistance, 10)
+      XCTAssertEqual(legacyDistance, 9)
+      XCTAssertEqual(
+        simulation.player.hookshot.head,
+        GridPosition(
+          row: simulation.player.position.row, column: simulation.player.position.column + 10)
+      )
+    }
+  }
+
+  func testFasterGrappleRetainsMaximumRangeAndOriginalRetractionTiming() throws {
+    let simulation = try LevelOneSimulation(seed: 1, entities: [])
+    simulation.player.facing = .right
+    simulation.fireHook()
+    for _ in 0..<9 { simulation.update(deltaTime: 0.1) }
+
+    XCTAssertEqual(HookshotState.maximumRange, 19)
+    XCTAssertEqual(simulation.player.hookshot.travelled, 19)
+    XCTAssertEqual(simulation.player.hookshot.phase, .retracting)
+    XCTAssertEqual(simulation.player.hookshot.head, .init(row: 50, column: 46))
+
+    simulation.update(deltaTime: 1 / LevelOneSimulation.grapplePullAndRetractionCellsPerSecond)
+    XCTAssertEqual(simulation.player.hookshot.phase, .idle)
+    XCTAssertEqual(simulation.player.position, .init(row: 50, column: 27))
+  }
+
+  func testFasterGrappleChecksEveryCellForWallsMinesAndEnemies() throws {
+    let mine = WorldEntity(id: EntityID(), kind: .mine, position: .init(row: 50, column: 32))
+    let mineSimulation = try LevelOneSimulation(seed: 1, entities: [mine])
+    mineSimulation.player.facing = .right
+    mineSimulation.fireHook()
+    for _ in 0..<3 { mineSimulation.update(deltaTime: 0.1) }
+    XCTAssertFalse(mineSimulation.entities.contains { $0.id == mine.id })
+    XCTAssertEqual(mineSimulation.player.score, 10)
+
+    let enemySimulation = try LevelTwoSimulation(seed: 1)
+    enemySimulation.entities = []
+    let enemy = EnemyState(
+      id: EntityID(), archetype: .skeleton, position: .init(row: 50, column: 32), facing: .left,
+      health: 1, maximumHealth: 1, behaviorState: .patrol, decisionAccumulator: 0,
+      animationTime: 0)
+    enemySimulation.enemies = [enemy]
+    enemySimulation.player.facing = .right
+    enemySimulation.fireHook()
+    for _ in 0..<2 { enemySimulation.update(deltaTime: 0.1) }
+    XCTAssertTrue(enemySimulation.enemies.isEmpty)
+    XCTAssertEqual(enemySimulation.player.hookshot.phase, .retracting)
+
+    let wallSimulation = try LevelOneSimulation(seed: 1, entities: [])
+    wallSimulation.player.facing = .down
+    wallSimulation.fireHook()
+    for _ in 0..<3 { wallSimulation.update(deltaTime: 0.1) }
+    XCTAssertEqual(wallSimulation.player.hookshot.phase, .latched)
+    XCTAssertEqual(wallSimulation.player.hookshot.head, .init(row: 56, column: 27))
+    for _ in 0..<10 where wallSimulation.player.hookshot.phase != .idle {
+      wallSimulation.update(deltaTime: 0.1)
+    }
+    XCTAssertEqual(wallSimulation.player.hookshot.phase, .idle)
+    XCTAssertEqual(wallSimulation.player.position, .init(row: 54, column: 27))
+  }
+
+  func testReducedMotionDoesNotChangeFasterGrappleTiming() throws {
+    let standard = try LevelOneSimulation(seed: 1, entities: [])
+    let reduced = try LevelOneSimulation(
+      configuration: .init(reducedMotion: true, controlHintsEnabled: true), seed: 1, entities: [])
+    standard.fireHook()
+    reduced.fireHook()
+    for frame in [0.03, 0.07, 0.1, 0.04] {
+      standard.update(deltaTime: frame)
+      reduced.update(deltaTime: frame)
+    }
+    XCTAssertEqual(standard.player.hookshot, reduced.player.hookshot)
+  }
+
   func testEventSpecificFeedbackAnnouncementsAndChestCoalescing() throws {
     let coin = GameplayFeedback(
       id: UUID(), kind: .coinCollected(points: 10), coordinate: nil, createdAt: 0, duration: 2.4)

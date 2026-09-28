@@ -22,6 +22,8 @@ import Foundation
 }
 
 @MainActor class LevelOneSimulation: GameSimulation {
+  static let grappleExtensionCellsPerSecond = 21.6
+  static let grapplePullAndRetractionCellsPerSecond = 18.0
   static let chestMessage =
     "Welcome Heroine!! Tap Grapple to launch in the direction you are facing. Use it to cross lava, attack mines, and collect items. Chests and food barrels can restore health or add score. Beware of bombs."
   var level: LevelDefinition
@@ -285,10 +287,19 @@ import Foundation
   }
   private func updateHook(_ dt: Double) {
     guard outcome == nil, player.hookshot.phase != .idle else { return }
-    player.hookshot.accumulator += dt * 18
-    while player.hookshot.accumulator >= 1, player.hookshot.phase != .idle {
+    var remainingTime = dt
+    while remainingTime > 0, player.hookshot.phase != .idle {
       guard outcome == nil else { return }
-      player.hookshot.accumulator -= 1
+      let rate =
+        player.hookshot.phase == .extending
+        ? Self.grappleExtensionCellsPerSecond : Self.grapplePullAndRetractionCellsPerSecond
+      let timeToNextStep = (1 - player.hookshot.accumulator) / rate
+      guard remainingTime >= timeToNextStep else {
+        player.hookshot.accumulator += remainingTime * rate
+        return
+      }
+      remainingTime -= timeToNextStep
+      player.hookshot.accumulator = 0
       hookStep()
     }
   }
