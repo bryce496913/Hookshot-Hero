@@ -3,9 +3,18 @@ import Foundation
 struct RenderAssetID: Hashable, Codable, Sendable { let rawValue: String }
 struct RenderAnimationID: Hashable, Codable, Sendable { let rawValue: String }
 enum RenderAnimationRegistry {
-  static let assetFrames: [RenderAnimationID: [RenderAssetID]] = [
-    .init(rawValue: "country-road.waterfall"): CountryRoadRenderAssets.waterfallFrames
-  ]
+  static let assetFrames: [RenderAnimationID: [RenderAssetID]] = {
+    var frames: [RenderAnimationID: [RenderAssetID]] = [
+      .init(rawValue: "country-road.waterfall"): CountryRoadRenderAssets.waterfallFrames
+    ]
+    for direction in [
+      RenderOrientation.down, .right, .left, .up,
+    ] {
+      frames[LevelTenRenderAnimations.ghostWizard(direction)] =
+        LevelTenRenderAnimations.frames(direction)
+    }
+    return frames
+  }()
 }
 struct RenderLayerID: Hashable, Codable, Sendable { let rawValue: String }
 struct LogicalRenderSize: Equatable, Sendable {

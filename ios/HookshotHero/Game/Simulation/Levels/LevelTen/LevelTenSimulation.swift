@@ -22,12 +22,13 @@ struct GhostProjectileState: Identifiable, Equatable, Sendable {
     let bossRender = boss.map { boss in
       RenderEntitySnapshot(
         id: boss.id, asset: LevelTenRenderAssets.ghostWizard,
-        coordinate: boss.position, renderSize: .init(width: 3, height: 5.8), anchor: .center,
+        coordinate: boss.position, renderSize: boss.archetype.renderSize, anchor: .center,
         zPosition: 7, orientation: RenderOrientation(rawValue: boss.facing.rawValue) ?? .right,
         animation: .init(
           animationID: LevelTenRenderAnimations.ghostWizard(
             RenderOrientation(rawValue: boss.facing.rawValue) ?? .right),
-          frameIndex: configuration.reducedMotion ? 0 : Int(boss.animationTime / 0.12) % 3),
+          frameIndex: configuration.reducedMotion
+            ? 0 : Int(boss.animationTime / 0.12) % LevelTenRenderAnimations.frameCount),
         opacity: 1, isHidden: false,
         health: .init(current: boss.health, maximum: boss.maximumHealth))
     }
