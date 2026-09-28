@@ -27,6 +27,37 @@ extension GameSession {
 }
 @MainActor
 final class GameSessionTests: XCTestCase {
+  func testGameBoardViewIsExcludedFromFocusInteractionAndAccessibility() {
+    let view = NonFocusableGameSKView(frame: .zero)
+
+    XCTAssertFalse(view.canBecomeFocused)
+    XCTAssertFalse(view.isUserInteractionEnabled)
+    XCTAssertFalse(view.isAccessibilityElement)
+    XCTAssertTrue(view.accessibilityElementsHidden)
+  }
+
+  func testGameSceneViewFactoryCreatesOneBoardAndPresentsRequestedScene() {
+    let scene = SKScene(size: .init(width: 100, height: 100))
+
+    let view = GameSceneView.makeGameView(presenting: scene)
+
+    XCTAssertTrue(type(of: view) == NonFocusableGameSKView.self)
+    XCTAssertTrue(view.scene === scene)
+    XCTAssertTrue(view.subviews.compactMap { $0 as? SKView }.isEmpty)
+  }
+
+  func testDisplayOnlyBoardStillSupportsSceneReplacementAndDetachment() {
+    let first = SKScene(size: .init(width: 100, height: 100))
+    let second = SKScene(size: .init(width: 100, height: 100))
+    let view = GameSceneView.makeGameView(presenting: first)
+
+    view.presentScene(second)
+    XCTAssertTrue(view.scene === second)
+
+    GameSceneView.dismantleUIView(view, coordinator: ())
+    XCTAssertNil(view.scene)
+  }
+
   func testInactiveBeforeInitializationRequiresExplicitResume() {
     let session = GameSession()
     session.applicationDidBecomeInactive()
@@ -113,7 +144,7 @@ final class GameSessionTests: XCTestCase {
     let scene = GameScene(
       size: CGSize(width: 100, height: 100), session: session, runtime: session.runtime,
       generation: session.runtimeGeneration)
-    let view = SKView()
+    let view = NonFocusableGameSKView(frame: .zero)
     scene.didMove(to: view)
     XCTAssertEqual(session.state, .running)
 

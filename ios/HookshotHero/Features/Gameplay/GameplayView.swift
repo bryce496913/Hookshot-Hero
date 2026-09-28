@@ -132,24 +132,45 @@ struct GameplayView: View {
 /// Hosts SpriteKit without `SpriteView`'s focus coordinator. The game board is display-only—all
 /// input is handled by the SwiftUI controls below it—so the backing view must not participate in
 /// UIKit focus or gesture handling.
-private struct GameSceneView: UIViewRepresentable {
+final class NonFocusableGameSKView: SKView {
+  override var canBecomeFocused: Bool { false }
+
+  override init(frame: CGRect) {
+    super.init(frame: frame)
+    configureAsDisplayOnly()
+  }
+
+  required init?(coder: NSCoder) {
+    super.init(coder: coder)
+    configureAsDisplayOnly()
+  }
+
+  private func configureAsDisplayOnly() {
+    isUserInteractionEnabled = false
+    isAccessibilityElement = false
+    accessibilityElementsHidden = true
+  }
+}
+
+struct GameSceneView: UIViewRepresentable {
   let scene: SKScene
 
-  func makeUIView(context: Context) -> SKView {
-    let view = SKView()
-    view.isUserInteractionEnabled = false
-    view.isAccessibilityElement = false
-    view.accessibilityElementsHidden = true
+  func makeUIView(context: Context) -> NonFocusableGameSKView {
+    Self.makeGameView(presenting: scene)
+  }
+
+  static func makeGameView(presenting scene: SKScene) -> NonFocusableGameSKView {
+    let view = NonFocusableGameSKView(frame: .zero)
     view.presentScene(scene)
     return view
   }
 
-  func updateUIView(_ view: SKView, context: Context) {
+  func updateUIView(_ view: NonFocusableGameSKView, context: Context) {
     guard view.scene !== scene else { return }
     view.presentScene(scene)
   }
 
-  static func dismantleUIView(_ view: SKView, coordinator: ()) {
+  static func dismantleUIView(_ view: NonFocusableGameSKView, coordinator: ()) {
     view.presentScene(nil)
   }
 }
