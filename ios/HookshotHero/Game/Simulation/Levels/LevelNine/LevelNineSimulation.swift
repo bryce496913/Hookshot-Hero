@@ -51,7 +51,7 @@ import Foundation
     guard !enemyRegions[0].intersects(enemyRegions[1]),
       enemyRegions.allSatisfy({ region in
         !level.isBlocked(region) && !doorRegions.contains(where: region.intersects)
-      }), !level.overlapsLava(enemyRegions[0])
+      })
     else { throw GameLoadingError.invalidInitialState(.levelNine) }
     var rng = SeededRandomNumberGenerator(seed: seed ^ 0x99)
     let protected =
