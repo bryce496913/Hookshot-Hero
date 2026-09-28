@@ -4,6 +4,94 @@ import XCTest
 
 @MainActor
 final class LevelOneStabilizationTests: XCTestCase {
+  func testLavaContactUsesPlayerCenterWithoutChangingFullCollisionFootprint() {
+    let lava = GridRegion(rows: 20..<24, columns: 20..<24)
+
+    let beside = GridPosition(row: 21, column: 18)
+    XCTAssertFalse(lava.intersects(CollisionProfile.player.region(at: beside)))
+    XCTAssertFalse(lava.intersects(CollisionProfile.playerLavaContact.region(at: beside)))
+
+    let edgeOverlap = GridPosition(row: 21, column: 19)
+    XCTAssertTrue(lava.intersects(CollisionProfile.player.region(at: edgeOverlap)))
+    XCTAssertFalse(lava.intersects(CollisionProfile.playerLavaContact.region(at: edgeOverlap)))
+
+    let centerContact = GridPosition(row: 21, column: 20)
+    XCTAssertTrue(lava.intersects(CollisionProfile.player.region(at: centerContact)))
+    XCTAssertTrue(lava.intersects(CollisionProfile.playerLavaContact.region(at: centerContact)))
+    XCTAssertEqual(CollisionProfile.player.region(at: centerContact).cells.count, 9)
+    XCTAssertEqual(
+      CollisionProfile.playerLavaContact.region(at: centerContact).cells, [centerContact])
+  }
+
+  func testInitialStateValidationRetainsFullPlayerFootprint() {
+    XCTAssertThrowsError(
+      try LevelOneSimulation(
+        seed: 1, startOverride: .init(row: 23, column: 5), entities: []))
+  }
+
+  func testWalkingLavaBoundaryDamageRestorationAndCooldown() throws {
+    let simulation = try lavaFixture()
+    let startingHealth = simulation.player.health
+
+    simulation.attemptMove(.right)  // Full footprint edge overlaps lava; center remains safe.
+    XCTAssertEqual(simulation.player.position, .init(row: 21, column: 19))
+    XCTAssertEqual(simulation.player.lastSafePosition, .init(row: 21, column: 19))
+    XCTAssertEqual(simulation.player.health, startingHealth)
+
+    simulation.attemptMove(.right)  // Center enters lava.
+    XCTAssertEqual(simulation.player.health, startingHealth - 1)
+    XCTAssertEqual(simulation.player.position, .init(row: 21, column: 19))
+    XCTAssertEqual(simulation.player.lastSafePosition, .init(row: 21, column: 19))
+
+    simulation.attemptMove(.right)
+    XCTAssertEqual(simulation.player.health, startingHealth - 1)
+    XCTAssertEqual(simulation.player.position, .init(row: 21, column: 19))
+    for _ in 0..<8 { simulation.update(deltaTime: 0.1) }
+    simulation.attemptMove(.right)
+    XCTAssertEqual(simulation.player.health, startingHealth - 2)
+  }
+
+  func testPlayerCannotWalkThroughLavaFieldButCanGrappleAcrossIt() throws {
+    let walking = try lavaFixture()
+    for _ in 0..<12 { walking.attemptMove(.right) }
+    XCTAssertEqual(walking.player.position, .init(row: 21, column: 19))
+    XCTAssertEqual(walking.player.health, 2)
+
+    let grapple = try lavaFixture()
+    grapple.player.facing = .right
+    grapple.fireHook()
+    for _ in 0..<40 where grapple.player.hookshot.phase != .idle {
+      grapple.update(deltaTime: 0.1)
+    }
+    XCTAssertEqual(grapple.player.hookshot.phase, .idle)
+    XCTAssertGreaterThan(grapple.player.position.column, 23)
+    XCTAssertEqual(grapple.player.health, 3)
+    XCTAssertEqual(grapple.player.lastSafePosition, grapple.player.position)
+    XCTAssertFalse(
+      grapple.level.overlapsLava(
+        CollisionProfile.playerLavaContact.region(at: grapple.player.position)))
+  }
+
+  func testLevelFiveThroughNineLavaTilesUseCenterContactAtTheirBoundaries() {
+    let levels = [
+      LevelFiveDefinition.make(), LevelSixDefinition.make(), LevelSevenDefinition.make(),
+      LevelEightDefinition.make(), LevelNineDefinition.make(),
+    ]
+    for level in levels {
+      let tile = level.lava[0]
+      let row = tile.rows.lowerBound + 1
+      let edge = GridPosition(row: row, column: tile.columns.lowerBound - 1)
+      let center = edge.moved(.right)
+      XCTAssertTrue(level.overlapsLava(CollisionProfile.player.region(at: edge)), level.displayName)
+      XCTAssertFalse(
+        level.overlapsLava(CollisionProfile.playerLavaContact.region(at: edge)),
+        level.displayName)
+      XCTAssertTrue(
+        level.overlapsLava(CollisionProfile.playerLavaContact.region(at: center)),
+        level.displayName)
+    }
+  }
+
   func testGrappleExtensionIsExactlyTwentyPercentFasterAcrossFrameSequences() throws {
     let legacyRate = 18.0
     XCTAssertEqual(LevelOneSimulation.grappleExtensionCellsPerSecond / legacyRate, 1.2)
@@ -530,6 +618,19 @@ final class LevelOneStabilizationTests: XCTestCase {
       at: .init(row: 57, column: 29), to: .levelFour)
   }
 
+  private func lavaFixture() throws -> LevelOneSimulation {
+    let simulation = try LevelOneSimulation(seed: 1, entities: [])
+    let base = simulation.level
+    simulation.level = .init(
+      grid: base.grid, start: base.start, exitAnchor: base.exitAnchor,
+      entryAnchor: base.entryAnchor, chestAnchor: base.chestAnchor, boundary: base.boundary,
+      walls: base.boundary.wallRegions + [.init(rows: 20..<24, columns: 28..<32)],
+      lava: [.init(rows: 20..<24, columns: 20..<24)], internalWallAnchors: [],
+      displayName: "Lava Contact Fixture")
+    simulation.player.position = .init(row: 21, column: 18)
+    simulation.player.lastSafePosition = simulation.player.position
+    return simulation
+  }
 }
 
 @MainActor final class AccessibilityAnnouncementTests: XCTestCase {
