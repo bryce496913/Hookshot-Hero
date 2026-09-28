@@ -68,7 +68,8 @@ import XCTest
     XCTAssertEqual(first.entities.map(\.position), second.entities.map(\.position))
     XCTAssertEqual(first.enemies.map(\.archetype), [.skeleton, .flyingTerror])
     XCTAssertEqual(
-      first.enemies.map(\.position), [.init(row: 10, column: 40), .init(row: 8, column: 50)])
+      first.enemies.map(\.position),
+      [LevelSevenSimulation.skeletonStart, .init(row: 8, column: 50)])
     XCTAssertFalse(
       first.enemies[0].archetype.footprint.region(at: first.enemies[0].position).intersects(
         first.enemies[1].archetype.footprint.region(at: first.enemies[1].position)))
@@ -92,6 +93,97 @@ import XCTest
       XCTAssertTrue(footprint.cells.allSatisfy(first.level.isInside))
       XCTAssertFalse(first.level.isBlocked(footprint))
       XCTAssertFalse(first.level.overlapsLava(footprint))
+    }
+  }
+
+  func testBothEntriesConstructSafelyThroughRealRuntimeFactoryForFixedSeeds() throws {
+    let seeds: [UInt64] = [1, 7, 42, 496_913]
+    let entries: [(LevelEntryPosition, GridPosition)] = [
+      (.bottom, LevelSevenDefinition.bottomStart), (.top, LevelSevenDefinition.topStart),
+    ]
+    let factory = DefaultGameLevelRuntimeFactory()
+
+    for seed in seeds {
+      for (entry, expectedStart) in entries {
+        let runtime = try factory.makeRuntime(
+          levelID: .levelSeven,
+          configuration: .init(reducedMotion: false, controlHintsEnabled: true), seed: seed,
+          entryPosition: entry, carryover: nil)
+        let simulation = try XCTUnwrap(runtime.simulation as? LevelSevenSimulation)
+        XCTAssertEqual(simulation.player.position, expectedStart)
+        assertInitialStateIsSafe(simulation)
+        XCTAssertEqual(runtime.presentation.levelID, .levelSeven)
+        XCTAssertEqual(runtime.assetManifest, .levelSeven)
+      }
+    }
+  }
+
+  func testLevelFiveForwardTransitionConstructsLevelSevenThroughProductionFactory() throws {
+    let five = try LevelFiveSimulation(seed: 496_913)
+    var request: LevelTransitionRequest?
+    five.onLevelTransition = { request = $0 }
+    five.player.position = .init(row: 3, column: 29)
+    five.update(deltaTime: 0.01)
+
+    let transition = try XCTUnwrap(request)
+    XCTAssertEqual(transition.destinationLevelID, .levelSeven)
+    XCTAssertEqual(transition.destinationEntry, .bottom)
+    let runtime = try DefaultGameLevelRuntimeFactory().makeRuntime(
+      levelID: transition.destinationLevelID,
+      configuration: .init(reducedMotion: false, controlHintsEnabled: true), seed: 496_913,
+      entryPosition: transition.destinationEntry, carryover: transition.carryover)
+    let seven = try XCTUnwrap(runtime.simulation as? LevelSevenSimulation)
+    XCTAssertEqual(seven.player.position, LevelSevenDefinition.bottomStart)
+    assertInitialStateIsSafe(seven)
+  }
+
+  private func assertInitialStateIsSafe(
+    _ simulation: LevelSevenSimulation, file: StaticString = #filePath, line: UInt = #line
+  ) {
+    let playerRegion = CollisionProfile.player.region(at: simulation.player.position)
+    XCTAssertTrue(playerRegion.cells.allSatisfy(simulation.level.isInside), file: file, line: line)
+    XCTAssertFalse(simulation.level.isBlocked(playerRegion), file: file, line: line)
+    XCTAssertFalse(simulation.level.overlapsLava(playerRegion), file: file, line: line)
+
+    let enemyRegions = simulation.enemies.map {
+      $0.archetype.footprint.region(at: $0.position)
+    }
+    XCTAssertEqual(
+      simulation.enemies.map(\.archetype), [.skeleton, .flyingTerror], file: file, line: line)
+    for (enemy, region) in zip(simulation.enemies, enemyRegions) {
+      XCTAssertTrue(region.cells.allSatisfy(simulation.level.isInside), file: file, line: line)
+      if enemy.archetype == .skeleton {
+        XCTAssertFalse(simulation.level.isBlocked(region), file: file, line: line)
+        XCTAssertFalse(simulation.level.overlapsLava(region), file: file, line: line)
+      }
+      XCTAssertFalse(region.intersects(simulation.level.entryRegion), file: file, line: line)
+      XCTAssertFalse(region.intersects(simulation.level.exitRegion), file: file, line: line)
+      for start in [LevelSevenDefinition.bottomStart, LevelSevenDefinition.topStart] {
+        XCTAssertFalse(
+          region.intersects(CollisionProfile.player.region(at: start)), file: file, line: line)
+      }
+      for chest in simulation.chestStates {
+        XCTAssertFalse(
+          region.intersects(CollisionProfile.chest.region(at: chest.definition.interactionAnchor)),
+          file: file, line: line)
+      }
+    }
+    XCTAssertFalse(enemyRegions[0].intersects(enemyRegions[1]), file: file, line: line)
+
+    XCTAssertEqual(simulation.entities.filter { $0.kind == .mine }.count, 3, file: file, line: line)
+    XCTAssertEqual(
+      simulation.entities.filter { $0.kind == .cabbage }.count, 2, file: file, line: line)
+    XCTAssertEqual(
+      simulation.entities.filter { $0.kind == .coin }.count, 10, file: file, line: line)
+    let protected =
+      enemyRegions + [simulation.level.entryRegion, simulation.level.exitRegion]
+      + simulation.chestStates.map(\.definition.spawnExclusionRegion)
+    for entity in simulation.entities {
+      let region = CollisionProfile.footprint(for: entity.kind).region(at: entity.position)
+      XCTAssertTrue(region.cells.allSatisfy(simulation.level.isInside), file: file, line: line)
+      XCTAssertFalse(simulation.level.isBlocked(region), file: file, line: line)
+      XCTAssertFalse(simulation.level.overlapsLava(region), file: file, line: line)
+      XCTAssertFalse(protected.contains(where: region.intersects), file: file, line: line)
     }
   }
 
