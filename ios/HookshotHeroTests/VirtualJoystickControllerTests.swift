@@ -219,9 +219,11 @@ final class ConcurrentTouchControlTests: XCTestCase {
 
     finishGrapple(in: simulation)
     let positionAtGrappleCompletion = simulation.player.position
-    simulation.update(deltaTime: 0.13)
+    simulation.update(deltaTime: 0.05)
     XCTAssertEqual(simulation.player.position, positionAtGrappleCompletion)
-    simulation.update(deltaTime: 0.01)
+    simulation.update(deltaTime: 0.05)
+    XCTAssertEqual(simulation.player.position, positionAtGrappleCompletion)
+    simulation.update(deltaTime: 0.05)
 
     XCTAssertEqual(simulation.player.position, positionAtGrappleCompletion.moved(.right))
     XCTAssertEqual(simulation.player.movementDirection, .right)
@@ -243,7 +245,9 @@ final class ConcurrentTouchControlTests: XCTestCase {
 
     finishGrapple(in: simulation)
     let positionAtGrappleCompletion = simulation.player.position
-    simulation.update(deltaTime: 0.28)
+    simulation.update(deltaTime: 0.05)
+    simulation.update(deltaTime: 0.05)
+    simulation.update(deltaTime: 0.05)
 
     XCTAssertEqual(simulation.player.position, positionAtGrappleCompletion)
     XCTAssertNil(simulation.player.movementDirection)
@@ -268,7 +272,11 @@ final class ConcurrentTouchControlTests: XCTestCase {
 
     finishGrapple(in: simulation)
     let positionAtGrappleCompletion = simulation.player.position
-    simulation.update(deltaTime: 0.14)
+    simulation.update(deltaTime: 0.05)
+    XCTAssertEqual(simulation.player.position, positionAtGrappleCompletion)
+    simulation.update(deltaTime: 0.05)
+    XCTAssertEqual(simulation.player.position, positionAtGrappleCompletion)
+    simulation.update(deltaTime: 0.05)
 
     XCTAssertEqual(simulation.player.position, positionAtGrappleCompletion.moved(.up))
     XCTAssertEqual(simulation.player.movementDirection, .up)
@@ -295,7 +303,11 @@ final class ConcurrentTouchControlTests: XCTestCase {
 
     finishGrapple(in: simulation)
     let positionAtGrappleCompletion = simulation.player.position
-    simulation.update(deltaTime: 0.14)
+    simulation.update(deltaTime: 0.05)
+    XCTAssertEqual(simulation.player.position, positionAtGrappleCompletion)
+    simulation.update(deltaTime: 0.05)
+    XCTAssertEqual(simulation.player.position, positionAtGrappleCompletion)
+    simulation.update(deltaTime: 0.05)
 
     XCTAssertEqual(simulation.player.position, positionAtGrappleCompletion.moved(.right))
     XCTAssertEqual(simulation.player.movementDirection, .right)
