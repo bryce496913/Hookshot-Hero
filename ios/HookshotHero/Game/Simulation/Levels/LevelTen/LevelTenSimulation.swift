@@ -8,12 +8,16 @@ struct GhostProjectileState: Identifiable, Equatable, Sendable {
 }
 
 @MainActor final class LevelTenSimulation: LevelOneSimulation {
+  static let forwardRouteGuidance =
+    "The path forward is open at the arena's center. Claim the treasure, then head there."
+
   private(set) var boss: EnemyState?
   private(set) var projectiles: [GhostProjectileState] = []
   private var bossHitByCurrentHook = false
   private var projectileAccumulator: TimeInterval = 0
   private var requiresEndingExitDeparture = false
   private var didRequestEndingTransition = false
+  private var didPresentForwardRouteGuidance = false
 
   override var levelID: LevelID { .levelTen }
   override var levelName: String { "Level 10" }
@@ -92,6 +96,7 @@ struct GhostProjectileState: Identifiable, Equatable, Sendable {
   }
 
   override func update(deltaTime: TimeInterval) {
+    presentForwardRouteGuidanceIfNeeded()
     super.update(deltaTime: deltaTime)
     guard outcome == nil else { return }
     updateBoss(min(max(deltaTime, 0), 0.1))
@@ -126,6 +131,7 @@ struct GhostProjectileState: Identifiable, Equatable, Sendable {
         descriptor: .enemyDefeat(reducedMotion: configuration.reducedMotion),
         createdAt: simulationTime))
     configureDefeatChest()
+    presentForwardRouteGuidanceIfNeeded()
   }
 
   private func configureDefeatChest() {
@@ -144,6 +150,12 @@ struct GhostProjectileState: Identifiable, Equatable, Sendable {
           scoreReward: 100, healthReward: 2), isOpened: false)
     ]
     restoreOpenedChestStates()
+  }
+
+  private func presentForwardRouteGuidanceIfNeeded() {
+    guard isExitUnlocked, !didPresentForwardRouteGuidance, let onDialogue else { return }
+    didPresentForwardRouteGuidance = true
+    onDialogue(Self.forwardRouteGuidance)
   }
 
   private func updateBoss(_ dt: TimeInterval) {

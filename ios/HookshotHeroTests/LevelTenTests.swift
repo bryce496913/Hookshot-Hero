@@ -355,6 +355,8 @@ import XCTest
     simulation.defeatBossForTesting()
     XCTAssertTrue(simulation.isExitUnlocked)
     XCTAssertEqual(simulation.chestStates.count, 1)
+    XCTAssertEqual(session.state, .dialogue(LevelTenSimulation.forwardRouteGuidance))
+    XCTAssertTrue(session.continueDialogue())
 
     simulation.player.health = 2
     let scoreBeforeChest = simulation.player.score
@@ -388,6 +390,27 @@ import XCTest
     XCTAssertEqual(request?.destinationEntry, .bottom)
     XCTAssertEqual(request?.reason, .completedForward)
     XCTAssertEqual(request?.carryover, simulation.makeCarryoverState())
+  }
+
+  func testBossDefeatPresentsForwardRouteGuidanceOnlyOncePerVisit() throws {
+    let simulation = try LevelTenSimulation()
+    var messages: [String] = []
+    simulation.onDialogue = { messages.append($0) }
+
+    simulation.defeatBossForTesting()
+    simulation.update(deltaTime: 0)
+    simulation.update(deltaTime: 1)
+
+    XCTAssertEqual(messages, [LevelTenSimulation.forwardRouteGuidance])
+    XCTAssertTrue(messages[0].contains("center"))
+    XCTAssertTrue(messages[0].contains("treasure"))
+
+    let revisited = try LevelTenSimulation(carryover: simulation.makeCarryoverState())
+    var revisitMessages: [String] = []
+    revisited.onDialogue = { revisitMessages.append($0) }
+    revisited.update(deltaTime: 0)
+    revisited.update(deltaTime: 0)
+    XCTAssertEqual(revisitMessages, [LevelTenSimulation.forwardRouteGuidance])
   }
 
   func testUnlockedPortalAwardsCompletionOnceAndCarriesCompletePlayerState() throws {
