@@ -47,6 +47,8 @@ struct SettingsView: View {
                 .appSurface()
                 VStack(alignment: .leading, spacing: 12) {
                     Text("Information").appTextStyle(.h2)
+                    NavigationLink("Credits & Licenses") { CreditsLicensesView() }
+                        .accessibilityIdentifier("creditsLicensesLink")
                     NavigationLink("Privacy Policy") { PrivacyPolicyView() }
                         .accessibilityIdentifier("privacyPolicyLink")
                     NavigationLink("Support") { SupportView() }

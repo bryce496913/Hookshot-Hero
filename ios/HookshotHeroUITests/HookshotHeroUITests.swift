@@ -45,6 +45,16 @@ final class HookshotHeroUITests: XCTestCase {
     app.switches["reducedMotionToggle"].tap()
     app.buttons["settingsDoneButton"].tap()
   }
+  func testCreditsAndLicensesAreReachableFromSettings() {
+    launch()
+    app.buttons["settingsButton"].tap()
+    app.scrollViews.firstMatch.swipeUp()
+    let link = app.buttons["creditsLicensesLink"]
+    XCTAssertTrue(link.waitForExistence(timeout: 5))
+    link.tap()
+    XCTAssertTrue(app.otherElements["creditsLicensesScreen"].waitForExistence(timeout: 5))
+    XCTAssertTrue(app.staticTexts.matching(NSPredicate(format: "label CONTAINS %@", "Spinning Gold Coin")).firstMatch.exists)
+  }
   func testSettingsLinksToScrollablePrivacyPolicyAndSupport() {
     launch()
     app.buttons["settingsButton"].tap()
