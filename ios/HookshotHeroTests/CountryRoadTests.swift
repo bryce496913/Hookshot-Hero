@@ -10,6 +10,39 @@ import XCTest
     let level = CountryRoadDefinition.make()
     XCTAssertFalse(level.isBlocked(CollisionProfile.player.region(at: CountryRoadDefinition.start)))
     XCTAssertTrue(level.walls.contains(CountryRoadDefinition.sceneryWalls[0]))
+    XCTAssertEqual(CountryRoadDefinition.doorwayRegion, CountryRoadDefinition.exitRegion)
+    XCTAssertNotEqual(CountryRoadDefinition.bottomEntryRegion, CountryRoadDefinition.exitRegion)
+    XCTAssertTrue(level.grappleLatchRegions.contains(CountryRoadDefinition.exitRegion))
+    XCTAssertFalse(level.grappleLatchRegions.contains(CountryRoadDefinition.bottomEntryRegion))
+  }
+
+  func testCastleFacadeAndDoorIdentifyTopExitWithoutMisleadingBottomEntrance() throws {
+    let presentation = CountryRoadPresentationDefinition.make(from: CountryRoadDefinition.make())
+    let doors = presentation.staticObjects.filter {
+      $0.asset == CountryRoadRenderAssets.castleDoor
+    }
+    let walls = presentation.staticObjects.filter {
+      $0.asset == CountryRoadRenderAssets.castleWall
+    }
+
+    XCTAssertEqual(doors.count, 2)
+    XCTAssertTrue(doors.allSatisfy { $0.coordinate.row == 0 })
+    XCTAssertTrue(
+      doors.allSatisfy {
+        CountryRoadDefinition.exitRegion.columns.contains($0.coordinate.column)
+      })
+    XCTAssertTrue(walls.allSatisfy { $0.coordinate.row == 0 })
+    XCTAssertFalse(
+      presentation.staticObjects.contains {
+        ($0.asset == CountryRoadRenderAssets.castleDoor
+          || $0.asset == CountryRoadRenderAssets.castleWall)
+          && CountryRoadDefinition.bottomEntryRegion.rows.contains($0.coordinate.row)
+      })
+    XCTAssertTrue(
+      walls.contains { $0.coordinate.column < CountryRoadDefinition.exitRegion.columns.lowerBound })
+    XCTAssertTrue(
+      walls.contains { $0.coordinate.column >= CountryRoadDefinition.exitRegion.columns.upperBound }
+    )
   }
 
   func testJavaCollectibleAndRuntimeNPCPopulationContract() throws {
@@ -79,7 +112,7 @@ import XCTest
     let simulation = try CountryRoadSimulation(seed: 496_913)
     let protected = [
       CollisionProfile.player.region(at: CountryRoadDefinition.start),
-      CountryRoadDefinition.exitRegion, CountryRoadDefinition.doorwayRegion,
+      CountryRoadDefinition.exitRegion, CountryRoadDefinition.bottomEntryRegion,
     ]
     for entity in simulation.entities {
       let footprint = CollisionProfile.footprint(for: entity.kind).region(at: entity.position)

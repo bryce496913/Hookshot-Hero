@@ -4,7 +4,8 @@ enum CountryRoadDefinition {
   static let grid = GridSize(rows: 60, columns: 60)
   static let start = GridPosition(row: 50, column: 27)
   static let exitRegion = GridRegion(rows: 0..<4, columns: 26..<34)
-  static let doorwayRegion = GridRegion(rows: 56..<60, columns: 27..<33)
+  static let doorwayRegion = exitRegion
+  static let bottomEntryRegion = GridRegion(rows: 56..<60, columns: 27..<33)
 
   // Java records one 10x10 collision cell for every AddWallCell call. Preserve those cells,
   // while native perimeter strips close the gaps left by the Java sprite/collision mismatch.
@@ -35,7 +36,7 @@ enum CountryRoadDefinition {
       ],
       leftWallRegions: [.init(rows: 4..<56, columns: 0..<4)],
       rightWallRegions: [.init(rows: 4..<56, columns: 56..<60)], topExitRegion: exitRegion,
-      bottomDoorRegion: doorwayRegion)
+      bottomDoorRegion: bottomEntryRegion)
     return .init(
       grid: grid, start: start, exitAnchor: .init(row: 0, column: 27),
       entryAnchor: .init(row: 56, column: 27), chestAnchor: .init(row: 52, column: 52),

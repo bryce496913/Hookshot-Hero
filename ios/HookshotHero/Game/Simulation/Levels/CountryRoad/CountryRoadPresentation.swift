@@ -84,12 +84,13 @@ enum CountryRoadPresentationDefinition {
     objects += stride(from: 0, to: 21, by: 7).map {
       item(CountryRoadRenderAssets.cliff, 35, $0, 7, 8)
     }
-    objects += stride(from: 0, to: 60, by: 4).map {
-      item(CountryRoadRenderAssets.castleWall, 56, $0, 4, 3, z: 3)
+    objects += stride(from: 0, to: 60, by: 4).compactMap { column in
+      CountryRoadDefinition.exitRegion.columns.contains(column)
+        ? nil : item(CountryRoadRenderAssets.castleWall, 0, column, 4, 3, z: 3)
     }
     objects += [
-      item(CountryRoadRenderAssets.castleDoor, 56, 29, 1.6, 2.4, z: 4),
-      item(CountryRoadRenderAssets.castleDoor, 56, 30, 1.6, 2.4, z: 4),
+      item(CountryRoadRenderAssets.castleDoor, 0, 29, 1.6, 2.4, z: 4),
+      item(CountryRoadRenderAssets.castleDoor, 0, 30, 1.6, 2.4, z: 4),
     ]
     return .init(
       levelID: .countryRoad, logicalGridSize: level.grid, background: .init(colorName: "black"),

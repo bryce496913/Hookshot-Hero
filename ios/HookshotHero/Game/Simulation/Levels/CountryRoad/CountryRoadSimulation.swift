@@ -41,7 +41,7 @@ struct CountryRoadNPCState: Identifiable, Sendable {
       requirements: [.init(kind: .cabbage, count: 5), .init(kind: .coin, count: 15)],
       protectedRegions: [
         CollisionProfile.player.region(at: CountryRoadDefinition.start),
-        CountryRoadDefinition.exitRegion, CountryRoadDefinition.doorwayRegion,
+        CountryRoadDefinition.exitRegion, CountryRoadDefinition.bottomEntryRegion,
       ] + npcStates.map { CollisionProfile.player.region(at: $0.position) }, using: &rng)
   }
 
@@ -135,7 +135,7 @@ struct CountryRoadNPCState: Identifiable, Sendable {
       }
       guard footprint.cells.allSatisfy(level.isInside), !level.isBlocked(footprint),
         !footprint.intersects(CountryRoadDefinition.exitRegion),
-        !footprint.intersects(CountryRoadDefinition.doorwayRegion), !obstructsNPC
+        !footprint.intersects(CountryRoadDefinition.bottomEntryRegion), !obstructsNPC
       else { continue }
       npcStates[index].position = candidate
     }
