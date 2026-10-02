@@ -255,7 +255,9 @@ import Foundation
     while movementAccumulator >= 0.14 {
       guard outcome == nil else { return }
       movementAccumulator -= 0.14
+      let positionBeforeMove = player.position
       attemptMove(d)
+      if player.position != positionBeforeMove { player.facing = d }
     }
   }
   func attemptMove(_ d: GridDirection) {
@@ -283,7 +285,7 @@ import Foundation
   }
   func fireHook() {
     guard outcome == nil, player.hookshot.phase == .idle else { return }
-    player.movementDirection = nil
+    movementAccumulator = 0
     player.hookshot = .init(
       phase: .extending, origin: player.position, head: player.position, direction: player.facing)
   }
