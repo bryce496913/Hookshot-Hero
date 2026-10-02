@@ -44,6 +44,8 @@ struct HelpView: View {
           }
           .padding(16)
           .appSurface()
+          NavigationLink("Privacy Policy") { PrivacyPolicyView() }
+            .accessibilityIdentifier("helpPrivacyPolicyLink")
           Button("Done", action: dismiss)
             .buttonStyle(AppPrimaryButtonStyle())
             .accessibilityIdentifier("helpDoneButton")

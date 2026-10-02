@@ -45,6 +45,33 @@ final class HookshotHeroUITests: XCTestCase {
     app.switches["reducedMotionToggle"].tap()
     app.buttons["settingsDoneButton"].tap()
   }
+  func testSettingsLinksToScrollablePrivacyPolicyAndSupport() {
+    launch()
+    app.buttons["settingsButton"].tap()
+    let settings = app.scrollViews.firstMatch
+    settings.swipeUp()
+    let privacyLink = app.buttons["privacyPolicyLink"]
+    XCTAssertTrue(privacyLink.waitForExistence(timeout: 5))
+    privacyLink.tap()
+    XCTAssertTrue(app.otherElements["privacyPolicyScreen"].waitForExistence(timeout: 5))
+    XCTAssertTrue(app.staticTexts["Information collection"].exists)
+    app.navigationBars.buttons.element(boundBy: 0).tap()
+    settings.swipeUp()
+    app.buttons["supportLink"].tap()
+    XCTAssertTrue(app.otherElements["supportScreen"].waitForExistence(timeout: 5))
+    XCTAssertTrue(app.staticTexts["appVersionInformation"].exists)
+    XCTAssertFalse(app.links["externalSupportLink"].exists)
+  }
+  func testHelpLinksToPrivacyPolicy() {
+    launch()
+    app.buttons["helpButton"].tap()
+    let help = app.scrollViews.firstMatch
+    help.swipeUp()
+    help.swipeUp()
+    XCTAssertTrue(app.buttons["helpPrivacyPolicyLink"].waitForExistence(timeout: 5))
+    app.buttons["helpPrivacyPolicyLink"].tap()
+    XCTAssertTrue(app.otherElements["privacyPolicyScreen"].waitForExistence(timeout: 5))
+  }
   func testHelpIncludesJavaStoryIntro() {
     launch()
     app.buttons["helpButton"].tap()
