@@ -23,10 +23,16 @@ enum ProgressionLoadResult: Equatable {
 struct ProgressionRepository {
     let fileURL: URL
     private let fileManager: FileManager
+    private let saveOverride: ((Progression) throws -> Void)?
+    private let quarantineOverride: ((ProgressionLoadResult) throws -> URL)?
 
-    init(fileURL: URL, fileManager: FileManager = .default) {
+    init(fileURL: URL, fileManager: FileManager = .default,
+         saveOverride: ((Progression) throws -> Void)? = nil,
+         quarantineOverride: ((ProgressionLoadResult) throws -> URL)? = nil) {
         self.fileURL = fileURL
         self.fileManager = fileManager
+        self.saveOverride = saveOverride
+        self.quarantineOverride = quarantineOverride
     }
 
     static func applicationRepository(fileManager: FileManager = .default) throws -> ProgressionRepository {
@@ -60,8 +66,46 @@ struct ProgressionRepository {
         guard progression.schemaVersion == Progression.currentSchemaVersion else {
             throw ProgressionError.invalidSchemaForSave(progression.schemaVersion)
         }
+        if let saveOverride { return try saveOverride(progression) }
         try fileManager.createDirectory(at: fileURL.deletingLastPathComponent(), withIntermediateDirectories: true)
         try JSONEncoder().encode(progression).write(to: fileURL, options: .atomic)
+    }
+
+    /// Moves an unreadable save aside before the canonical URL can be written again.
+    /// `moveItem` preserves the original bytes and ensures there is never a window in which
+    /// defaults can replace an unpreserved source file.
+    func quarantineUnreadableSave(for result: ProgressionLoadResult) throws -> URL {
+        switch result {
+        case .corrupt, .unsupportedVersion:
+            return try quarantine(result)
+        default:
+            throw ProgressionError.invalidQuarantineRequest
+        }
+    }
+
+    private func quarantine(_ result: ProgressionLoadResult) throws -> URL {
+        if let quarantineOverride { return try quarantineOverride(result) }
+        let suffix: String
+        switch result {
+        case .corrupt: suffix = "corrupt"
+        case .unsupportedVersion(let version): suffix = "unsupported-v\(version)"
+        default: throw ProgressionError.invalidQuarantineRequest
+        }
+        let directory = fileURL.deletingLastPathComponent()
+        let stem = fileURL.deletingPathExtension().lastPathComponent
+        let fileExtension = fileURL.pathExtension
+        var collision = 1
+        while true {
+            let discriminator = collision == 1 ? "" : "-\(collision)"
+            let name = "\(stem).\(suffix)\(discriminator)"
+                + (fileExtension.isEmpty ? "" : ".\(fileExtension)")
+            let destination = directory.appending(path: name)
+            if !fileManager.fileExists(atPath: destination.path) {
+                try fileManager.moveItem(at: fileURL, to: destination)
+                return destination
+            }
+            collision += 1
+        }
     }
 
     private func migrate(data: Data, from originalVersion: Int) throws -> ProgressionLoadResult {
@@ -85,22 +129,30 @@ struct ProgressionRepository {
 
 private struct SchemaEnvelope: Decodable { let schemaVersion: Int }
 private struct ProgressionV0: Codable { let schemaVersion: Int; let highScore: Int; let completedLevelIDs: [String] }
-private enum ProgressionError: Error { case invalidSchemaForSave(Int), noMigration(Int) }
+private enum ProgressionError: Error {
+    case invalidSchemaForSave(Int), noMigration(Int), invalidQuarantineRequest
+}
 
 @MainActor
 final class ProgressionStore: ObservableObject {
     @Published private(set) var progression: Progression
     @Published private(set) var loadResult: ProgressionLoadResult
     @Published private(set) var lastSaveError: String?
+    @Published private(set) var hasUnsavedChanges = false
     private let repository: ProgressionRepository
+    private var pendingRecovery: ProgressionLoadResult?
 
     init(repository: ProgressionRepository) {
         self.repository = repository
         let result = repository.load()
         loadResult = result
+        AppLog.persistence.info("Progression load classified as \(result.logClassification, privacy: .public)")
         switch result {
         case .loaded(let value), .migrated(let value, _), .missing(defaults: let value): progression = value
-        case .unsupportedVersion, .corrupt: progression = .defaults
+        case .unsupportedVersion, .corrupt:
+            progression = .defaults
+            pendingRecovery = result
+            preserveUnreadableSave()
         }
     }
 
@@ -113,11 +165,51 @@ final class ProgressionStore: ObservableObject {
                 changed = progression.completedMissionIDs.insert(missionID).inserted || changed
             }
         }
-        guard changed else { return }
-        do { try repository.save(progression); lastSaveError = nil }
+        if changed { hasUnsavedChanges = true }
+        guard changed || hasUnsavedChanges else { return }
+        flushPendingSave()
+    }
+
+    func flushPendingSave() {
+        if pendingRecovery != nil {
+            preserveUnreadableSave()
+        }
+        guard pendingRecovery == nil, hasUnsavedChanges else { return }
+        do {
+            try repository.save(progression)
+            hasUnsavedChanges = false
+            lastSaveError = nil
+        }
         catch {
             lastSaveError = error.localizedDescription
             AppLog.persistence.error("Could not save progression: \(error.localizedDescription, privacy: .public)")
+        }
+    }
+
+    private func preserveUnreadableSave() {
+        guard let pendingRecovery else { return }
+        do {
+            let destination = try repository.quarantineUnreadableSave(for: pendingRecovery)
+            self.pendingRecovery = nil
+            lastSaveError = nil
+            AppLog.persistence.info(
+                "Unreadable progression quarantined as \(destination.lastPathComponent, privacy: .public)")
+        } catch {
+            lastSaveError = error.localizedDescription
+            AppLog.persistence.error(
+                "Could not quarantine progression; canonical save remains protected: \(error.localizedDescription, privacy: .public)")
+        }
+    }
+}
+
+private extension ProgressionLoadResult {
+    var logClassification: String {
+        switch self {
+        case .loaded: return "loaded"
+        case .missing: return "missing"
+        case .migrated(_, let version): return "migrated-v\(version)"
+        case .unsupportedVersion(let version): return "unsupported-v\(version)"
+        case .corrupt: return "corrupt"
         }
     }
 }
