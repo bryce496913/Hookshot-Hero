@@ -501,7 +501,20 @@ import XCTest
 
     let levelTen = try XCTUnwrap(session.simulation as? LevelTenSimulation)
     levelTen.defeatBossForTesting()
+    XCTAssertEqual(session.state, .dialogue(LevelTenSimulation.forwardRouteGuidance))
+    XCTAssertEqual(session.dialogue, LevelTenSimulation.forwardRouteGuidance)
+    XCTAssertEqual(session.runtimeGeneration, 0)
+    XCTAssertEqual(session.levelID, .levelTen)
+
     levelTen.player.position = .init(row: 27, column: 27)
+    session.advance(by: 0)
+    XCTAssertEqual(session.runtimeGeneration, 0)
+    XCTAssertEqual(session.levelID, .levelTen)
+    XCTAssertEqual(session.state, .dialogue(LevelTenSimulation.forwardRouteGuidance))
+    XCTAssertTrue(session.simulation === levelTen)
+
+    XCTAssertTrue(session.continueDialogue())
+    XCTAssertEqual(session.state, .running)
     session.advance(by: 0)
 
     await waitUntil { session.runtimeGeneration == 1 }
