@@ -199,6 +199,63 @@ import XCTest
     XCTAssertNil(simulation.outcome)
   }
 
+  func testBossDefeatInsideEndingExitRequiresCompleteDepartureAndReentry() throws {
+    let simulation = try LevelTenSimulation()
+    var requests: [LevelTransitionRequest] = []
+    simulation.onLevelTransition = { requests.append($0) }
+    simulation.player.position = .init(row: 27, column: 27)
+
+    simulation.defeatBossForTesting()
+    simulation.update(deltaTime: 0)
+
+    XCTAssertNil(simulation.boss)
+    XCTAssertTrue(simulation.isExitUnlocked)
+    XCTAssertEqual(simulation.chestStates.count, 1)
+    XCTAssertTrue(requests.isEmpty)
+    XCTAssertFalse(simulation.completedLevelIDs.contains(.levelTen))
+    XCTAssertEqual(simulation.player.score, 0)
+
+    simulation.update(deltaTime: 0)
+    simulation.update(deltaTime: 0)
+    XCTAssertTrue(requests.isEmpty)
+
+    // This footprint still overlaps the exit, so a partial departure must not arm it.
+    simulation.player.position = .init(row: 32, column: 27)
+    simulation.update(deltaTime: 0)
+    XCTAssertTrue(requests.isEmpty)
+
+    simulation.player.position = .init(row: 33, column: 27)
+    simulation.update(deltaTime: 0)
+    XCTAssertTrue(requests.isEmpty)
+    XCTAssertFalse(simulation.completedLevelIDs.contains(.levelTen))
+
+    simulation.player.position = .init(row: 27, column: 27)
+    simulation.update(deltaTime: 0)
+    simulation.update(deltaTime: 0)
+
+    XCTAssertEqual(requests.count, 1)
+    XCTAssertEqual(requests.first?.destinationLevelID, .countryRoad)
+    XCTAssertTrue(simulation.completedLevelIDs.contains(.levelTen))
+    XCTAssertEqual(simulation.player.score, 100)
+  }
+
+  func testBossDefeatOutsideEndingExitAllowsNormalLaterEntry() throws {
+    let simulation = try LevelTenSimulation()
+    var requests: [LevelTransitionRequest] = []
+    simulation.onLevelTransition = { requests.append($0) }
+
+    simulation.defeatBossForTesting()
+    simulation.update(deltaTime: 0)
+    XCTAssertTrue(requests.isEmpty)
+
+    simulation.player.position = .init(row: 27, column: 27)
+    simulation.update(deltaTime: 0)
+    simulation.update(deltaTime: 0)
+
+    XCTAssertEqual(requests.map(\.destinationLevelID), [.countryRoad])
+    XCTAssertEqual(simulation.player.score, 100)
+  }
+
   func testStandardPopulationHasExactDeterministicSeededPositions() throws {
     let first = try LevelTenSimulation(seed: 10)
     let second = try LevelTenSimulation(seed: 10)
@@ -350,7 +407,7 @@ import XCTest
     simulation.update(deltaTime: 0)
     simulation.update(deltaTime: 0)
 
-    XCTAssertEqual(requests.count, 2)
+    XCTAssertEqual(requests.count, 1)
     let request = try XCTUnwrap(requests.first)
     XCTAssertEqual(request.sourceLevelID, .levelTen)
     XCTAssertEqual(request.destinationLevelID, .countryRoad)
@@ -368,10 +425,13 @@ import XCTest
 
     let revisited = try LevelTenSimulation(carryover: request.carryover)
     XCTAssertNil(revisited.boss)
+    var revisitRequest: LevelTransitionRequest?
+    revisited.onLevelTransition = { revisitRequest = $0 }
     let scoreBeforeReentry = revisited.player.score
     revisited.player.position = .init(row: 27, column: 27)
     revisited.update(deltaTime: 0)
     XCTAssertEqual(revisited.player.score, scoreBeforeReentry)
+    XCTAssertEqual(revisitRequest?.destinationLevelID, .countryRoad)
   }
 
   func testCountryRoadBottomEntryConstructsThroughProductionRuntimeAndPreflight() throws {

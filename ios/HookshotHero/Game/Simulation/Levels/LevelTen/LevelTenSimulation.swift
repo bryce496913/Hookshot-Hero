@@ -12,6 +12,8 @@ struct GhostProjectileState: Identifiable, Equatable, Sendable {
   private(set) var projectiles: [GhostProjectileState] = []
   private var bossHitByCurrentHook = false
   private var projectileAccumulator: TimeInterval = 0
+  private var requiresEndingExitDeparture = false
+  private var didRequestEndingTransition = false
 
   override var levelID: LevelID { .levelTen }
   override var levelName: String { "Level 10" }
@@ -108,13 +110,19 @@ struct GhostProjectileState: Identifiable, Equatable, Sendable {
   /// Deterministic defeat fixture used by transition tests without weakening release gameplay.
   func defeatBossForTesting() {
     guard let defeated = boss else { return }
+    finalizeBossDefeat(at: defeated.position)
+  }
+
+  private func finalizeBossDefeat(at position: GridPosition) {
     worldState.defeatedBossLevelIDs.insert(.levelTen)
     boss = nil
     projectiles = []
-    let id = emit(.enemyDefeated(archetype: .ghostWizard), at: defeated.position)
+    requiresEndingExitDeparture = CollisionProfile.player.region(at: player.position).intersects(
+      LevelTenDefinition.endingExitRegion)
+    let id = emit(.enemyDefeated(archetype: .ghostWizard), at: position)
     effectEvents.append(
       .init(
-        id: id, coordinate: defeated.position,
+        id: id, coordinate: position,
         descriptor: .enemyDefeat(reducedMotion: configuration.reducedMotion),
         createdAt: simulationTime))
     configureDefeatChest()
@@ -179,16 +187,7 @@ struct GhostProjectileState: Identifiable, Equatable, Sendable {
         at: current.position)
       player.hookshot.phase = .retracting
       if current.health <= 0 {
-        worldState.defeatedBossLevelIDs.insert(.levelTen)
-        let id = emit(.enemyDefeated(archetype: .ghostWizard), at: current.position)
-        effectEvents.append(
-          .init(
-            id: id, coordinate: current.position,
-            descriptor: .enemyDefeat(reducedMotion: configuration.reducedMotion),
-            createdAt: simulationTime))
-        boss = nil
-        projectiles = []
-        configureDefeatChest()
+        finalizeBossDefeat(at: current.position)
       } else {
         boss = current
       }
@@ -224,7 +223,14 @@ struct GhostProjectileState: Identifiable, Equatable, Sendable {
         .init(
           sourceLevelID: .levelTen, destinationLevelID: .levelNine,
           destinationEntry: .left, carryover: makeCarryoverState(), reason: .returnedBackward))
-    } else if region.intersects(LevelTenDefinition.endingExitRegion), isExitUnlocked {
+    } else if isExitUnlocked, requiresEndingExitDeparture {
+      if !region.intersects(LevelTenDefinition.endingExitRegion) {
+        requiresEndingExitDeparture = false
+      }
+    } else if region.intersects(LevelTenDefinition.endingExitRegion), isExitUnlocked,
+      !didRequestEndingTransition
+    {
+      didRequestEndingTransition = true
       if !completedLevelIDs.contains(.levelTen) {
         player.score += 100
         completedLevelIDs.insert(.levelTen)
