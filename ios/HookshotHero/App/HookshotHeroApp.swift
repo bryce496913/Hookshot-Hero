@@ -23,7 +23,8 @@ struct HookshotHeroApp: App {
                 .onChange(of: scenePhase) { _, phase in
                     switch phase {
                     case .active: router.applicationDidBecomeActive()
-                    case .inactive, .background: router.applicationDidBecomeInactive()
+                    case .inactive: router.applicationDidBecomeInactive()
+                    case .background: router.applicationDidEnterBackground()
                     @unknown default: router.applicationDidBecomeInactive()
                     }
                 }

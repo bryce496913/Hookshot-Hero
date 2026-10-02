@@ -164,6 +164,10 @@ struct AppGameLoadingLogger: GameLoadingLogging {
   func showHelp() { path.append(.help) }
   func dismiss() { if !path.isEmpty { path.removeLast() } }
   func applicationDidBecomeInactive() { activeSession?.applicationDidBecomeInactive() }
+  func applicationDidEnterBackground() {
+    activeSession?.applicationDidBecomeInactive()
+    progressionStore.flushPendingSave()
+  }
   func applicationDidBecomeActive() { activeSession?.applicationDidBecomeActive() }
   func returnToMenu() {
     loadingRequestID = nil
