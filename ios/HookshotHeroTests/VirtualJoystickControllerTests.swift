@@ -197,4 +197,119 @@ final class ConcurrentTouchControlTests: XCTestCase {
       haptics.events,
       [.directionEngaged, .grappleAimingDirectionChanged, .grappleFired])
   }
+
+  func testHeldJoystickMovementResumesAfterGrappleWithoutDuplicateBeginMove() throws {
+    let simulation = try LevelOneSimulation(seed: 1, entities: [])
+    var joystick = VirtualJoystickController()
+
+    send(
+      joystick.update(displacement: .init(dx: 30, dy: 0), usableRadius: 40),
+      to: simulation)
+    simulation.update(deltaTime: 0)
+    let positionAfterInitialMove = simulation.player.position
+    XCTAssertGreaterThan(positionAfterInitialMove.column, 27)
+    simulation.update(deltaTime: 0.1)
+    XCTAssertEqual(simulation.player.position, positionAfterInitialMove)
+
+    simulation.input.send(.fireHook)
+    simulation.update(deltaTime: 0)
+    XCTAssertEqual(simulation.player.movementDirection, .right)
+    XCTAssertEqual(
+      joystick.update(displacement: .init(dx: 35, dy: 2), usableRadius: 40), [])
+
+    finishGrapple(in: simulation)
+    let positionAtGrappleCompletion = simulation.player.position
+    simulation.update(deltaTime: 0.13)
+    XCTAssertEqual(simulation.player.position, positionAtGrappleCompletion)
+    simulation.update(deltaTime: 0.01)
+
+    XCTAssertEqual(simulation.player.position, positionAtGrappleCompletion.moved(.right))
+    XCTAssertEqual(simulation.player.movementDirection, .right)
+  }
+
+  func testJoystickReleaseDuringGrapplePreventsMovementFromResuming() throws {
+    let simulation = try LevelOneSimulation(seed: 1, entities: [])
+    var joystick = VirtualJoystickController()
+    send(
+      joystick.update(displacement: .init(dx: 30, dy: 0), usableRadius: 40),
+      to: simulation)
+    simulation.update(deltaTime: 0)
+
+    simulation.input.send(.fireHook)
+    simulation.update(deltaTime: 0)
+    send(joystick.cancel(), to: simulation)
+    simulation.update(deltaTime: 0)
+    XCTAssertNil(simulation.player.movementDirection)
+
+    finishGrapple(in: simulation)
+    let positionAtGrappleCompletion = simulation.player.position
+    simulation.update(deltaTime: 0.28)
+
+    XCTAssertEqual(simulation.player.position, positionAtGrappleCompletion)
+    XCTAssertNil(simulation.player.movementDirection)
+  }
+
+  func testJoystickDirectionChangeDuringGrappleReplacesHeldIntent() throws {
+    let simulation = try LevelOneSimulation(seed: 1, entities: [])
+    var joystick = VirtualJoystickController()
+    send(
+      joystick.update(displacement: .init(dx: 30, dy: 0), usableRadius: 40),
+      to: simulation)
+    simulation.update(deltaTime: 0)
+
+    simulation.input.send(.fireHook)
+    simulation.update(deltaTime: 0)
+    let directionChange = joystick.update(
+      displacement: .init(dx: 0, dy: -30), usableRadius: 40)
+    XCTAssertEqual(directionChange, [.endMove(.right), .beginMove(.up)])
+    send(directionChange, to: simulation)
+    simulation.update(deltaTime: 0)
+    XCTAssertEqual(simulation.player.movementDirection, .up)
+
+    finishGrapple(in: simulation)
+    let positionAtGrappleCompletion = simulation.player.position
+    simulation.update(deltaTime: 0.14)
+
+    XCTAssertEqual(simulation.player.position, positionAtGrappleCompletion.moved(.up))
+    XCTAssertEqual(simulation.player.movementDirection, .up)
+  }
+
+  func testDirectionalGrappleRestoresFacingToHeldMovementWhenMovementResumes() throws {
+    let simulation = try LevelOneSimulation(seed: 1, entities: [])
+    var joystick = VirtualJoystickController()
+    var grapple = GrappleGestureController()
+    send(
+      joystick.update(displacement: .init(dx: 30, dy: 0), usableRadius: 40),
+      to: simulation)
+    simulation.update(deltaTime: 0)
+
+    grapple.begin(isEnabled: true)
+    grapple.update(translation: .init(width: 0, height: -30), isEnabled: true)
+    let grappleCommand = try XCTUnwrap(grapple.end(isEnabled: true))
+    simulation.input.send(grappleCommand)
+    simulation.update(deltaTime: 0)
+    XCTAssertEqual(simulation.player.facing, .up)
+    XCTAssertEqual(simulation.player.movementDirection, .right)
+    XCTAssertEqual(
+      joystick.update(displacement: .init(dx: 35, dy: 0), usableRadius: 40), [])
+
+    finishGrapple(in: simulation)
+    let positionAtGrappleCompletion = simulation.player.position
+    simulation.update(deltaTime: 0.14)
+
+    XCTAssertEqual(simulation.player.position, positionAtGrappleCompletion.moved(.right))
+    XCTAssertEqual(simulation.player.movementDirection, .right)
+    XCTAssertEqual(simulation.player.facing, .right)
+  }
+
+  private func send(_ commands: [GameCommand], to simulation: LevelOneSimulation) {
+    for command in commands { simulation.input.send(command) }
+  }
+
+  private func finishGrapple(in simulation: LevelOneSimulation) {
+    for _ in 0..<80 where simulation.player.hookshot.phase != .idle {
+      simulation.update(deltaTime: 0.1)
+    }
+    XCTAssertEqual(simulation.player.hookshot.phase, .idle)
+  }
 }
