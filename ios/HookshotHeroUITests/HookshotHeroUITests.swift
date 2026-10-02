@@ -37,6 +37,11 @@ final class HookshotHeroUITests: XCTestCase {
     app.buttons["returnToMenuButton"].tap()
     XCTAssertTrue(app.buttons["playButton"].waitForExistence(timeout: 5))
   }
+  func testReleaseMenuOmitsDevelopmentCopy() {
+    launch()
+    XCTAssertTrue(app.staticTexts["Hookshot Hero"].waitForExistence(timeout: 5))
+    XCTAssertFalse(app.staticTexts["Native iOS development build"].exists)
+  }
   func testSettingsAreIsolated() {
     launch()
     app.buttons["settingsButton"].tap()
@@ -53,13 +58,17 @@ final class HookshotHeroUITests: XCTestCase {
     XCTAssertTrue(link.waitForExistence(timeout: 5))
     link.tap()
     XCTAssertTrue(app.otherElements["creditsLicensesScreen"].waitForExistence(timeout: 5))
-    XCTAssertTrue(app.staticTexts.matching(NSPredicate(format: "label CONTAINS %@", "Spinning Gold Coin")).firstMatch.exists)
+    XCTAssertTrue(
+      app.staticTexts.matching(NSPredicate(format: "label CONTAINS %@", "Spinning Gold Coin"))
+        .firstMatch.exists)
   }
   func testSettingsLinksToScrollablePrivacyPolicyAndSupport() {
     launch()
     app.buttons["settingsButton"].tap()
     let settings = app.scrollViews.firstMatch
     settings.swipeUp()
+    XCTAssertTrue(app.staticTexts["settingsVersionInformation"].waitForExistence(timeout: 5))
+    XCTAssertEqual(app.staticTexts["settingsVersionInformation"].label, "Version 1.0.0 (1)")
     let privacyLink = app.buttons["privacyPolicyLink"]
     XCTAssertTrue(privacyLink.waitForExistence(timeout: 5))
     privacyLink.tap()
@@ -76,11 +85,30 @@ final class HookshotHeroUITests: XCTestCase {
     launch()
     app.buttons["helpButton"].tap()
     let help = app.scrollViews.firstMatch
-    help.swipeUp()
-    help.swipeUp()
+    for _ in 0..<12 where !app.buttons["helpPrivacyPolicyLink"].isHittable { help.swipeUp() }
     XCTAssertTrue(app.buttons["helpPrivacyPolicyLink"].waitForExistence(timeout: 5))
     app.buttons["helpPrivacyPolicyLink"].tap()
     XCTAssertTrue(app.otherElements["privacyPolicyScreen"].waitForExistence(timeout: 5))
+  }
+  func testHelpContainsGameWideReleaseGuidanceAndRemainsScrollable() {
+    app.launchEnvironment["UIPreferredContentSizeCategoryName"] =
+      "UICTContentSizeCategoryAccessibilityExtraExtraExtraLarge"
+    launch()
+    app.buttons["helpButton"].tap()
+    let help = app.scrollViews.firstMatch
+    XCTAssertTrue(help.waitForExistence(timeout: 5))
+    XCTAssertTrue(app.staticTexts["Controls"].exists)
+    XCTAssertFalse(app.staticTexts["Level 1 controls"].exists)
+    for identifier in [
+      "helpMovementSection", "helpGrappleSection", "helpHazardsSection", "helpItemsSection",
+      "helpEnemiesSection", "helpProgressionSection", "helpFinalRouteSection", "helpPauseSection",
+    ] {
+      for _ in 0..<12 where !app.otherElements[identifier].isHittable { help.swipeUp() }
+      XCTAssertTrue(app.otherElements[identifier].exists)
+    }
+    help.swipeUp()
+    XCTAssertTrue(app.buttons["helpPrivacyPolicyLink"].waitForExistence(timeout: 5))
+    XCTAssertTrue(app.buttons["helpDoneButton"].isHittable)
   }
   func testHelpIncludesJavaStoryIntro() {
     launch()

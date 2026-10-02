@@ -21,10 +21,6 @@ struct MainMenuView: View {
               .appTextStyle(.h1)
               .multilineTextAlignment(.center)
               .accessibilityAddTraits(.isHeader)
-            Text("Native iOS development build")
-              .appTextStyle(.paragraph)
-              .foregroundStyle(AppTheme.Colors.text.opacity(0.7))
-              .multilineTextAlignment(.center)
           }
           .frame(maxWidth: .infinity)
           .padding(24)
