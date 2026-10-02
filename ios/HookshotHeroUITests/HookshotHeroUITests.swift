@@ -144,6 +144,28 @@ final class HookshotHeroUITests: XCTestCase {
   func testForcedLossAndResultsReturn() {
     assertForcedResult("--force-game-outcome=loss", title: "Game Over")
   }
+  func testWonResultsDisplayTheirActualLevel() {
+    assertResultLevels(
+      outcomeArgument: "--force-game-outcome=win", title: "Victory",
+      levels: [
+        ("level-1", "Level 1"),
+        ("level-7", "Level 7"),
+        ("level-10", "Level 10"),
+        ("country-road", "Country Road"),
+        ("hero-welcome", "Hero's Welcome"),
+      ])
+  }
+  func testLostResultsDisplayTheirActualLevel() {
+    assertResultLevels(
+      outcomeArgument: "--force-game-outcome=loss", title: "Game Over",
+      levels: [
+        ("level-1", "Level 1"),
+        ("level-7", "Level 7"),
+        ("level-10", "Level 10"),
+        ("country-road", "Country Road"),
+        ("hero-welcome", "Hero's Welcome"),
+      ])
+  }
   func testAccessibilityDynamicTypeKeepsPauseReachable() {
     app.launchEnvironment["UIPreferredContentSizeCategoryName"] =
       "UICTContentSizeCategoryAccessibilityExtraExtraExtraLarge"
@@ -412,5 +434,26 @@ final class HookshotHeroUITests: XCTestCase {
     XCTAssertTrue(app.buttons["resultsReturnToMenuButton"].isHittable)
     app.buttons["resultsReturnToMenuButton"].tap()
     XCTAssertTrue(app.buttons["playButton"].waitForExistence(timeout: 5))
+  }
+  private func assertResultLevels(
+    outcomeArgument: String, title: String, levels: [(id: String, displayName: String)]
+  ) {
+    for level in levels {
+      app = XCUIApplication()
+      app.launchArguments = ["--ui-testing", "--reset-persistent-state", outcomeArgument]
+      app.launchEnvironment["HOOKSHOT_LEVEL_SEED"] = "496913"
+      app.launchEnvironment["HOOKSHOT_START_LEVEL"] = level.id
+      app.launch()
+      app.buttons["playButton"].tap()
+
+      let levelText = app.staticTexts["resultsLevel"]
+      XCTAssertTrue(
+        levelText.waitForExistence(timeout: 5),
+        "Expected results level accessibility element for \(level.displayName)")
+      XCTAssertEqual(levelText.label, level.displayName)
+      XCTAssertEqual(app.staticTexts["resultsTitle"].label, title)
+
+      app.terminate()
+    }
   }
 }
