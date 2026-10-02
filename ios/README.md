@@ -225,3 +225,7 @@ boss-defeat transition.
 After the boss is defeated, deliberate entry into the center ending region transitions to the
 native `CountryRoad` runtime. The ending region remains logical only and does not render a second
 grey doorway in the boss arena.
+
+## Third-party assets and release status
+
+The repository's MIT license covers Hookshot Hero source code only, not bundled third-party art. The application target bundles `Resources/THIRD_PARTY_NOTICES.md` and exposes it from **Settings → Credits & Licenses**. The root [`THIRD_PARTY_NOTICES.md`](../THIRD_PARTY_NOTICES.md) is the maintained distribution audit. Its unresolved provenance and unselected dual-license entries are release blockers; a successful build does not constitute asset clearance.
