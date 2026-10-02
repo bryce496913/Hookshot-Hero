@@ -6,7 +6,8 @@ struct SettingsView: View {
     var body: some View {
         ZStack {
             AppTheme.Colors.background.ignoresSafeArea()
-            VStack(alignment: .leading, spacing: 16) {
+            ScrollView {
+              VStack(alignment: .leading, spacing: 16) {
                 Text("Settings")
                     .appTextStyle(.h1)
                     .accessibilityAddTraits(.isHeader)
@@ -44,10 +45,19 @@ struct SettingsView: View {
                 }
                 .padding(16)
                 .appSurface()
-                Spacer()
+                VStack(alignment: .leading, spacing: 12) {
+                    Text("Information").appTextStyle(.h2)
+                    NavigationLink("Privacy Policy") { PrivacyPolicyView() }
+                        .accessibilityIdentifier("privacyPolicyLink")
+                    NavigationLink("Support") { SupportView() }
+                        .accessibilityIdentifier("supportLink")
+                }
+                .padding(16)
+                .appSurface()
                 Button("Done", action: dismiss)
                     .buttonStyle(AppPrimaryButtonStyle())
                     .accessibilityIdentifier("settingsDoneButton")
+              }
             }
             .padding(24)
         }
