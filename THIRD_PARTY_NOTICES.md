@@ -2,7 +2,11 @@
 
 Last audited: 2026-10-02. This inventory is based on the resources in the iOS application target's `PBXResourcesBuildPhase`, not on all files retained by the Java reference project. There are currently **no audio files in the iOS application target**.
 
-**Release status: BLOCKED.** Every `RELEASE BLOCKER — LICENSE/PROVENANCE UNRESOLVED` entry must be resolved (and the Lidia distribution license selected and recorded) before distributing the app. The repository MIT license applies to Hookshot Hero source code only; it does not relicense any artwork listed here.
+**Release status: BLOCKED.** Every `RELEASE BLOCKER — LICENSE/PROVENANCE UNRESOLVED` entry must be resolved (and the Lidia distribution license selected and recorded) before distributing the app. The repository MIT license applies to Hookshot Hero source code only; it does not relicense any artwork listed here. The deterministic target inventory is recorded in `ios/Documentation/ShippedAssetInventory.txt`, and dated source-check evidence is recorded in `ios/Documentation/AssetLicenseAudit.md`.
+
+## Hookshot Hero code
+
+The canonical project license is `Java/LICENSE.txt`: **MIT License, Copyright (c) 2023 Jerry Hsiung**. Its complete, unmodified text is bundled as `Hookshot-Hero-MIT.txt`. This resolves the project-code-license-text portion of the audit, but does not resolve or relicense any artwork.
 
 ## Resolved asset
 
@@ -14,7 +18,7 @@ Last audited: 2026-10-02. This inventory is based on the resources in the iOS ap
 
 | Bundled filename | In-app use | Original title | Creator | Source | Available licenses | Modification/repacking | Requirement / status |
 |---|---|---|---|---|---|---|---|
-| `lidia.png` | Playable heroine; runtime crops frames from the sprite sheet | LPC Heroine / Lidia | Yamilian | [OpenGameArt source](https://opengameart.org/content/lpc-heroine) | [CC BY-SA 3.0](https://creativecommons.org/licenses/by-sa/3.0/legalcode) **or** [GPL 3.0](https://www.gnu.org/licenses/gpl-3.0.html) | Legacy sheet is bundled unchanged; individual frames are cropped at runtime. No source modification is documented. | **RELEASE BLOCKER — DISTRIBUTION LICENSE NOT SELECTED.** The project contains no documented choice between the offered licenses. The owner must choose and record one before release, satisfy that license's attribution/notice/source or corresponding-source obligations, and bundle any required license text. Redistribution terms cannot be treated as settled until then. |
+| `lidia.png` | Playable heroine; runtime crops frames from the sprite sheet | LPC Heroine / Lidia | Yamilian | [OpenGameArt source](https://opengameart.org/content/lpc-heroine) | [CC BY-SA 3.0](https://creativecommons.org/licenses/by-sa/3.0/legalcode) **or** [GPL 3.0](https://www.gnu.org/licenses/gpl-3.0.html) | Legacy sheet is bundled unchanged; individual frames are cropped at runtime. No source modification is documented. | **OWNER LICENSE SELECTION REQUIRED FOR LIDIA.** A repository-wide content and history search found no project-owner selection. The owner must choose and record one only after a network-enabled check confirms it was offered for this exact sheet, then satisfy its attribution/notice/source or corresponding-source obligations and bundle the applicable license text. |
 
 ## Provenance or license unresolved
 
@@ -45,3 +49,4 @@ The Java README is useful attribution evidence, but it does not state licenses a
 * `Assets.xcassets` color metadata, `Info.plist`, and `PrivacyInfo.xcprivacy` are app metadata rather than third-party artwork; they remain target resources but do not require an artwork license notice.
 * Java images and audio not listed above are repository/reference material and are **not** members of the native iOS application target. In particular, no Java `.wav` file ships in the target.
 * Source URLs and license offers can change. The coin and Lidia license labels record the source-page findings available for this audit date; distribution owners should retain dated upstream evidence with the eventual clearance record.
+* The 2026-10-02 verification environment could not reach external sources (the HTTPS proxy rejected the request with `403 Forbidden`). No candidate was promoted to resolved on the strength of a filename, historical credit, or unverified license recollection. See the evidence record for the required network-enabled/manual pass.
