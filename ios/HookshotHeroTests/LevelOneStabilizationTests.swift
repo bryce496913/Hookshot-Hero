@@ -686,6 +686,9 @@ final class LevelOneStabilizationTests: XCTestCase {
         source: "Level 3 bottom", level: LevelThreeDefinition.make(),
         region: LevelThreeDefinition.make().entryRegion, direction: .down),
       DoorCase(
+        source: "Level 4 bottom", level: LevelFourDefinition.make(),
+        region: LevelFourDefinition.make().entryRegion, direction: .down),
+      DoorCase(
         source: "Level 4 closed top", level: LevelFourDefinition.make(),
         region: LevelFourDefinition.make().exitRegion, direction: .up),
       DoorCase(
@@ -735,7 +738,7 @@ final class LevelOneStabilizationTests: XCTestCase {
         region: LevelTenDefinition.rightDoorRegion, direction: .right),
       DoorCase(
         source: "Country Road castle", level: CountryRoadDefinition.make(),
-        region: CountryRoadDefinition.doorwayRegion, direction: .down),
+        region: CountryRoadDefinition.doorwayRegion, direction: .up),
       DoorCase(
         source: "Hero's Welcome castle", level: HeroWelcomeDefinition.make(),
         region: HeroWelcomeDefinition.doorwayRegion, direction: .down),
@@ -774,7 +777,9 @@ final class LevelOneStabilizationTests: XCTestCase {
         initialPlayerPosition: start, entities: [])
       simulation.player.facing = fixture.direction
       simulation.fireHook()
-      simulation.update(deltaTime: 5 / LevelOneSimulation.grappleExtensionCellsPerSecond)
+      for _ in 0..<5 {
+        simulation.update(deltaTime: 1 / LevelOneSimulation.grappleExtensionCellsPerSecond)
+      }
       XCTAssertEqual(simulation.player.hookshot.phase, .latched, fixture.source)
       XCTAssertEqual(simulation.player.hookshot.head, target, fixture.source)
     }
@@ -788,7 +793,9 @@ final class LevelOneStabilizationTests: XCTestCase {
     simulation.onLevelTransition = { transitions.append($0) }
     simulation.player.facing = .up
     simulation.fireHook()
-    simulation.update(deltaTime: 5 / LevelOneSimulation.grappleExtensionCellsPerSecond)
+    for _ in 0..<5 {
+      simulation.update(deltaTime: 1 / LevelOneSimulation.grappleExtensionCellsPerSecond)
+    }
 
     XCTAssertEqual(simulation.player.hookshot.phase, .latched)
     XCTAssertTrue(level.exitRegion.contains(try XCTUnwrap(simulation.player.hookshot.head)))

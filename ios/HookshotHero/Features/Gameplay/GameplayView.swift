@@ -48,7 +48,7 @@ struct GameplayView: View {
       VStack(spacing: compact ? 5 : 8) {
         hud
         ZStack {
-          GameSceneView(scene: scene).id(scene.runtimeGeneration).aspectRatio(1, contentMode: .fit)
+          GameSceneView(scene: scene).aspectRatio(1, contentMode: .fit)
             .background(AppTheme.Colors.background).accessibilityHidden(true)
             .accessibilityIdentifier("gameBoard")
           GameplayFeedbackOverlay(

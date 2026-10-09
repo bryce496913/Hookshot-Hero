@@ -22,7 +22,9 @@ enum SpawnError: LocalizedError {
   }
 }
 enum SpawnService {
-  static func spawn<R: RandomNumberGenerator>(in level: LevelDefinition, using rng: inout R) throws
+  static func spawn<R: RandomNumberGenerator>(
+    in level: LevelDefinition, protectedRegions: [GridRegion] = [], using rng: inout R
+  ) throws
     -> [WorldEntity]
   {
     try spawn(
@@ -30,7 +32,7 @@ enum SpawnService {
       requirements: [
         .init(kind: .mine, count: 3), .init(kind: .cabbage, count: 2),
         .init(kind: .coin, count: 10),
-      ], protectedRegions: [], using: &rng)
+      ], protectedRegions: protectedRegions, using: &rng)
   }
   static func spawn<R: RandomNumberGenerator>(
     in level: LevelDefinition, requirements: [EntitySpawnRequirement],

@@ -14,6 +14,48 @@ final class CrossLevelCarryoverTests: XCTestCase {
     var openedChestIDs: Set<OpenedChestID>
   }
 
+  func testLevelFourBackwardDoorIsReachableByNormalMovement() throws {
+    let simulation = try LevelFourSimulation(seed: seed)
+    var requests: [LevelTransitionRequest] = []
+    simulation.onLevelTransition = { requests.append($0) }
+    // Center the complete 3x3 footprint inside the columns 27..<33 doorway.
+    simulation.input.send(.move(.right))
+    simulation.update(deltaTime: 0)
+    for _ in 0..<5 {
+      simulation.input.send(.move(.down))
+      simulation.update(deltaTime: 0)
+      XCTAssertFalse(simulation.level.isBlocked(
+        CollisionProfile.player.region(at: simulation.player.position)))
+    }
+    XCTAssertEqual(requests.count, 1)
+    XCTAssertEqual(requests.first?.destinationLevelID, .levelThree)
+    XCTAssertEqual(requests.first?.destinationEntry, .top)
+    XCTAssertEqual(requests.first?.reason, .returnedBackward)
+    XCTAssertEqual(simulation.player.position, .init(row: 55, column: 28))
+  }
+
+  func testEarlyDungeonItemsExcludeActualArrivalForMultipleSeeds() throws {
+    let factory = DefaultGameSimulationFactory()
+    let configuration = GameConfiguration(reducedMotion: false, controlHintsEnabled: true)
+    for levelID in [LevelID.levelOne, .levelTwo, .levelThree] {
+      for entry in [LevelEntryPosition.bottom, .top] {
+        for itemSeed in UInt64(1)...32 {
+          let simulation = try factory.makeSimulation(
+            levelID: levelID, configuration: configuration, seed: itemSeed,
+            entryPosition: entry, carryover: nil)
+          let level = try XCTUnwrap(simulation as? LevelOneSimulation)
+          let arrival = CollisionProfile.player.region(at: level.player.position)
+          XCTAssertEqual(level.entities.count, 15)
+          for entity in level.entities {
+            XCTAssertFalse(arrival.intersects(
+              CollisionProfile.footprint(for: entity.kind).region(at: entity.position)),
+              "Item overlaps arrival in \(levelID.rawValue), \(entry), seed \(itemSeed)")
+          }
+        }
+      }
+    }
+  }
+
   func testEntryDirectionsAreDistinctValues() {
     XCTAssertEqual(
       Set<LevelEntryPosition>([.bottom, .top, .left, .right]).count, 4,
@@ -91,6 +133,11 @@ final class CrossLevelCarryoverTests: XCTestCase {
       (.levelEight, .bottom, LevelEightDefinition.fromLevelSevenStart),
       (.levelEight, .top, LevelEightDefinition.topReturnStart),
       (.levelNine, .bottom, LevelNineDefinition.bottomStart),
+      (.levelNine, .left, LevelNineDefinition.leftStart),
+      (.levelTen, .right, LevelTenDefinition.rightStart),
+      (.levelTen, .bottom, LevelTenDefinition.rightStart),
+      (.countryRoad, .bottom, CountryRoadDefinition.start),
+      (.heroWelcome, .bottom, HeroWelcomeDefinition.start),
     ]
     let factory = DefaultGameSimulationFactory()
     let configuration = GameConfiguration(reducedMotion: false, controlHintsEnabled: true)
@@ -110,7 +157,7 @@ final class CrossLevelCarryoverTests: XCTestCase {
     let levelIDs: [LevelID] = [
       .levelOne, .levelTwo, .levelThree, .levelFour, .levelFive, .levelSix, .levelSeven,
       .levelEight,
-      .levelNine,
+      .levelNine, .levelTen, .countryRoad, .heroWelcome,
     ]
     let entries: [LevelEntryPosition] = [.bottom, .top, .left, .right]
     for levelID in levelIDs {

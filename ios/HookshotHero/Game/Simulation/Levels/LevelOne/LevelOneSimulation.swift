@@ -97,7 +97,8 @@ import Foundation
       canMove: true, canGrapple: true, isPaused: false, dialogue: nil, feedback: [],
       diagnosticPlayerPosition: nil)
     var rng = SeededRandomNumberGenerator(seed: seed)
-    entities = try fixture ?? SpawnService.spawn(in: level, using: &rng)
+    entities = try fixture ?? SpawnService.spawn(
+      in: level, protectedRegions: [CollisionProfile.player.region(at: initial)], using: &rng)
     try validateInitialPlayerFootprint()
   }
   private static func startPosition(

@@ -346,6 +346,39 @@ final class GameSessionTests: XCTestCase {
       })
   }
 
+  func testInactiveTransitionRequiresResumeRegardlessOfAttachmentOrder() throws {
+    for foregroundBeforeAttachment in [false, true] {
+      let session = running()
+      let carryover = PlayerCarryoverState(
+        characterID: session.simulation.renderSnapshot.player.id,
+        health: session.health, score: session.score, completedLevelIDs: [])
+      session.simulation.onLevelTransition?(
+        .init(sourceLevelID: .levelOne, destinationLevelID: .levelTwo,
+              destinationEntry: .bottom, carryover: carryover))
+      XCTAssertEqual(session.state, .transitioning(.levelTwo))
+      session.applicationDidBecomeInactive()
+      let runtime = try DefaultGameLevelRuntimeFactory().makeRuntime(
+        levelID: .levelTwo, configuration: session.configuration, seed: 42,
+        entryPosition: .bottom, carryover: carryover)
+      session.installRuntime(runtime)
+      if foregroundBeforeAttachment { session.applicationDidBecomeActive() }
+      session.runtimeSceneDidAttach(generation: session.runtimeGeneration, levelID: .levelTwo)
+      XCTAssertEqual(session.state, .paused)
+      XCTAssertEqual(session.pauseReason, .applicationLifecycle)
+      XCTAssertFalse(session.canSimulate)
+      let position = session.simulation.renderSnapshot.player.coordinate
+      session.advance(by: 0.1)
+      XCTAssertEqual(session.simulation.renderSnapshot.player.coordinate, position)
+      if !foregroundBeforeAttachment {
+        XCTAssertFalse(session.resume())
+        session.applicationDidBecomeActive()
+      }
+      XCTAssertEqual(session.state, .paused)
+      XCTAssertTrue(session.resume())
+      XCTAssertTrue(session.canSimulate)
+    }
+  }
+
   private func running() -> GameSession {
     let session = GameSession()
     _ = session.initializeWorld()

@@ -43,13 +43,16 @@ extension LevelAssetManifest {
       LevelTenRenderAssets.specialChest, LevelOneRenderAssets.chestOpen,
       LevelTenRenderAssets.ghostWizard,
       LevelTenRenderAssets.projectile,
-    ]).union(sharedPlayerTextureAssetIDs).union(
+    ]).union(sharedPlayerTextureAssetIDs).union(sharedCoinTextureAssetIDs).union([
+      LevelOneRenderAssets.mine, LevelOneRenderAssets.cabbage,
+    ]).union(
       (0..<4).flatMap { row in
         (0..<LevelTenRenderAnimations.frameCount).map {
           LevelTenRenderAssets.ghostWizardFrame(row: row, frame: $0)
         }
       }),
     animationIDs: Set([
+      LevelOneRenderAnimations.coinSpin,
       LevelOneRenderAnimations.lidiaWalk(.up), LevelOneRenderAnimations.lidiaWalk(.down),
       LevelOneRenderAnimations.lidiaWalk(.left), LevelOneRenderAnimations.lidiaWalk(.right),
       ghostAnimation(.up), ghostAnimation(.down), ghostAnimation(.left), ghostAnimation(.right),

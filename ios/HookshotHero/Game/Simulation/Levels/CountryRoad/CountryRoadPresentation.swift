@@ -33,7 +33,11 @@ extension LevelAssetManifest {
       LevelAssetManifest.levelOne.textureAssetIDs.filter {
         $0.rawValue.contains("coin") || $0 == LevelOneRenderAssets.cabbage
       }),
-    animationIDs: [.init(rawValue: "country-road.waterfall")])
+    animationIDs: [
+      .init(rawValue: "country-road.waterfall"), LevelOneRenderAnimations.coinSpin,
+      LevelOneRenderAnimations.lidiaWalk(.up), LevelOneRenderAnimations.lidiaWalk(.down),
+      LevelOneRenderAnimations.lidiaWalk(.left), LevelOneRenderAnimations.lidiaWalk(.right),
+    ])
 }
 
 enum CountryRoadPresentationDefinition {

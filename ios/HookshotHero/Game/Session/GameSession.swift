@@ -55,6 +55,7 @@ enum PauseReason: Equatable, Sendable { case user, applicationLifecycle }
   private(set) var elapsedTime: TimeInterval = 0
   private(set) var pauseReason: PauseReason?
   private var applicationIsActive = true
+  private var requiresResumeAfterTransition = false
   private let publishesDiagnosticPosition: Bool
   private var disposedSimulation = false
   private var diagnosticPlayerPosition: GridPosition?
@@ -141,6 +142,7 @@ enum PauseReason: Equatable, Sendable { case user, applicationLifecycle }
   func applicationDidBecomeInactive() {
     guard !isTerminal else { return }
     applicationIsActive = false
+    if case .transitioning = state { requiresResumeAfterTransition = true }
     simulation.cancelAllInput()
     if state == .running || state == .initialized {
       pauseReason = .applicationLifecycle
@@ -230,9 +232,11 @@ enum PauseReason: Equatable, Sendable { case user, applicationLifecycle }
     guard case .transitioning(let targetLevelID) = state, generation == runtimeGeneration,
       levelID == targetLevelID, levelID == runtime.presentation.levelID
     else { return }
-    pauseReason = nil
-    runtime.simulation.setPaused(false)
-    state = .running
+    let mustPause = !applicationIsActive || requiresResumeAfterTransition
+    requiresResumeAfterTransition = false
+    pauseReason = mustPause ? .applicationLifecycle : nil
+    runtime.simulation.setPaused(mustPause)
+    state = mustPause ? .paused : .running
     refreshUISnapshot()
   }
 
