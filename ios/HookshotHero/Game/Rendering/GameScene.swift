@@ -75,7 +75,11 @@ final class TextureCatalog: TextureCatalogProviding {
     let base = SKTexture(image: image)
     base.filteringMode = .nearest
     guard let r = entry.source else { return base }
-    guard r.x >= 0, r.y >= 0, r.x + r.width <= r.sheetWidth, r.y + r.height <= r.sheetHeight else {
+    guard let sourceImage = image.cgImage,
+      r.sheetWidth == Double(sourceImage.width), r.sheetHeight == Double(sourceImage.height),
+      r.width > 0, r.height > 0, r.x >= 0, r.y >= 0,
+      r.x + r.width <= r.sheetWidth, r.y + r.height <= r.sheetHeight
+    else {
       throw TextureCatalogError.invalidRegion(assetID)
     }
     let rect = CGRect(
@@ -196,16 +200,16 @@ enum LevelOneTextureCatalog {
     heroSheet(HeroWelcomeRenderAssets.carpet, "castle1.png", 0, 97, 47, 31, 176, 192)
     heroSheet(HeroWelcomeRenderAssets.flower1, "castle1.png", 150, 165, 20, 27, 176, 192)
     heroSheet(HeroWelcomeRenderAssets.flower2, "castle1.png", 127, 165, 16, 27, 176, 192)
-    heroSheet(HeroWelcomeRenderAssets.knight, "castle2.png", 47, 75, 16, 23, 160, 160)
-    heroSheet(HeroWelcomeRenderAssets.desk, "castle2.png", 80, 122, 30, 23, 160, 160)
-    heroSheet(HeroWelcomeRenderAssets.bookshelf, "castle2.png", 53, 100, 20, 27, 160, 160)
+    heroSheet(HeroWelcomeRenderAssets.knight, "castle2.png", 47, 75, 16, 23, 112, 192)
+    heroSheet(HeroWelcomeRenderAssets.desk, "castle2.png", 80, 122, 30, 23, 112, 192)
+    heroSheet(HeroWelcomeRenderAssets.bookshelf, "castle2.png", 53, 100, 20, 27, 112, 192)
     heroSheet(HeroWelcomeRenderAssets.silverChest, "chests.png", 259, 67, 25, 25, 320, 384)
     add(HeroWelcomeRenderAssets.barrels, "barrels.png")
-    heroSheet(HeroWelcomeRenderAssets.aristocrat, "a1.png", 0, 64, 24, 32, 72, 128)
-    heroSheet(HeroWelcomeRenderAssets.king, "k1.png", 0, 64, 24, 32, 72, 128)
-    heroSheet(HeroWelcomeRenderAssets.queen, "q1.png", 0, 64, 24, 32, 72, 128)
-    heroSheet(HeroWelcomeRenderAssets.prince, "p1.png", 0, 64, 24, 32, 72, 128)
-    heroSheet(HeroWelcomeRenderAssets.princess, "pr1.png", 0, 64, 24, 32, 72, 128)
+    heroSheet(HeroWelcomeRenderAssets.aristocrat, "a1.png", 0, 64, 24, 32, 153, 128)
+    heroSheet(HeroWelcomeRenderAssets.king, "k1.png", 0, 64, 24, 32, 153, 128)
+    heroSheet(HeroWelcomeRenderAssets.queen, "q1.png", 0, 64, 24, 32, 153, 128)
+    heroSheet(HeroWelcomeRenderAssets.prince, "p1.png", 0, 64, 24, 32, 153, 128)
+    heroSheet(HeroWelcomeRenderAssets.princess, "pr1.png", 0, 64, 24, 32, 153, 128)
     let directions = [0, 1, 2, 3]
     for direction in directions {
       for frame in 0..<9 {

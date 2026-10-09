@@ -5,6 +5,12 @@ import Foundation
 enum LegalSupportLinks {
   static let privacyPolicyURL: URL? = nil
   static let supportURL: URL? = nil
+
+  static var supportAvailabilityDescription: String {
+    supportURL == nil
+      ? "A verified public support destination has not yet been configured."
+      : "Use Contact Support in Settings to reach the official support page."
+  }
 }
 
 enum AppVersionInformation {
@@ -62,7 +68,8 @@ enum PrivacyPolicyContent {
     PolicySection(
       title: "Support and contact",
       body:
-        "Open Support from Settings for troubleshooting, version information, and the currently configured way to contact support. A verified public support destination has not yet been configured in this build."
+        "Open Support from Settings for troubleshooting, version information, and the currently configured way to contact support. "
+        + LegalSupportLinks.supportAvailabilityDescription
     ),
   ]
 }

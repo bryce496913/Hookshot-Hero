@@ -42,7 +42,8 @@ import Foundation
         .init(kind: .mine, count: 3), .init(kind: .cabbage, count: 2),
         .init(kind: .coin, count: 10),
       ],
-      protectedRegions: enemies.map { $0.archetype.footprint.region(at: $0.position) } + [
+      protectedRegions: [CollisionProfile.player.region(at: start)]
+        + enemies.map { $0.archetype.footprint.region(at: $0.position) } + [
         .init(rows: 39..<43, columns: 5..<9), .init(rows: 55..<59, columns: 50..<54),
       ], using: &rng)
   }

@@ -15,7 +15,8 @@ struct SupportView: View {
           supportSection(
             "Reporting an issue",
             body:
-              "When reporting a problem, include the app version below, your iPhone model and iOS version, what you expected, what happened, and the steps that reproduce it. A verified public support destination has not yet been configured; check this screen after an app update for the official contact option."
+              "When reporting a problem, include the app version below, your iPhone model and iOS version, what you expected, what happened, and the steps that reproduce it. "
+                + LegalSupportLinks.supportAvailabilityDescription
           )
           VStack(alignment: .leading, spacing: 8) {
             Text("App information").appTextStyle(.h2).accessibilityAddTraits(.isHeader)

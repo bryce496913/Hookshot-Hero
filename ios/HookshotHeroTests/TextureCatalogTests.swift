@@ -33,6 +33,63 @@ import XCTest
     XCTAssertEqual(ghostWizard.filteringMode, .nearest)
   }
 
+  func testPalaceCropsHaveCorrectPixelDimensions() throws {
+    let catalog = TextureCatalog()
+    let expected: [(RenderAssetID, Double, Double)] = [
+      (HeroWelcomeRenderAssets.aristocrat, 24, 32),
+      (HeroWelcomeRenderAssets.king, 24, 32),
+      (HeroWelcomeRenderAssets.queen, 24, 32),
+      (HeroWelcomeRenderAssets.prince, 24, 32),
+      (HeroWelcomeRenderAssets.princess, 24, 32),
+      (HeroWelcomeRenderAssets.knight, 16, 23),
+      (HeroWelcomeRenderAssets.desk, 30, 23),
+      (HeroWelcomeRenderAssets.bookshelf, 20, 27),
+    ]
+    for (asset, width, height) in expected {
+      let size = try catalog.texture(for: asset).size()
+      XCTAssertEqual(Double(size.width), width, accuracy: 0.001, asset.rawValue)
+      XCTAssertEqual(Double(size.height), height, accuracy: 0.001, asset.rawValue)
+    }
+  }
+
+  func testIncorrectSheetDimensionsAreRejectedEvenWhenDeclaredCropFits() {
+    let id = RenderAssetID(rawValue: "test.wrong-sheet-size")
+    let catalog = TextureCatalog(entries: [id: .init(
+      filename: "k1.png", source: .init(
+        x: 0, y: 64, width: 24, height: 32, sheetWidth: 72, sheetHeight: 128))])
+    XCTAssertThrowsError(try catalog.texture(for: id)) { error in
+      guard case TextureCatalogError.invalidRegion(let asset) = error else {
+        return XCTFail("Expected invalidRegion, got \(error)")
+      }
+      XCTAssertEqual(asset, id)
+    }
+  }
+
+  func testEveryRegisteredTextureMatchesItsBundledSource() throws {
+    let catalog = TextureCatalog()
+    for asset in LevelOneTextureCatalog.entries.keys {
+      _ = try catalog.texture(for: asset)
+    }
+  }
+
+  func testEveryLevelManifestIncludesInitialDynamicRenderRequests() throws {
+    let factory = DefaultGameLevelRuntimeFactory()
+    for levelID in LevelSelectView.levels.map(\.levelID) {
+      let runtime = try factory.makeRuntime(
+        levelID: levelID,
+        configuration: .init(reducedMotion: false, controlHintsEnabled: true), seed: 42)
+      let snapshot = runtime.simulation.renderSnapshot
+      for entity in [snapshot.player] + snapshot.entities {
+        XCTAssertTrue(runtime.assetManifest.textureAssetIDs.contains(entity.asset),
+                      "Missing texture \(entity.asset.rawValue) in \(levelID.rawValue)")
+        if let animation = entity.animation {
+          XCTAssertTrue(runtime.assetManifest.animationIDs.contains(animation.animationID),
+                        "Missing animation \(animation.animationID.rawValue) in \(levelID.rawValue)")
+        }
+      }
+    }
+  }
+
   func testMissingFileThrowsMissingAsset() {
     let id = RenderAssetID(rawValue: "test.missing")
     let catalog = TextureCatalog(
