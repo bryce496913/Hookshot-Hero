@@ -37,6 +37,24 @@ final class HookshotHeroUITests: XCTestCase {
     app.buttons["returnToMenuButton"].tap()
     XCTAssertTrue(app.buttons["playButton"].waitForExistence(timeout: 5))
   }
+  func testDesignSystemButtonsKeepNativeSemanticsAndMinimumTargets() {
+    app.launchEnvironment["UIPreferredContentSizeCategoryName"] =
+      "UICTContentSizeCategoryAccessibilityExtraExtraExtraLarge"
+    launch()
+    let scroll = app.scrollViews.firstMatch
+    for identifier in ["playButton", "settingsButton", "helpButton"] {
+      let button = app.buttons[identifier]
+      XCTAssertTrue(button.waitForExistence(timeout: 5))
+      for _ in 0..<8 where !button.isHittable { scroll.swipeUp() }
+      XCTAssertTrue(button.isHittable)
+      XCTAssertGreaterThanOrEqual(button.frame.width, 44)
+      XCTAssertGreaterThanOrEqual(button.frame.height, 44)
+      XCTAssertFalse(button.label.isEmpty)
+    }
+    app.buttons["helpButton"].tap()
+    XCTAssertTrue(app.staticTexts.matching(identifier: "Help").firstMatch.waitForExistence(timeout: 5))
+  }
+
   func testReleaseMenuOmitsDevelopmentCopy() {
     launch()
     XCTAssertTrue(app.staticTexts["Hookshot Hero"].waitForExistence(timeout: 5))

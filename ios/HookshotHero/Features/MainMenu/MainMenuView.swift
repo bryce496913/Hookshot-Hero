@@ -8,7 +8,7 @@ struct MainMenuView: View {
 
   var body: some View {
     ZStack {
-      AppTheme.Colors.background.ignoresSafeArea()
+      AppBackground()
       ScrollView {
         VStack(spacing: 18) {
           Spacer(minLength: 20)
@@ -94,7 +94,7 @@ struct LevelSelectView: View {
 
   var body: some View {
     ZStack {
-      AppTheme.Colors.background.ignoresSafeArea()
+      AppBackground()
       ScrollView {
         VStack(spacing: 14) {
           Text("Level Select").appTextStyle(.h1).accessibilityAddTraits(.isHeader)
