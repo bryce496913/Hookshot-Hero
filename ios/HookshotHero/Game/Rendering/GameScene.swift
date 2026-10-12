@@ -274,7 +274,8 @@ enum LevelOneTextureCatalog {
     add(.init(rawValue: "level-seven.chest.back"), "ChestBack.png")
     add(
       .init(rawValue: "enemy.ghost-wizard.projectile"), "bomb.png",
-      .init(x: 0, y: 0, width: 20, height: 20, sheetWidth: 120, sheetHeight: 26))
+      // Reuse the bright fuse flame as magic, rather than the dark bomb body.
+      .init(x: 6, y: 0, width: 8, height: 8, sheetWidth: 120, sheetHeight: 26))
     add(
       .init(rawValue: "enemy.ghost-wizard"), "minotaurWithAxe.png",
       .init(x: 0, y: 0, width: 45, height: 58, sheetWidth: 90, sheetHeight: 232))
