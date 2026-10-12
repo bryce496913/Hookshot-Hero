@@ -45,7 +45,7 @@ enum EnemyArchetype: Equatable, Sendable {
     case .skeleton: 0.5
     case .flyingTerror: 0.3
     case .minotaur: 0.35
-    case .ghostWizard: 0.15
+    case .ghostWizard: 0.35
     }
   }
   var footprint: CollisionFootprint {
