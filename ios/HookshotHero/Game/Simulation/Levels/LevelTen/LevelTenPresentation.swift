@@ -14,6 +14,11 @@ enum LevelTenRenderAssets {
     .init(rawValue: "enemy.ghost-wizard.\(row)-\(frame)")
   }
 }
+enum LevelTenProjectilePresentation {
+  static let renderSize = LogicalRenderSize(width: 1.8, height: 1.8)
+  static let zPosition = 8.25
+}
+
 enum LevelTenRenderAnimations {
   static let frameCount = 2
 

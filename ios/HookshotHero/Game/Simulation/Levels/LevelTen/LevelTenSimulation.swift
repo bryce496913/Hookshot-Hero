@@ -8,6 +8,12 @@ struct GhostProjectileState: Identifiable, Equatable, Sendable {
 }
 
 @MainActor final class LevelTenSimulation: LevelOneSimulation {
+  // Covers the playable arena's diagonal without changing shared enemy sight ranges.
+  static let projectileAttackRange = 80.0
+  static let projectileAttackInterval: TimeInterval = 3
+  static let projectileStepInterval: TimeInterval = 0.12
+  // Permit floating-point roundoff at exact frame boundaries, not an early attack.
+  private static let projectileTimingTolerance: TimeInterval = 1e-9
   static let forwardRouteGuidance =
     "The path forward is open at the arena's center. Claim the treasure, then head there."
 
@@ -41,8 +47,9 @@ struct GhostProjectileState: Identifiable, Equatable, Sendable {
     let shots = projectiles.map { shot in
       RenderEntitySnapshot(
         id: shot.id, asset: LevelTenRenderAssets.projectile,
-        coordinate: shot.position, renderSize: .init(width: 1.2, height: 1.2), anchor: .center,
-        zPosition: 7.5, orientation: .none, animation: nil, opacity: 1, isHidden: false)
+        coordinate: shot.position, renderSize: LevelTenProjectilePresentation.renderSize,
+        anchor: .center, zPosition: LevelTenProjectilePresentation.zPosition,
+        orientation: .none, animation: nil, opacity: 1, isHidden: false)
     }
     return .init(
       player: base.player,
@@ -99,8 +106,12 @@ struct GhostProjectileState: Identifiable, Equatable, Sendable {
     presentForwardRouteGuidanceIfNeeded()
     super.update(deltaTime: deltaTime)
     guard outcome == nil else { return }
-    updateBoss(min(max(deltaTime, 0), 0.1))
-    updateProjectiles(min(max(deltaTime, 0), 0.1))
+    let dt = min(max(deltaTime, 0), 0.1)
+    // Advance existing shots first so a newly fired shot is rendered at its muzzle
+    // for one frame before movement or player-contact removal.
+    updateProjectiles(dt)
+    guard outcome == nil else { return }
+    updateBoss(dt)
     checkDoors()
   }
 
@@ -122,6 +133,7 @@ struct GhostProjectileState: Identifiable, Equatable, Sendable {
     worldState.defeatedBossLevelIDs.insert(.levelTen)
     boss = nil
     projectiles = []
+    projectileAccumulator = 0
     requiresEndingExitDeparture = CollisionProfile.player.region(at: player.position).intersects(
       LevelTenDefinition.endingExitRegion)
     let id = emit(.enemyDefeated(archetype: .ghostWizard), at: position)
@@ -176,12 +188,15 @@ struct GhostProjectileState: Identifiable, Equatable, Sendable {
       }
     }
     projectileAccumulator += dt
-    if distance(current.position) <= current.archetype.sight && projectileAccumulator >= 3 {
-      projectileAccumulator = 0
+    if distance(current.position) <= Self.projectileAttackRange
+      && projectileAccumulator + Self.projectileTimingTolerance >= Self.projectileAttackInterval
+    {
+      projectileAccumulator = max(0, projectileAccumulator - Self.projectileAttackInterval)
+      let direction = dominantDirection(from: current.position, to: player.position)
       projectiles.append(
         .init(
-          id: EntityID(), position: current.position,
-          direction: dominantDirection(from: current.position, to: player.position),
+          id: EntityID(), position: projectileStart(from: current.position, direction: direction),
+          direction: direction,
           stepAccumulator: 0))
     }
     if current.archetype.footprint.region(at: current.position).intersects(
@@ -213,11 +228,19 @@ struct GhostProjectileState: Identifiable, Equatable, Sendable {
   }
 
   private func updateProjectiles(_ dt: TimeInterval) {
+    projectiles.removeAll { !level.isInside($0.position) || level.isWall($0.position) }
     for i in projectiles.indices { projectiles[i].stepAccumulator += dt }
-    for i in projectiles.indices where projectiles[i].stepAccumulator >= 0.12 {
-      projectiles[i].stepAccumulator = 0
+    for i in projectiles.indices
+    where projectiles[i].stepAccumulator + Self.projectileTimingTolerance
+      >= Self.projectileStepInterval
+    {
+      projectiles[i].stepAccumulator = max(
+        0, projectiles[i].stepAccumulator - Self.projectileStepInterval)
       projectiles[i].position = projectiles[i].position.moved(projectiles[i].direction)
     }
+    // Blocking terrain takes priority over player contact, including footprint
+    // overlap from a neighboring cell on the other side of a wall.
+    projectiles.removeAll { !level.isInside($0.position) || level.isWall($0.position) }
     let playerRegion = CollisionProfile.player.region(at: player.position)
     let hits = Set(
       projectiles.filter {
@@ -227,7 +250,18 @@ struct GhostProjectileState: Identifiable, Equatable, Sendable {
       projectiles.removeAll { hits.contains($0.id) }
       damagePlayerFromGhost()
     }
-    projectiles.removeAll { !level.isInside($0.position) || level.isWall($0.position) }
+  }
+
+  private func projectileStart(from origin: GridPosition, direction: GridDirection) -> GridPosition {
+    var start = origin
+    // A three-cell offset clears the centered boss sprite and its 5x5 footprint.
+    // Near a wall, use the furthest safe cell rather than spawning inside terrain.
+    for _ in 0..<3 {
+      let next = start.moved(direction)
+      guard level.isInside(next), !level.isWall(next) else { break }
+      start = next
+    }
+    return start
   }
 
   private func checkDoors() {

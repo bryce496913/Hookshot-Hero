@@ -8,11 +8,243 @@ import XCTest
 @MainActor final class LevelTenTests: XCTestCase {
   private let configuration = GameConfiguration(reducedMotion: false, controlHintsEnabled: true)
 
+  func testProjectileAttackReachesEntranceAndDistantArenaPositions() throws {
+    for target in [LevelTenDefinition.rightStart, GridPosition(row: 5, column: 54)] {
+      let simulation = try LevelTenSimulation()
+      simulation.entities = []
+      simulation.player.position = target
+      let initialBoss = try XCTUnwrap(simulation.boss)
+      let initialDistance = hypot(Double(initialBoss.position.row - target.row),
+                                  Double(initialBoss.position.column - target.column))
+      XCTAssertGreaterThan(initialDistance, initialBoss.archetype.sight,
+                           "These positions expose the former sight-gated attack limitation")
+      for _ in 0..<29 { simulation.update(deltaTime: 0.1) }
+      XCTAssertTrue(simulation.projectiles.isEmpty, "Preserve the initial attack delay")
+      simulation.update(deltaTime: 0.1)
+      let shot = try XCTUnwrap(simulation.projectiles.first)
+      XCTAssertEqual(simulation.projectiles.count, 1)
+      XCTAssertEqual(shot.direction, .right)
+      let rendered = try XCTUnwrap(
+        simulation.renderSnapshot.entities.first { $0.id == shot.id })
+      XCTAssertEqual(rendered.asset, LevelTenRenderAssets.projectile)
+      XCTAssertFalse(rendered.isHidden)
+      XCTAssertEqual(rendered.opacity, 1)
+    }
+  }
+
   func testGhostWizardMovementIntervalAndOtherEnemySpeeds() {
     XCTAssertEqual(EnemyArchetype.ghostWizard.seekInterval, 0.35)
     XCTAssertEqual(EnemyArchetype.skeleton.seekInterval, 0.5)
     XCTAssertEqual(EnemyArchetype.flyingTerror.seekInterval, 0.3)
     XCTAssertEqual(EnemyArchetype.minotaur.seekInterval, 0.35)
+  }
+
+  func testMagicProjectileTexturePreflightAndVisibility() throws {
+    let entry = try XCTUnwrap(LevelOneTextureCatalog.entries[LevelTenRenderAssets.projectile])
+    XCTAssertEqual(entry.filename, "bomb.png")
+    XCTAssertEqual(entry.source,
+                   .init(x: 6, y: 0, width: 8, height: 8, sheetWidth: 120, sheetHeight: 26))
+    XCTAssertTrue(LevelAssetManifest.levelTen.textureAssetIDs.contains(LevelTenRenderAssets.projectile))
+    let textures = TextureCatalog()
+    let textureSize = try textures.texture(for: LevelTenRenderAssets.projectile).size()
+    XCTAssertEqual(Double(textureSize.width), 8, accuracy: 0.001)
+    XCTAssertEqual(Double(textureSize.height), 8, accuracy: 0.001)
+    try DefaultAssetPreflight().validate(
+      manifest: .levelTen, textureCatalog: textures,
+      animationCatalog: LevelOneAnimationCatalog(textureCatalog: textures))
+
+    let simulation = try LevelTenSimulation()
+    simulation.entities = []
+    for _ in 0..<30 { simulation.update(deltaTime: 0.1) }
+    let boss = try XCTUnwrap(simulation.boss)
+    let shot = try XCTUnwrap(simulation.projectiles.first)
+    XCTAssertFalse(boss.archetype.footprint.region(at: boss.position).contains(shot.position))
+    XCTAssertFalse(simulation.level.isWall(shot.position))
+    let render = try XCTUnwrap(simulation.renderSnapshot.entities.first { $0.id == shot.id })
+    XCTAssertEqual(render.renderSize, .init(width: 1.8, height: 1.8))
+    XCTAssertGreaterThan(render.zPosition, simulation.renderSnapshot.player.zPosition)
+    XCTAssertTrue(simulation.presentationDefinition.tileLayers.allSatisfy {
+      $0.zPosition < render.zPosition
+    })
+    simulation.update(deltaTime: 0.05)
+    XCTAssertEqual(simulation.projectiles.first?.id, shot.id)
+    XCTAssertEqual(simulation.projectiles.first?.position, shot.position,
+                   "A newly fired shot must be visible before it advances")
+  }
+
+  func testMagicAttackAimsAtPlayerInEachCardinalDirection() throws {
+    let cases: [(GridPosition, GridDirection)] = [
+      (.init(row: 25, column: 50), .right), (.init(row: 25, column: 8), .left),
+      (.init(row: 8, column: 25), .up), (.init(row: 50, column: 25), .down),
+    ]
+    for (target, expectedDirection) in cases {
+      let simulation = try LevelTenSimulation()
+      simulation.entities = []
+      simulation.player.position = target
+      for _ in 0..<30 { simulation.update(deltaTime: 0.1) }
+      let shot = try XCTUnwrap(simulation.projectiles.first)
+      XCTAssertEqual(shot.direction, expectedDirection)
+    }
+  }
+
+  func testMagicMuzzleRemainsSafeWhenBossPursuesPlayerNearWalls() throws {
+    let simulation = try LevelTenSimulation()
+    simulation.entities = []
+    simulation.player.position = .init(row: 5, column: 5)
+    simulation.player.health = 1_000
+    var observed: Set<EntityID> = []
+    for _ in 0..<220 {
+      simulation.update(deltaTime: 0.1)
+      for shot in simulation.projectiles {
+        observed.insert(shot.id)
+        XCTAssertTrue(simulation.level.isInside(shot.position))
+        XCTAssertFalse(simulation.level.isWall(shot.position))
+      }
+    }
+    XCTAssertGreaterThanOrEqual(observed.count, 7)
+  }
+
+  func testMagicAttackCadenceIsIndependentOfSlowerMovementAndFrameRate() throws {
+    XCTAssertEqual(LevelTenSimulation.projectileAttackInterval, 3)
+    XCTAssertEqual(LevelTenSimulation.projectileAttackRange, 80)
+    XCTAssertEqual(EnemyArchetype.ghostWizard.seekInterval, 0.35)
+    for frames in [Array(repeating: 0.05, count: 124),
+                   Array(repeating: 0.1, count: 62),
+                   Array(repeating: 1.0 / 60.0, count: 372)] {
+      let simulation = try LevelTenSimulation()
+      simulation.entities = []
+      simulation.player.position = .init(row: 5, column: 54)
+      var seen: Set<EntityID> = []
+      var attackTimes: [TimeInterval] = []
+      var elapsed = 0.0
+      for dt in frames {
+        elapsed += dt
+        simulation.update(deltaTime: dt)
+        for shot in simulation.projectiles where seen.insert(shot.id).inserted {
+          attackTimes.append(elapsed)
+          XCTAssertTrue(simulation.renderSnapshot.entities.contains { $0.id == shot.id })
+        }
+      }
+      XCTAssertEqual(attackTimes.count, 2)
+      guard attackTimes.count == 2 else { continue }
+      XCTAssertEqual(attackTimes[0], 3, accuracy: 0.11)
+      XCTAssertEqual(attackTimes[1] - attackTimes[0], 3, accuracy: 0.11)
+    }
+  }
+
+  func testMagicProjectilesRetainFractionalTravelTimeAcrossFrameRates() throws {
+    for frames in [Array(repeating: 0.05, count: 12),
+                   Array(repeating: 0.1, count: 6),
+                   Array(repeating: 1.0 / 60.0, count: 36),
+                   Array(repeating: 1.0 / 120.0, count: 72)] {
+      let simulation = try LevelTenSimulation()
+      simulation.entities = []
+      simulation.fireProjectileForTesting(at: .init(row: 10, column: 10), direction: .right)
+      let id = try XCTUnwrap(simulation.projectiles.first).id
+      for dt in frames { simulation.update(deltaTime: dt) }
+      let shot = try XCTUnwrap(simulation.projectiles.first)
+      XCTAssertEqual(shot.id, id)
+      XCTAssertEqual(shot.position, .init(row: 10, column: 15))
+      XCTAssertEqual(shot.stepAccumulator, 0, accuracy: 0.000_001)
+    }
+  }
+
+  func testMagicProjectilesStopAtWallsAndLeaveOpenDoorwayBounds() throws {
+    let simulation = try LevelTenSimulation()
+    simulation.entities = []
+    simulation.fireProjectileForTesting(at: .init(row: 10, column: 55), direction: .right)
+    simulation.fireProjectileForTesting(at: .init(row: 30, column: 59), direction: .right)
+    XCTAssertEqual(simulation.projectiles.count, 2)
+    for _ in 0..<3 { simulation.update(deltaTime: 0.05) }
+    XCTAssertTrue(simulation.projectiles.isEmpty)
+    simulation.fireProjectileForTesting(at: .init(row: -1, column: 30), direction: .down)
+    simulation.update(deltaTime: 0)
+    XCTAssertTrue(simulation.projectiles.isEmpty)
+  }
+
+  func testWallCollisionPrecedesAdjacentPlayerFootprintContact() throws {
+    let simulation = try LevelTenSimulation()
+    simulation.entities = []
+    simulation.player.position = .init(row: 10, column: 54)
+    let health = simulation.player.health
+    simulation.fireProjectileForTesting(at: .init(row: 10, column: 56), direction: .left)
+    simulation.update(deltaTime: 0.05)
+    XCTAssertTrue(simulation.projectiles.isEmpty)
+    XCTAssertEqual(simulation.player.health, health)
+  }
+
+  func testMagicImpactIsRemovedOnceAndRespectsDamageCooldown() throws {
+    let simulation = try LevelTenSimulation()
+    simulation.entities = []
+    let health = simulation.player.health
+    simulation.fireProjectileForTesting(at: simulation.player.position, direction: .left)
+    simulation.update(deltaTime: 0.05)
+    XCTAssertEqual(simulation.player.health, health - 1)
+    XCTAssertTrue(simulation.projectiles.isEmpty)
+    simulation.fireProjectileForTesting(at: simulation.player.position, direction: .left)
+    simulation.update(deltaTime: 0.05)
+    XCTAssertEqual(simulation.player.health, health - 1)
+    XCTAssertTrue(simulation.projectiles.isEmpty)
+    for _ in 0..<16 { simulation.update(deltaTime: 0.05) }
+    XCTAssertEqual(simulation.player.health, health - 1)
+    simulation.fireProjectileForTesting(at: simulation.player.position, direction: .left)
+    simulation.update(deltaTime: 0.05)
+    XCTAssertEqual(simulation.player.health, health - 2)
+    XCTAssertTrue(simulation.projectiles.isEmpty)
+  }
+
+  func testMultipleMagicProjectilesKeepIndependentIdentitiesAndDirections() throws {
+    let simulation = try LevelTenSimulation()
+    simulation.entities = []
+    let cases: [(GridPosition, GridDirection, GridPosition)] = [
+      (.init(row: 10, column: 10), .right, .init(row: 10, column: 15)),
+      (.init(row: 15, column: 20), .left, .init(row: 15, column: 15)),
+      (.init(row: 20, column: 20), .up, .init(row: 15, column: 20)),
+      (.init(row: 40, column: 40), .down, .init(row: 45, column: 40)),
+    ]
+    var expected: [EntityID: GridPosition] = [:]
+    for (start, direction, end) in cases {
+      simulation.fireProjectileForTesting(at: start, direction: direction)
+      expected[try XCTUnwrap(simulation.projectiles.last).id] = end
+    }
+    simulation.fireProjectileForTesting(at: .init(row: 10, column: 56), direction: .left)
+    for _ in 0..<6 { simulation.update(deltaTime: 0.1) }
+    XCTAssertEqual(simulation.projectiles.count, cases.count)
+    XCTAssertEqual(Set(simulation.projectiles.map(\.id)), Set(expected.keys))
+    for shot in simulation.projectiles { XCTAssertEqual(shot.position, expected[shot.id]) }
+  }
+
+  func testBossDefeatClearsMagicAndPersistedDefeatPreventsAttacks() throws {
+    let simulation = try LevelTenSimulation()
+    simulation.entities = []
+    for _ in 0..<30 { simulation.update(deltaTime: 0.1) }
+    XCTAssertFalse(simulation.projectiles.isEmpty)
+    simulation.defeatBossForTesting()
+    XCTAssertTrue(simulation.projectiles.isEmpty)
+    XCTAssertEqual(simulation.chestStates.count, 1)
+    XCTAssertTrue(simulation.isExitUnlocked)
+    for _ in 0..<65 { simulation.update(deltaTime: 0.1) }
+    XCTAssertTrue(simulation.projectiles.isEmpty)
+    let restored = try LevelTenSimulation(carryover: simulation.makeCarryoverState())
+    for _ in 0..<65 { restored.update(deltaTime: 0.1) }
+    XCTAssertNil(restored.boss)
+    XCTAssertTrue(restored.projectiles.isEmpty)
+    XCTAssertEqual(restored.chestStates.count, 1)
+  }
+
+  func testGrappleContactDoesNotInventMagicDestructionOrRewards() throws {
+    let simulation = try LevelTenSimulation()
+    simulation.entities = []
+    simulation.player.position = .init(row: 10, column: 10)
+    simulation.player.facing = .right
+    simulation.fireProjectileForTesting(at: .init(row: 10, column: 13), direction: .right)
+    simulation.inputController.send(.fireHook)
+    for _ in 0..<5 { simulation.update(deltaTime: 0.05) }
+    let shot = try XCTUnwrap(simulation.projectiles.first)
+    XCTAssertEqual(simulation.player.hookshot.head, shot.position)
+    XCTAssertEqual(simulation.player.hookshot.phase, .extending)
+    XCTAssertEqual(simulation.player.score, 0)
+    XCTAssertEqual(simulation.player.health, 3)
   }
 
   func testGhostWizardWaitsForMovementIntervalWhileAnimationAdvances() throws {
@@ -117,6 +349,8 @@ import XCTest
     XCTAssertEqual(shot.direction, .right)
     simulation.update(deltaTime: 0.1)
     XCTAssertEqual(simulation.projectiles.first?.id, shot.id)
+    XCTAssertEqual(simulation.projectiles.first?.position, shot.position)
+    simulation.update(deltaTime: 0.05)
     XCTAssertEqual(simulation.projectiles.first?.position, shot.position.moved(.right))
   }
 
@@ -749,7 +983,7 @@ import XCTest
     simulation.player.lastSafePosition = simulation.player.position
     let health = simulation.player.health
     simulation.fireProjectileForTesting(at: .init(row: 10, column: 6), direction: .right)
-    for _ in 0..<6 { simulation.update(deltaTime: 0.12) }
+    for _ in 0..<6 { simulation.update(deltaTime: 0.1) }
     XCTAssertLessThan(simulation.player.health, health)
     XCTAssertTrue(simulation.projectiles.isEmpty)
 
