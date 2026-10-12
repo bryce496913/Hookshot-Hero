@@ -5,6 +5,32 @@ import XCTest
 @testable import HookshotHero
 
 @MainActor final class AppThemeTests: XCTestCase {
+  func testInstalledPrimaryIconResolvesInHostApplication() throws {
+    let image = try XCTUnwrap(PrimaryAppIcon.load(bundle: .main),
+                             "The built app must expose its compiled primary icon")
+    XCTAssertGreaterThan(image.size.width, 0)
+    XCTAssertGreaterThan(image.size.height, 0)
+  }
+
+  func testPrimaryIconMetadataUsesOnlyPrimaryResourcesAndHandlesMissingMetadata() {
+    let info: [String: Any] = ["CFBundleIcons": [
+      "CFBundlePrimaryIcon": ["CFBundleIconFiles": ["AppIcon60x60", "AppIcon60x60"],
+                              "CFBundleIconName": "AppIcon"],
+      "CFBundleAlternateIcons": ["Other": ["CFBundleIconFiles": ["OtherIcon"]]]],
+      "CFBundleIconFiles": ["LegacyIcon"]]
+    XCTAssertEqual(PrimaryAppIcon.resourceNames(in: info),
+                   ["AppIcon60x60", "AppIcon", "LegacyIcon"])
+    XCTAssertTrue(PrimaryAppIcon.resourceNames(in: [:]).isEmpty)
+    XCTAssertNil(PrimaryAppIcon.load(bundle: Bundle(for: Self.self)))
+  }
+
+  func testEndingCardsKeepNamesAndStableDirectEntryIdentifiers() {
+    let endings = LevelSelectView.levels.filter(\.isEndingArea)
+    XCTAssertEqual(endings.map(\.levelID), [.countryRoad, .heroWelcome])
+    XCTAssertEqual(endings.map(\.accessibilityIdentifier), ["level11Button", "level12Button"])
+    XCTAssertEqual(LevelSelectView.levels.filter { !$0.isEndingArea }.count, 10)
+  }
+
   func testSemanticTypographyProvidesReadableHierarchy() {
     XCTAssertTrue(AppTextStyle.allCases.contains(.heroTitle))
     XCTAssertTrue(AppTextStyle.allCases.contains(.caption))

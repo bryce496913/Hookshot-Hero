@@ -158,7 +158,7 @@ final class HookshotHeroUITests: XCTestCase {
     let levelSelect = app.buttons["levelSelectButton"]
     XCTAssertTrue(levelSelect.waitForExistence(timeout: 5))
     levelSelect.tap()
-    app.buttons["level5Button"].tap()
+    tapLevelCard("level5Button")
     XCTAssertTrue(app.otherElements["gameplayHUD"].waitForExistence(timeout: 5))
     XCTAssertTrue(app.staticTexts["Level 5"].exists)
     let coordinate = app.staticTexts["playerPosition"]
@@ -168,7 +168,7 @@ final class HookshotHeroUITests: XCTestCase {
   func testLevelSelectStartsLevelSixWithControls() {
     launch()
     app.buttons["levelSelectButton"].tap()
-    app.buttons["level6Button"].tap()
+    tapLevelCard("level6Button")
     XCTAssertTrue(app.otherElements["gameplayHUD"].waitForExistence(timeout: 5))
     XCTAssertTrue(app.staticTexts["Level 6"].exists)
     XCTAssertTrue(app.staticTexts["healthValue"].exists)
@@ -196,7 +196,7 @@ final class HookshotHeroUITests: XCTestCase {
   func testLevelSelectStartsLevelSevenAndMovesOneCell() {
     launch()
     app.buttons["levelSelectButton"].tap()
-    app.buttons["level7Button"].tap()
+    tapLevelCard("level7Button")
     XCTAssertTrue(app.otherElements["gameplayHUD"].waitForExistence(timeout: 5))
     XCTAssertTrue(app.staticTexts["Level 7"].exists)
     XCTAssertTrue(app.buttons["moveUpButton"].isEnabled)
@@ -211,7 +211,7 @@ final class HookshotHeroUITests: XCTestCase {
   func testLevelSelectStartsLevelEightAtSafeBottomEntry() {
     launch()
     app.buttons["levelSelectButton"].tap()
-    app.buttons["level8Button"].tap()
+    tapLevelCard("level8Button")
     XCTAssertTrue(app.otherElements["gameplayHUD"].waitForExistence(timeout: 5))
     XCTAssertTrue(app.staticTexts["Level 8"].exists)
     let coordinate = app.staticTexts["playerPosition"]
@@ -480,6 +480,32 @@ final class HookshotHeroUITests: XCTestCase {
     XCTAssertTrue(app.buttons["moveUpButton"].isEnabled)
     XCTAssertTrue(app.buttons["grappleButton"].isEnabled)
   }
+  private func tapLevelCard(_ identifier: String, file: StaticString = #filePath, line: UInt = #line) {
+    let card = app.buttons[identifier]
+    let scroll = app.scrollViews.firstMatch
+    for _ in 0..<12 {
+      if card.exists && card.isHittable { break }
+      scroll.swipeUp()
+    }
+    XCTAssertTrue(card.waitForExistence(timeout: 5), file: file, line: line)
+    XCTAssertTrue(card.isHittable, file: file, line: line)
+    card.tap()
+  }
+
+  func testLevelSelectEndingCardsAndNativeBackNavigation() {
+    launch()
+    app.buttons["levelSelectButton"].tap()
+    let scroll = app.scrollViews.firstMatch
+    for _ in 0..<8 {
+      if app.buttons["level12Button"].isHittable { break }
+      scroll.swipeUp()
+    }
+    XCTAssertEqual(app.buttons["level11Button"].label, "Country Road")
+    XCTAssertEqual(app.buttons["level12Button"].label, "Hero's Welcome")
+    app.navigationBars.buttons.firstMatch.tap()
+    XCTAssertTrue(app.buttons["playButton"].waitForExistence(timeout: 5))
+  }
+
   private func position(_ element: XCUIElement) -> [Int] {
     element.label.split(separator: " ").compactMap { Int($0) }
   }
