@@ -47,7 +47,7 @@ final class HookshotHeroUITests: XCTestCase {
     launch()
     app.buttons["settingsButton"].tap()
     app.switches["controlHintsToggle"].tap()
-    app.buttons["settingsDoneButton"].tap()
+    tapScrollable(app.buttons["settingsDoneButton"])
     app.buttons["playButton"].tap()
     XCTAssertTrue(app.buttons["grappleButton"].waitForExistence(timeout: 5))
     XCTAssertFalse(app.staticTexts["moveControlHint"].exists)
@@ -93,10 +93,10 @@ final class HookshotHeroUITests: XCTestCase {
   func testSettingsAreIsolated() {
     launch()
     app.buttons["settingsButton"].tap()
-    XCTAssertTrue(app.otherElements["settingsScreen"].waitForExistence(timeout: 5))
+    XCTAssertTrue(app.descendants(matching: .any)["settingsScreen"].waitForExistence(timeout: 5))
     XCTAssertFalse(app.switches["reducedMotionToggle"].isSelected)
     app.switches["reducedMotionToggle"].tap()
-    app.buttons["settingsDoneButton"].tap()
+    tapScrollable(app.buttons["settingsDoneButton"])
   }
   func testCreditsAndLicensesAreReachableFromSettings() {
     launch()
@@ -104,28 +104,33 @@ final class HookshotHeroUITests: XCTestCase {
     app.scrollViews.firstMatch.swipeUp()
     let link = app.buttons["creditsLicensesLink"]
     XCTAssertTrue(link.waitForExistence(timeout: 5))
-    link.tap()
-    XCTAssertTrue(app.otherElements["creditsLicensesScreen"].waitForExistence(timeout: 5))
+    tapScrollable(link)
+    XCTAssertTrue(app.descendants(matching: .any)["creditsLicensesScreen"].waitForExistence(timeout: 5))
     XCTAssertTrue(
       app.staticTexts.matching(NSPredicate(format: "label CONTAINS %@", "Spinning Gold Coin"))
         .firstMatch.exists)
+    tapScrollable(app.descendants(matching: .any)["codeLicenseDisclosure"])
+    XCTAssertTrue(app.staticTexts.matching(NSPredicate(format: "label CONTAINS %@", "Permission is hereby granted"))
+      .firstMatch.exists)
   }
   func testSettingsLinksToScrollablePrivacyPolicyAndSupport() {
     launch()
     app.buttons["settingsButton"].tap()
     let settings = app.scrollViews.firstMatch
     settings.swipeUp()
+    scrollTo(app.staticTexts["settingsVersionInformation"])
     XCTAssertTrue(app.staticTexts["settingsVersionInformation"].waitForExistence(timeout: 5))
     XCTAssertEqual(app.staticTexts["settingsVersionInformation"].label, "Version 1.0.0 (1)")
     let privacyLink = app.buttons["privacyPolicyLink"]
     XCTAssertTrue(privacyLink.waitForExistence(timeout: 5))
-    privacyLink.tap()
-    XCTAssertTrue(app.otherElements["privacyPolicyScreen"].waitForExistence(timeout: 5))
+    tapScrollable(privacyLink)
+    XCTAssertTrue(app.descendants(matching: .any)["privacyPolicyScreen"].waitForExistence(timeout: 5))
     XCTAssertTrue(app.staticTexts["Information collection"].exists)
     app.navigationBars.buttons.element(boundBy: 0).tap()
     settings.swipeUp()
-    app.buttons["supportLink"].tap()
-    XCTAssertTrue(app.otherElements["supportScreen"].waitForExistence(timeout: 5))
+    tapScrollable(app.buttons["supportLink"])
+    XCTAssertTrue(app.descendants(matching: .any)["supportScreen"].waitForExistence(timeout: 5))
+    scrollTo(app.staticTexts["appVersionInformation"])
     XCTAssertTrue(app.staticTexts["appVersionInformation"].exists)
     XCTAssertFalse(app.links["externalSupportLink"].exists)
   }
@@ -136,7 +141,7 @@ final class HookshotHeroUITests: XCTestCase {
     for _ in 0..<12 where !app.buttons["helpPrivacyPolicyLink"].isHittable { help.swipeUp() }
     XCTAssertTrue(app.buttons["helpPrivacyPolicyLink"].waitForExistence(timeout: 5))
     app.buttons["helpPrivacyPolicyLink"].tap()
-    XCTAssertTrue(app.otherElements["privacyPolicyScreen"].waitForExistence(timeout: 5))
+    XCTAssertTrue(app.descendants(matching: .any)["privacyPolicyScreen"].waitForExistence(timeout: 5))
   }
   func testHelpContainsGameWideReleaseGuidanceAndRemainsScrollable() {
     app.launchEnvironment["UIPreferredContentSizeCategoryName"] =
@@ -156,6 +161,7 @@ final class HookshotHeroUITests: XCTestCase {
     }
     help.swipeUp()
     XCTAssertTrue(app.buttons["helpPrivacyPolicyLink"].waitForExistence(timeout: 5))
+    scrollTo(app.buttons["helpDoneButton"])
     XCTAssertTrue(app.buttons["helpDoneButton"].isHittable)
   }
   func testHelpIncludesJavaStoryIntro() {
@@ -172,7 +178,7 @@ final class HookshotHeroUITests: XCTestCase {
     app.buttons["settingsButton"].tap()
     XCTAssertTrue(app.otherElements["controlLayoutPicker"].waitForExistence(timeout: 5))
     app.buttons["Left-Handed"].tap()
-    app.buttons["settingsDoneButton"].tap()
+    tapScrollable(app.buttons["settingsDoneButton"])
     app.buttons["playButton"].tap()
 
     let joystick = app.otherElements["movementJoystick"]
@@ -519,6 +525,67 @@ final class HookshotHeroUITests: XCTestCase {
     XCTAssertTrue(app.buttons["moveUpButton"].isEnabled)
     XCTAssertTrue(app.buttons["grappleButton"].isEnabled)
   }
+  private func scrollTo(_ element: XCUIElement, file: StaticString = #filePath, line: UInt = #line) {
+    let scroll = app.scrollViews.firstMatch
+    for _ in 0..<24 {
+      if element.exists && element.isHittable { return }
+      if element.exists {
+        let frame = element.frame
+        if frame.height > 0 && frame.maxY < scroll.frame.minY {
+          scroll.swipeDown()
+        } else {
+          scroll.swipeUp()
+        }
+      } else {
+        scroll.swipeUp()
+      }
+    }
+    XCTFail("Element must be reachable by scrolling", file: file, line: line)
+  }
+
+  private func tapScrollable(_ element: XCUIElement, file: StaticString = #filePath, line: UInt = #line) {
+    scrollTo(element, file: file, line: line)
+    element.tap()
+  }
+
+  func testAccessibleSettingsKeepNativeLayoutSelectionAndInformationReachable() {
+    app.launchEnvironment["UIPreferredContentSizeCategoryName"] =
+      "UICTContentSizeCategoryAccessibilityExtraExtraExtraLarge"
+    launch()
+    app.buttons["settingsButton"].tap()
+    tapScrollable(app.descendants(matching: .any)["controlLayoutPicker"])
+    app.buttons["Left-Handed"].tap()
+    tapScrollable(app.buttons["supportLink"])
+    XCTAssertTrue(app.descendants(matching: .any)["supportScreen"].waitForExistence(timeout: 5))
+    scrollTo(app.staticTexts["appVersionInformation"])
+    XCTAssertTrue(app.staticTexts["appVersionInformation"].isHittable)
+    XCTAssertFalse(app.links["externalSupportLink"].exists)
+    app.navigationBars.buttons.firstMatch.tap()
+    tapScrollable(app.buttons["privacyPolicyLink"])
+    XCTAssertTrue(app.descendants(matching: .any)["privacyPolicyScreen"].waitForExistence(timeout: 5))
+    let supportHeading = app.staticTexts["Support and contact"]
+    scrollTo(supportHeading)
+    XCTAssertTrue(supportHeading.isHittable)
+  }
+
+  func testSettingsPersistAndHelpReturnsToSettings() {
+    launch()
+    app.buttons["settingsButton"].tap()
+    app.switches["reducedMotionToggle"].tap()
+    app.switches["controlHintsToggle"].tap()
+    tapScrollable(app.buttons["settingsHelpLink"])
+    XCTAssertTrue(app.staticTexts["The Story"].waitForExistence(timeout: 5))
+    tapScrollable(app.buttons["helpDoneButton"])
+    XCTAssertTrue(app.descendants(matching: .any)["settingsScreen"].waitForExistence(timeout: 5))
+    tapScrollable(app.buttons["settingsDoneButton"])
+    app.terminate()
+    app.launchArguments.removeAll { $0 == "--reset-persistent-state" }
+    app.launch()
+    app.buttons["settingsButton"].tap()
+    XCTAssertEqual(app.switches["reducedMotionToggle"].value as? String, "1")
+    XCTAssertEqual(app.switches["controlHintsToggle"].value as? String, "0")
+  }
+
   private func tapLevelCard(_ identifier: String, file: StaticString = #filePath, line: UInt = #line) {
     let card = app.buttons[identifier]
     let scroll = app.scrollViews.firstMatch

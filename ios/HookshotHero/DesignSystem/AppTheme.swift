@@ -1,5 +1,83 @@
 import SwiftUI
 
+/// Shared scrollable structure for settings, guidance and legal information.
+struct AppSecondaryScreen<Content: View>: View {
+  let title: String
+  @ViewBuilder let content: () -> Content
+
+  var body: some View {
+    ScrollView {
+      VStack(alignment: .leading, spacing: AppTheme.Spacing.lg) {
+        Text(title).appTextStyle(.heroTitle).accessibilityAddTraits(.isHeader)
+        content()
+      }
+      .frame(maxWidth: 640, alignment: .leading)
+      .padding(AppTheme.Spacing.lg)
+      .frame(maxWidth: .infinity)
+    }
+    .appScreenBackground()
+    .navigationTitle(title)
+    .navigationBarTitleDisplayMode(.inline)
+    .appNavigationStyle()
+  }
+}
+
+struct AppInformationSection<Content: View>: View {
+  let title: String
+  var systemImage: String? = nil
+  @ViewBuilder let content: () -> Content
+
+  var body: some View {
+    VStack(alignment: .leading, spacing: AppTheme.Spacing.sm) {
+      AppSectionHeader(title: title, systemImage: systemImage)
+      AppCard {
+        VStack(alignment: .leading, spacing: AppTheme.Spacing.md) { content() }
+          .frame(maxWidth: .infinity, alignment: .leading)
+      }
+    }
+  }
+}
+
+struct AppNavigationRow: View {
+  let title: String
+  let systemImage: String
+  var subtitle: String? = nil
+
+  var body: some View {
+    HStack(spacing: AppTheme.Spacing.md) {
+      Image(systemName: systemImage).foregroundStyle(AppTheme.Colors.accent)
+        .frame(width: 24).accessibilityHidden(true)
+      VStack(alignment: .leading, spacing: AppTheme.Spacing.xs) {
+        Text(title).appTextStyle(.h3)
+        if let subtitle {
+          Text(subtitle).appTextStyle(.caption).foregroundStyle(AppTheme.Colors.textSecondary)
+        }
+      }
+      .fixedSize(horizontal: false, vertical: true)
+      Spacer(minLength: 0)
+      Image(systemName: "chevron.right").appTextStyle(.caption)
+        .foregroundStyle(AppTheme.Colors.textMuted).accessibilityHidden(true)
+    }
+    .frame(maxWidth: .infinity, minHeight: AppTheme.Layout.minimumHitTarget, alignment: .leading)
+    .padding(.vertical, AppTheme.Spacing.xs)
+    .contentShape(Rectangle())
+    .accessibilityElement(children: .combine)
+  }
+}
+
+struct AppSettingLabel: View {
+  let title: String
+  let explanation: String
+
+  var body: some View {
+    VStack(alignment: .leading, spacing: AppTheme.Spacing.xs) {
+      Text(title).appTextStyle(.h3)
+      Text(explanation).appTextStyle(.caption).foregroundStyle(AppTheme.Colors.textSecondary)
+    }
+    .fixedSize(horizontal: false, vertical: true)
+  }
+}
+
 /// Shared visual foundations. Gameplay and pixel artwork remain simulation-owned.
 enum AppTheme {
   enum Colors {

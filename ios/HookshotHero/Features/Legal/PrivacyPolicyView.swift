@@ -2,38 +2,22 @@ import SwiftUI
 
 struct PrivacyPolicyView: View {
   var body: some View {
-    ZStack {
-      AppBackground()
-      ScrollView {
-        VStack(alignment: .leading, spacing: 18) {
-          Text("Privacy Policy")
-            .font(.largeTitle.bold())
-            .foregroundStyle(AppTheme.Colors.text)
-            .accessibilityAddTraits(.isHeader)
-          Text("Effective \(PrivacyPolicyContent.effectiveDate)")
-            .font(.body)
-            .foregroundStyle(AppTheme.Colors.text.opacity(0.7))
-          Text(PrivacyPolicyContent.introduction)
-            .font(.body)
-            .foregroundStyle(AppTheme.Colors.text)
-          ForEach(PrivacyPolicyContent.sections) { section in
-            VStack(alignment: .leading, spacing: 8) {
-              Text(section.title)
-                .font(.title2.bold())
-                .foregroundStyle(AppTheme.Colors.text)
-                .accessibilityAddTraits(.isHeader)
-              Text(section.body)
-                .font(.body)
-                .foregroundStyle(AppTheme.Colors.text)
-            }
-            .accessibilityElement(children: .contain)
-          }
+    AppSecondaryScreen(title: "Privacy Policy") {
+      Text("Effective \(PrivacyPolicyContent.effectiveDate)")
+        .appTextStyle(.caption).foregroundStyle(AppTheme.Colors.accent)
+        .padding(.horizontal, AppTheme.Spacing.sm).padding(.vertical, AppTheme.Spacing.xs)
+        .background(AppTheme.Colors.surfaceElevated, in: Capsule())
+      AppCard {
+        Text(PrivacyPolicyContent.introduction).appTextStyle(.paragraph)
+          .frame(maxWidth: .infinity, alignment: .leading)
+      }
+      ForEach(PrivacyPolicyContent.sections) { section in
+        AppInformationSection(title: section.title) {
+          Text(section.body).appTextStyle(.paragraph)
         }
-        .padding(24)
+        .accessibilityElement(children: .contain)
       }
     }
-    .navigationTitle("Privacy Policy")
-    .appNavigationStyle()
     .accessibilityIdentifier("privacyPolicyScreen")
   }
 }

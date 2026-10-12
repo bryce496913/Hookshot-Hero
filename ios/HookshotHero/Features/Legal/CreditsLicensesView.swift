@@ -10,55 +10,49 @@ struct CreditsLicensesView: View {
   }
 
   var body: some View {
-    ZStack {
-      AppBackground()
-      ScrollView {
-        VStack(alignment: .leading, spacing: 24) {
-          creditSection(
-            heading: "Hookshot Hero Code",
-            rows: [
-              ("Copyright", "Copyright (c) 2023 Jerry Hsiung"),
-              ("License", "MIT License"),
-            ])
+    AppSecondaryScreen(title: "Credits & Licenses") {
+      creditSection(
+        heading: "Hookshot Hero Code",
+        rows: [
+          ("Copyright", "Copyright (c) 2023 Jerry Hsiung"),
+          ("License", "MIT License"),
+        ])
 
-          DisclosureGroup("Read the MIT License") {
-            Text(codeLicense)
-              .appTextStyle(.paragraph)
-              .padding(.top, 12)
-          }
-          .tint(AppTheme.Colors.accent)
-
-          creditSection(
-            heading: "Third-Party Artwork",
-            rows: [
-              ("Work", "Spinning Gold Coin"),
-              ("Creator", "morgan3d"),
-              ("Bundled artwork", "goldCoin1.png through goldCoin9.png"),
-              ("License", "Creative Commons Attribution 3.0"),
-              ("Changes", "Nine supplied frames are stored separately and animated by the app."),
-            ],
-            source: URL(string: "https://opengameart.org/content/spinning-gold-coin"),
-            license: URL(string: "https://creativecommons.org/licenses/by/3.0/legalcode"))
-
-          creditSection(
-            heading: "LPC Heroine / Lidia",
-            rows: [
-              ("Creator", "Yamilian"),
-              ("Bundled artwork", "lidia.png"),
-              ("License", "Owner selection pending (CC BY-SA 3.0 or GPL 3.0)"),
-              ("Changes", "The stored sheet is unchanged; frames are cropped at runtime."),
-            ],
-            source: URL(string: "https://opengameart.org/content/lpc-heroine"))
-
-          Text("Additional bundled artwork is undergoing provenance and license verification and is not yet cleared for distribution.")
-            .appTextStyle(.paragraph)
+      AppInformationSection(title: "License details") {
+        DisclosureGroup("Read the MIT License") {
+          Text(codeLicense).appTextStyle(.paragraph).padding(.top, AppTheme.Spacing.sm)
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(24)
+        .tint(AppTheme.Colors.accent)
+        .accessibilityIdentifier("codeLicenseDisclosure")
+      }
+
+      creditSection(
+        heading: "Third-Party Artwork",
+        rows: [
+          ("Work", "Spinning Gold Coin"),
+          ("Creator", "morgan3d"),
+          ("Bundled artwork", "goldCoin1.png through goldCoin9.png"),
+          ("License", "Creative Commons Attribution 3.0"),
+          ("Changes", "Nine supplied frames are stored separately and animated by the app."),
+        ],
+        source: URL(string: "https://opengameart.org/content/spinning-gold-coin"),
+        license: URL(string: "https://creativecommons.org/licenses/by/3.0/legalcode"))
+
+      creditSection(
+        heading: "LPC Heroine / Lidia",
+        rows: [
+          ("Creator", "Yamilian"),
+          ("Bundled artwork", "lidia.png"),
+          ("License", "Owner selection pending (CC BY-SA 3.0 or GPL 3.0)"),
+          ("Changes", "The stored sheet is unchanged; frames are cropped at runtime."),
+        ],
+        source: URL(string: "https://opengameart.org/content/lpc-heroine"))
+
+      AppCard {
+        Text("Additional bundled artwork is undergoing provenance and license verification and is not yet cleared for distribution.")
+          .appTextStyle(.paragraph)
       }
     }
-    .navigationTitle("Credits & Licenses")
-    .appNavigationStyle()
     .accessibilityIdentifier("creditsLicensesScreen")
   }
 
@@ -69,11 +63,10 @@ struct CreditsLicensesView: View {
     source: URL? = nil,
     license: URL? = nil
   ) -> some View {
-    VStack(alignment: .leading, spacing: 10) {
-      Text(heading).appTextStyle(.h2)
+    AppInformationSection(title: heading) {
       ForEach(Array(rows.enumerated()), id: \.offset) { _, row in
         VStack(alignment: .leading, spacing: 2) {
-          Text(row.0).font(.caption).foregroundStyle(.secondary)
+          Text(row.0).appTextStyle(.caption).foregroundStyle(AppTheme.Colors.textSecondary)
           Text(row.1).appTextStyle(.paragraph)
         }
       }

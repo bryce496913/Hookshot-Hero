@@ -3,73 +3,81 @@ import SwiftUI
 struct SettingsView: View {
   @ObservedObject var store: SettingsStore
   let dismiss: () -> Void
+  @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+
   var body: some View {
-    ZStack {
-      AppBackground()
-      ScrollView {
-        VStack(alignment: .leading, spacing: 16) {
-          Text("Settings")
-            .appTextStyle(.h1)
-            .accessibilityAddTraits(.isHeader)
-          VStack(alignment: .leading, spacing: 12) {
-            Text("Gameplay")
-              .appTextStyle(.h2)
-            Toggle(isOn: $store.settings.reducedMotion) {
-              VStack(alignment: .leading, spacing: 4) {
-                Text("Reduced Motion").appTextStyle(.h3)
-                Text("Keeps gameplay feedback visible with less travel-heavy animation.")
-                  .appTextStyle(.paragraph)
-                  .foregroundStyle(AppTheme.Colors.text.opacity(0.7))
-              }
-            }
-            .tint(AppTheme.Colors.accent)
-            .accessibilityIdentifier("reducedMotionToggle")
-            Toggle(isOn: $store.settings.controlHintsEnabled) {
-              VStack(alignment: .leading, spacing: 4) {
-                Text("Control Hints").appTextStyle(.h3)
-                Text("Shows concise movement and Grapple reminders during play.")
-                  .appTextStyle(.paragraph)
-                  .foregroundStyle(AppTheme.Colors.text.opacity(0.7))
-              }
-            }
-            .tint(AppTheme.Colors.accent)
-            .accessibilityIdentifier("controlHintsToggle")
-            Picker("Control Layout", selection: $store.settings.controlLayout) {
-              ForEach(ControlLayout.allCases, id: \.self) { layout in
-                Text(layout.displayName).tag(layout)
-              }
-            }
-            .pickerStyle(.segmented)
-            .accessibilityLabel("Control Layout")
-            .accessibilityIdentifier("controlLayoutPicker")
+    AppSecondaryScreen(title: "Settings") {
+      AppInformationSection(title: "Gameplay", systemImage: "hand.tap") {
+        Toggle(isOn: $store.settings.reducedMotion) {
+          AppSettingLabel(title: "Reduced Motion",
+                          explanation: "Keeps gameplay feedback visible with less travel-heavy animation.")
+        }
+        .tint(AppTheme.Colors.accent)
+        .accessibilityIdentifier("reducedMotionToggle")
+        AppDivider()
+        Toggle(isOn: $store.settings.controlHintsEnabled) {
+          AppSettingLabel(title: "Control Hints",
+                          explanation: "Shows concise movement and Grapple reminders during play.")
+        }
+        .tint(AppTheme.Colors.accent)
+        .accessibilityIdentifier("controlHintsToggle")
+        AppDivider()
+        VStack(alignment: .leading, spacing: AppTheme.Spacing.sm) {
+          AppSettingLabel(title: "Control Layout", explanation: "Choose which side holds the joystick.")
+          if dynamicTypeSize.isAccessibilitySize {
+            layoutPicker.pickerStyle(.menu)
+          } else {
+            layoutPicker.pickerStyle(.segmented)
           }
-          .padding(16)
-          .appSurface()
-          VStack(alignment: .leading, spacing: 12) {
-            Text("Information").appTextStyle(.h2)
-            NavigationLink("Credits & Licenses") { CreditsLicensesView() }
-              .accessibilityIdentifier("creditsLicensesLink")
-            NavigationLink("Privacy Policy") { PrivacyPolicyView() }
-              .accessibilityIdentifier("privacyPolicyLink")
-            NavigationLink("Support") { SupportView() }
-              .accessibilityIdentifier("supportLink")
-          }
-          .padding(16)
-          .appSurface()
-          Text(AppVersionInformation.displayText())
-            .appTextStyle(.paragraph)
-            .foregroundStyle(AppTheme.Colors.text.opacity(0.7))
-            .frame(maxWidth: .infinity, alignment: .center)
-            .accessibilityIdentifier("settingsVersionInformation")
-          Button("Done", action: dismiss)
-            .buttonStyle(AppPrimaryButtonStyle())
-            .accessibilityIdentifier("settingsDoneButton")
         }
       }
-      .padding(24)
+      AppInformationSection(title: "Information", systemImage: "info.circle") {
+        NavigationLink { SettingsHelpDestination() } label: {
+          AppNavigationRow(title: "Help", systemImage: "questionmark.circle", subtitle: "Your dungeon guide")
+        }
+        .accessibilityLabel("Help").accessibilityIdentifier("settingsHelpLink")
+        AppDivider()
+        NavigationLink { PrivacyPolicyView() } label: {
+          AppNavigationRow(title: "Privacy Policy", systemImage: "shield", subtitle: "How information is handled")
+        }
+        .accessibilityLabel("Privacy Policy").accessibilityIdentifier("privacyPolicyLink")
+        AppDivider()
+        NavigationLink { SupportView() } label: {
+          AppNavigationRow(title: "Support", systemImage: "lifepreserver", subtitle: "Troubleshooting and contact")
+        }
+        .accessibilityLabel("Support").accessibilityIdentifier("supportLink")
+        AppDivider()
+        NavigationLink { CreditsLicensesView() } label: {
+          AppNavigationRow(title: "Credits & Licenses", systemImage: "doc.text", subtitle: "Creators and legal information")
+        }
+        .accessibilityLabel("Credits & Licenses").accessibilityIdentifier("creditsLicensesLink")
+      }
+      AppInformationSection(title: "About") {
+        Text("Hookshot Hero").appTextStyle(.h3)
+        Text(AppVersionInformation.displayText()).appTextStyle(.caption)
+          .foregroundStyle(AppTheme.Colors.textSecondary)
+          .accessibilityIdentifier("settingsVersionInformation")
+      }
+      Button("Done", action: dismiss).buttonStyle(AppPrimaryButtonStyle())
+        .accessibilityIdentifier("settingsDoneButton")
     }
-    .navigationTitle("Settings")
-    .appNavigationStyle()
     .accessibilityIdentifier("settingsScreen")
   }
+
+  private var layoutPicker: some View {
+    Picker("Control Layout", selection: $store.settings.controlLayout) {
+      ForEach(ControlLayout.allCases, id: \.self) { layout in
+        Text(layout.displayName).tag(layout)
+      }
+    }
+    .tint(AppTheme.Colors.accent)
+    .accessibilityLabel("Control Layout")
+    .accessibilityIdentifier("controlLayoutPicker")
+  }
+}
+
+/// Help's Done action pops this destination without dismissing Settings.
+private struct SettingsHelpDestination: View {
+  @Environment(\.dismiss) private var dismiss
+  var body: some View { HelpView(dismiss: { dismiss() }) }
 }
