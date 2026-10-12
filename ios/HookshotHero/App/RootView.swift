@@ -46,6 +46,9 @@ struct RootView: View {
             }
         }
         .tint(AppTheme.Colors.accent)
+        .foregroundStyle(AppTheme.Colors.text)
+        .preferredColorScheme(.dark)
+        .environment(\.appReducedMotion, settingsStore.settings.reducedMotion)
     }
 }
 
@@ -56,7 +59,7 @@ struct GameLoadingFailureView: View {
 
     var body: some View {
         ZStack {
-            AppTheme.Colors.background.ignoresSafeArea()
+            AppBackground()
             VStack(spacing: 14) {
                 Image(systemName: "exclamationmark.triangle")
                     .font(.system(size: 34, weight: .bold, design: .rounded))

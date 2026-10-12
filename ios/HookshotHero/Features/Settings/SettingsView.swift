@@ -5,7 +5,7 @@ struct SettingsView: View {
   let dismiss: () -> Void
   var body: some View {
     ZStack {
-      AppTheme.Colors.background.ignoresSafeArea()
+      AppBackground()
       ScrollView {
         VStack(alignment: .leading, spacing: 16) {
           Text("Settings")

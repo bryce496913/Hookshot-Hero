@@ -3,7 +3,7 @@ import SwiftUI
 struct PrivacyPolicyView: View {
   var body: some View {
     ZStack {
-      AppTheme.Colors.background.ignoresSafeArea()
+      AppBackground()
       ScrollView {
         VStack(alignment: .leading, spacing: 18) {
           Text("Privacy Policy")

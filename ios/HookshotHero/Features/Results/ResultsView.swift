@@ -5,7 +5,7 @@ struct ResultsView: View {
     let returnToMenu: () -> Void
     var body: some View {
         ZStack {
-            AppTheme.Colors.background.ignoresSafeArea()
+            AppBackground()
             VStack(spacing: 14) {
                 Text(result.outcome == .won ? "Victory" : "Game Over")
                     .appTextStyle(.h1)
