@@ -26,6 +26,7 @@ import UIKit
 }
 
 struct GameplayView: View {
+  @Environment(\.accessibilityReduceMotion) private var systemReducedMotion
   @ObservedObject var session: GameSession
   let controlLayout: ControlLayout
   let returnToMenu: () -> Void
@@ -53,8 +54,13 @@ struct GameplayView: View {
             .accessibilityIdentifier("gameBoard")
           GameplayFeedbackOverlay(
             feedback: session.uiSnapshot.feedback,
-            reducedMotion: session.configuration.reducedMotion)
+            reducedMotion: session.configuration.reducedMotion || systemReducedMotion)
         }
+        .aspectRatio(1, contentMode: .fit)
+        .background(AppTheme.Colors.background)
+        .overlay { Rectangle().stroke(AppTheme.Colors.divider.opacity(0.5), lineWidth: 1)
+          .allowsHitTesting(false) }
+        .shadow(color: AppTheme.Colors.shadow, radius: 6, y: 2)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         GameControlsView(
           canMove: session.uiSnapshot.canMove, canGrapple: session.uiSnapshot.canGrapple,
@@ -64,9 +70,12 @@ struct GameplayView: View {
           diagnosticPosition: session.uiSnapshot.diagnosticPlayerPosition)
           .id(controlLayout)
       }
+      .allowsHitTesting(!hasModalOverlay)
+      .accessibilityHidden(hasModalOverlay)
       .padding(.horizontal, compact ? 8 : 12)
       .padding(.bottom, compact ? 4 : 8)
-    }.background(AppTheme.Colors.background)
+    }.appScreenBackground()
+      .environment(\.appReducedMotion, session.configuration.reducedMotion)
       .navigationBarBackButtonHidden().appNavigationStyle().onAppear {
         announcementCoordinator.update(feedback: session.uiSnapshot.feedback)
       }.onChange(of: session.runtimeGeneration) { _, generation in
@@ -77,55 +86,90 @@ struct GameplayView: View {
         // A layout update must never carry a held movement or in-progress gesture to the new side.
         session.simulation.cancelAllInput()
       }.onDisappear { session.simulation.cancelAllInput() }.overlay {
-        if session.isPaused { pauseOverlay }
-        if case .transitioning(let levelID) = session.state {
-          Text(
-            "Loading \(levelID.displayName)"
-          ).appTextStyle(.h2).padding().appSurface(cornerRadius: 12)
-            .accessibilityIdentifier("levelLoadingOverlay")
-        }
-        if let text = session.dialogue {
+        if previewsLoadingOverlay {
+          LevelLoadingOverlay(levelName: "Level 7")
+        } else if let text = session.dialogue {
           DialogueOverlay(text: text, continueAction: session.continueDialogue)
+        } else if case .transitioning(let levelID) = session.state {
+          LevelLoadingOverlay(levelName: levelID.displayName)
+        } else if session.isPaused {
+          pauseOverlay
         }
       }
   }
+  // UI-test presentation fixture: does not hold or delay an actual level transition.
+  private var previewsLoadingOverlay: Bool {
+    #if DEBUG
+      let arguments = ProcessInfo.processInfo.arguments
+      return arguments.contains("--ui-testing") && arguments.contains("--preview-level-loading-overlay")
+    #else
+      return false
+    #endif
+  }
+
+  private var hasModalOverlay: Bool {
+    if previewsLoadingOverlay { return true }
+    if case .transitioning = session.state { return true }
+    return session.isPaused || session.dialogue != nil
+  }
+
   private var hud: some View {
-    HStack {
-      Text(session.uiSnapshot.levelName).appTextStyle(.h2).accessibilityIdentifier("levelTitle")
-      HealthIcon().accessibilityHidden(true)
-      Text("Health \(session.uiSnapshot.health)").appTextStyle(.h2).accessibilityLabel("Health")
-        .accessibilityValue(
-          "\(session.uiSnapshot.health)"
-        ).accessibilityIdentifier("healthValue")
-      Text("Score \(session.uiSnapshot.score)").appTextStyle(.h2).foregroundStyle(
-        AppTheme.Colors.highlight
-      ).accessibilityLabel("Score").accessibilityValue(
-        "\(session.uiSnapshot.score)"
-      ).accessibilityIdentifier("scoreValue")
-      Spacer()
-      pauseButton
-    }.padding(10).appSurface(cornerRadius: 12)
-      .accessibilityIdentifier("gameplayHUD")
+    ViewThatFits(in: .horizontal) {
+      HStack(spacing: AppTheme.Spacing.sm) {
+        levelTitle
+        Spacer(minLength: 0)
+        stats
+        pauseButton
+      }
+      VStack(alignment: .leading, spacing: AppTheme.Spacing.xs) {
+        HStack { levelTitle; Spacer(minLength: 0); pauseButton }
+        ViewThatFits(in: .horizontal) {
+          HStack(spacing: AppTheme.Spacing.sm) { stats }
+          VStack(alignment: .leading, spacing: AppTheme.Spacing.xs) { stats }
+        }
+      }
+    }
+    .padding(.horizontal, AppTheme.Spacing.sm)
+    .padding(.vertical, AppTheme.Spacing.xs)
+    .accessibilityElement(children: .contain)
+    .accessibilityIdentifier("gameplayHUD")
   }
+
+  private var levelTitle: some View {
+    Text(session.uiSnapshot.levelName).appTextStyle(.h3)
+      .fixedSize(horizontal: false, vertical: true)
+      .accessibilityIdentifier("levelTitle")
+  }
+
+  @ViewBuilder private var stats: some View {
+    GameplayStatPill(title: "Health", value: session.uiSnapshot.health, identifier: "healthValue") {
+      HealthIcon()
+    }
+    GameplayStatPill(title: "Score", value: session.uiSnapshot.score, identifier: "scoreValue") {
+      Image(systemName: "sparkle").foregroundStyle(AppTheme.Colors.highlight)
+    }
+  }
+
   private var pauseButton: some View {
-    Button(session.isPaused ? "Resume" : "Pause") {
+    AppIconButton(title: session.isPaused ? "Resume game" : "Pause game",
+                  systemImage: session.isPaused ? "play.fill" : "pause.fill") {
       if session.isPaused { _ = session.resume() } else { _ = session.pause() }
-    }.buttonStyle(AppPrimaryButtonStyle()).accessibilityLabel(
-      session.isPaused ? "Resume game" : "Pause game"
-    ).accessibilityIdentifier(session.isPaused ? "resumeButton" : "pauseButton")
+    }
+    .accessibilityIdentifier(session.isPaused ? "resumeButton" : "pauseButton")
   }
+
   private var pauseOverlay: some View {
-    VStack(spacing: 18) {
+    GameplayModalPanel {
+      Image(systemName: "pause.circle").appTextStyle(.heroTitle)
+        .foregroundStyle(AppTheme.Colors.accent).accessibilityHidden(true)
       Text("Paused").appTextStyle(.h1).accessibilityIdentifier("pauseOverlay")
+      Text("Your adventure can wait.").appTextStyle(.paragraph)
+        .foregroundStyle(AppTheme.Colors.textSecondary)
       Button("Resume") { session.resume() }.buttonStyle(AppPrimaryButtonStyle())
         .accessibilityIdentifier("overlayResumeButton")
-      Button("Return to Menu", role: .destructive, action: returnToMenu).buttonStyle(
-        AppHighlightButtonStyle()
-      ).accessibilityIdentifier(
-        "returnToMenuButton")
-    }.padding(30).appSurface(cornerRadius: 20).padding(24).background(
-      AppTheme.Colors.background.opacity(0.72)
-    ).zIndex(5)
+      Button("Return to Menu", role: .destructive, action: returnToMenu)
+        .buttonStyle(AppSecondaryButtonStyle()).accessibilityIdentifier("returnToMenuButton")
+    }
   }
 }
 
@@ -210,12 +254,9 @@ struct GameControlsView: View {
       Spacer(minLength: compact ? 12 : 32)
       trailingControl
     }
-    .frame(maxWidth: .infinity, minHeight: compact ? 128 : 140)
+    .frame(maxWidth: .infinity)
     .padding(.horizontal, compact ? 10 : 16)
-    .background(AppTheme.Colors.surface.opacity(0.42), in: RoundedRectangle(cornerRadius: 24))
-    .overlay(
-      RoundedRectangle(cornerRadius: 24).stroke(AppTheme.Colors.accent.opacity(0.18), lineWidth: 1)
-    )
+    .padding(.vertical, AppTheme.Spacing.xs)
     .accessibilityElement(children: .contain)
     .accessibilityIdentifier("gameControlDock")
     #if DEBUG
@@ -259,8 +300,8 @@ struct GameControlsView: View {
     VStack(spacing: 2) {
       control()
       if showsHints {
-        Text(hint).appTextStyle(.paragraph).foregroundStyle(AppTheme.Colors.text.opacity(0.62))
-          .lineLimit(1).accessibilityIdentifier(identifier)
+        Text(hint).appTextStyle(.caption).foregroundStyle(AppTheme.Colors.textSecondary)
+          .fixedSize(horizontal: false, vertical: true).accessibilityIdentifier(identifier)
       }
     }
   }
@@ -345,17 +386,20 @@ struct GrappleControlView: View {
     Button(action: fireFacingForward) {
       ZStack {
         Circle().fill(
-          AppTheme.Colors.highlight.opacity(controller.state.isPressed ? 0.72 : 1))
+          AppTheme.Colors.highlight.opacity(controller.state.isPressed ? 0.85 : 1))
         Circle().stroke(
           AppTheme.Colors.text.opacity(controller.state.isPressed ? 0.9 : 0.45),
           lineWidth: controller.state.isPressed ? 4 : 2)
-        VStack(spacing: 2) {
-          Image(systemName: directionSymbol)
-            .font(.system(size: 27, weight: .bold))
-          Text(controller.state.selectedDirection == nil ? "Grapple" : "Aim")
-            .appTextStyle(.paragraph)
+        Image(systemName: directionSymbol)
+          .font(.system(size: controller.state.selectedDirection == nil ? 30 : 36, weight: .bold))
+          .foregroundStyle(AppTheme.Colors.background)
+      }
+      .shadow(color: AppTheme.Colors.highlight.opacity(
+        controller.state.isPressed ? 0.45 : 0.15), radius: controller.state.isPressed ? 12 : 5)
+      .overlay {
+        if controller.state.selectedDirection != nil {
+          Circle().stroke(AppTheme.Colors.accent, lineWidth: 4).allowsHitTesting(false)
         }
-        .foregroundStyle(AppTheme.Colors.text)
       }
       .frame(width: size, height: size)
       .contentShape(Circle())
@@ -473,6 +517,7 @@ struct VirtualJoystickView: View {
   private static let knobSize: CGFloat = 54
   @Environment(\.scenePhase) private var scenePhase
   @Environment(\.accessibilityReduceMotion) private var reduceMotion
+  @Environment(\.appReducedMotion) private var appReducedMotion
   @ObservedObject var input: GameInputController
   let isEnabled: Bool
   let size: CGFloat
@@ -490,7 +535,7 @@ struct VirtualJoystickView: View {
 
   var body: some View {
     ZStack {
-      Circle().fill(AppTheme.Colors.surface)
+      Circle().fill(AppTheme.Colors.backgroundElevated)
       Circle().stroke(
         AppTheme.Colors.accent.opacity(controller.state.activeDirection == nil ? 0.45 : 1),
         lineWidth: controller.state.activeDirection == nil ? 2 : 3)
@@ -498,10 +543,11 @@ struct VirtualJoystickView: View {
       Circle()
         .fill(
           controller.state.activeDirection == nil
-            ? AppTheme.Colors.text.opacity(0.82) : AppTheme.Colors.accent
+            ? AppTheme.Colors.surfaceElevated : AppTheme.Colors.accent
         )
         .frame(width: Self.knobSize, height: Self.knobSize)
         .overlay(Circle().stroke(AppTheme.Colors.text.opacity(0.35), lineWidth: 1))
+        .shadow(color: AppTheme.Colors.shadow, radius: 4, y: 2)
         .offset(x: controller.state.displacement.dx, y: controller.state.displacement.dy)
     }
     .frame(width: size, height: size)
@@ -528,7 +574,7 @@ struct VirtualJoystickView: View {
     .onChange(of: input.cancellationGeneration) { _, _ in cancel() }
     .onChange(of: scenePhase) { _, phase in if phase != .active { cancel() } }
     .onDisappear(perform: cancel)
-    .animation(reduceMotion ? nil : .easeOut(duration: 0.12), value: controller.state.displacement)
+    .animation((reduceMotion || appReducedMotion) ? nil : .easeOut(duration: 0.12), value: controller.state.displacement)
   }
 
   private var cardinalMarkers: some View {
@@ -537,7 +583,7 @@ struct VirtualJoystickView: View {
         .font(.system(size: 10, weight: .bold))
         .foregroundStyle(
           controller.state.activeDirection == direction
-            ? AppTheme.Colors.accent : AppTheme.Colors.text.opacity(0.55)
+            ? AppTheme.Colors.highlight : AppTheme.Colors.textMuted
         )
         .offset(markerOffset(for: direction))
         .accessibilityHidden(true)
@@ -585,10 +631,12 @@ struct GameplayFeedbackOverlay: View {
     VStack(spacing: 6) {
       ForEach(Array(feedback.enumerated()), id: \.element.id) { _, event in
         Text(event.message)
-          .appTextStyle(feedbackStyle(for: event)).foregroundStyle(feedbackColor(for: event))
+          .appTextStyle(.caption).fontWeight(.semibold).foregroundStyle(feedbackColor(for: event))
           .multilineTextAlignment(.center)
           .padding(.horizontal, 10).padding(.vertical, 6)
-          .background(AppTheme.Colors.surface.opacity(0.92), in: Capsule()).shadow(radius: 2)
+          .background(AppTheme.Colors.backgroundElevated.opacity(0.96), in: Capsule())
+          .overlay { Capsule().stroke(feedbackColor(for: event).opacity(0.35), lineWidth: 1) }
+          .shadow(color: AppTheme.Colors.shadow, radius: 4, y: 2)
           .transition(reducedMotion ? .opacity : .opacity.combined(with: .move(edge: .top)))
           .accessibilityLabel(event.accessibilityAnnouncement)
       }
@@ -598,23 +646,16 @@ struct GameplayFeedbackOverlay: View {
     .allowsHitTesting(false).animation(
       reducedMotion ? nil : .easeOut(duration: 0.2), value: feedback.map(\.id))
   }
-  private func feedbackStyle(for event: GameplayFeedback) -> AppTextStyle {
-    switch event.kind {
-    case .coinCollected, .chestReward, .mineDestroyed, .levelCompleted, .enemyHit, .enemyDefeated:
-      return .h3
-    default:
-      return .paragraph
-    }
-  }
-
   private func feedbackColor(for event: GameplayFeedback) -> Color {
     switch event.kind {
-    case .coinCollected, .healthItemCollected:
+    case .coinCollected, .chestReward, .healthItemCollected, .mineDestroyed, .enemyHit:
       return AppTheme.Colors.accent
     case .healthAlreadyFull:
       return AppTheme.Colors.text
-    case .chestReward, .healthLost, .mineDestroyed, .levelCompleted, .enemyHit, .enemyDefeated:
-      return AppTheme.Colors.highlight
+    case .healthLost:
+      return AppTheme.Colors.danger
+    case .levelCompleted, .enemyDefeated:
+      return AppTheme.Colors.success
     }
   }
 }
@@ -623,16 +664,69 @@ struct DialogueOverlay: View {
   let text: String
   let continueAction: () -> Bool
   var body: some View {
-    VStack(spacing: 16) {
-      Text("Talking Chest").appTextStyle(.h2).foregroundStyle(AppTheme.Colors.highlight)
-        .accessibilityIdentifier("chestDialogue")
+    GameplayModalPanel {
+      Image(systemName: "text.bubble").appTextStyle(.h2)
+        .foregroundStyle(AppTheme.Colors.accent).accessibilityHidden(true)
+      Text("Message").appTextStyle(.h2).accessibilityIdentifier("chestDialogue")
       Text(text).appTextStyle(.paragraph).multilineTextAlignment(.center)
       Button("Continue") { _ = continueAction() }.buttonStyle(AppPrimaryButtonStyle())
         .accessibilityIdentifier("dialogueContinueButton")
-    }.padding().appSurface(cornerRadius: 16).padding(24).background(
-      AppTheme.Colors.background.opacity(0.58)
-    )
-    .accessibilityElement(children: .contain).accessibilityLabel("Talking Chest. \(text)").zIndex(
-      10)
+    }
+  }
+}
+
+/// Compact numeric stats keep their established label/value semantics without redundant visual words.
+private struct GameplayStatPill<Icon: View>: View {
+  let title: String
+  let value: Int
+  let identifier: String
+  @ViewBuilder let icon: () -> Icon
+
+  var body: some View {
+    HStack(spacing: AppTheme.Spacing.xs) {
+      icon().accessibilityHidden(true)
+      Text(value.formatted()).appTextStyle(.caption).fontWeight(.semibold).monospacedDigit()
+        .accessibilityLabel(title).accessibilityValue(String(value))
+        .accessibilityIdentifier(identifier)
+    }
+    .fixedSize(horizontal: true, vertical: false)
+    .padding(.horizontal, AppTheme.Spacing.sm).padding(.vertical, AppTheme.Spacing.xs)
+    .background(AppTheme.Colors.surface, in: Capsule())
+  }
+}
+
+/// Full-screen scrim consumes touches; scrolling keeps modal actions reachable at large text sizes.
+struct GameplayModalPanel<Content: View>: View {
+  @ViewBuilder let content: () -> Content
+
+  var body: some View {
+    ZStack {
+      AppTheme.Colors.background.opacity(0.8).ignoresSafeArea().contentShape(Rectangle())
+      ScrollView {
+        VStack(spacing: AppTheme.Spacing.md) { content() }
+          .multilineTextAlignment(.center)
+          .frame(maxWidth: .infinity)
+          .padding(AppTheme.Spacing.lg)
+          .appSurface(style: .elevated)
+          .frame(maxWidth: 420)
+          .padding(AppTheme.Spacing.lg)
+          .frame(maxWidth: .infinity)
+      }
+      .defaultScrollAnchor(.center, for: .alignment)
+    }
+    .frame(maxWidth: .infinity, maxHeight: .infinity)
+    .accessibilityElement(children: .contain)
+  }
+}
+
+struct LevelLoadingOverlay: View {
+  let levelName: String
+
+  var body: some View {
+    GameplayModalPanel {
+      ProgressView().tint(AppTheme.Colors.accent).accessibilityHidden(true)
+      Text("Entering \(levelName)").appTextStyle(.h3)
+        .accessibilityIdentifier("levelLoadingOverlay")
+    }
   }
 }
