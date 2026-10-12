@@ -27,10 +27,6 @@ import Foundation
         id: EntityID(), archetype: .skeleton, position: .init(row: 6, column: 23), facing: .right,
         health: 3, maximumHealth: 3, behaviorState: .patrol, decisionAccumulator: 0,
         animationTime: 0),
-      .init(
-        id: EntityID(), archetype: .flyingTerror, position: .init(row: 5, column: 33),
-        facing: .right, health: 5, maximumHealth: 5, behaviorState: .patrol, decisionAccumulator: 0,
-        animationTime: 0),
     ]
     try validateEnemyFootprints(entryPositions: [
       .init(row: 5, column: 27), .init(row: 50, column: 27),
