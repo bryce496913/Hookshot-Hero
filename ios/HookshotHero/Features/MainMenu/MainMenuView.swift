@@ -5,64 +5,74 @@ struct MainMenuView: View {
   let playLevel: (LevelID) -> Void
   let settings: () -> Void
   let help: () -> Void
+  @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
   var body: some View {
-    ZStack {
-      AppBackground()
+    GeometryReader { geometry in
       ScrollView {
-        VStack(spacing: 18) {
-          Spacer(minLength: 20)
-          VStack(spacing: 12) {
-            Image(systemName: "scope")
-              .font(.system(size: 54, weight: .bold, design: .rounded))
-              .foregroundStyle(AppTheme.Colors.highlight)
-              .accessibilityHidden(true)
-            Text("Hookshot Hero")
-              .appTextStyle(.h1)
-              .multilineTextAlignment(.center)
-              .accessibilityAddTraits(.isHeader)
+        VStack(spacing: AppTheme.Spacing.lg) {
+          VStack(spacing: AppTheme.Spacing.md) {
+            AppIconHeroView(size: min(210, max(160, geometry.size.height * 0.27)))
+            VStack(spacing: AppTheme.Spacing.sm) {
+              Text("Hookshot Hero")
+                .appTextStyle(.heroTitle)
+                .multilineTextAlignment(.center)
+                .accessibilityAddTraits(.isHeader)
+              Text("Grapple through the dungeons.")
+                .appTextStyle(.paragraph)
+                .foregroundStyle(AppTheme.Colors.textSecondary)
+                .multilineTextAlignment(.center)
+            }
           }
-          .frame(maxWidth: .infinity)
-          .padding(24)
-          .appSurface()
-          Spacer(minLength: 12)
-          menuButton("Play", systemImage: "play.fill", style: .primary, action: play)
-            .accessibilityIdentifier("playButton")
-          NavigationLink {
-            LevelSelectView(playLevel: playLevel)
-          } label: {
-            Label("Level Select", systemImage: "list.number")
+          VStack(spacing: AppTheme.Spacing.sm) {
+            Button(action: play) { Label("Play", systemImage: "play.fill") }
+              .buttonStyle(AppPrimaryButtonStyle())
+              .accessibilityIdentifier("playButton")
+            NavigationLink {
+              LevelSelectView(playLevel: playLevel)
+            } label: {
+              Label("Level Select", systemImage: "square.grid.2x2")
+            }
+            .buttonStyle(AppSecondaryButtonStyle())
+            .accessibilityIdentifier("levelSelectButton")
           }
-          .buttonStyle(AppSecondaryButtonStyle())
-          .accessibilityIdentifier("levelSelectButton")
-          menuButton("Settings", systemImage: "gearshape", style: .secondary, action: settings)
-            .accessibilityIdentifier("settingsButton")
-          menuButton("Help", systemImage: "questionmark.circle", style: .secondary, action: help)
-            .accessibilityIdentifier("helpButton")
-          Spacer(minLength: 20)
+          if dynamicTypeSize.isAccessibilitySize {
+            VStack(spacing: AppTheme.Spacing.sm) { utilities }
+          } else {
+            HStack(spacing: AppTheme.Spacing.md) { utilities }
+          }
         }
-        .frame(maxWidth: .infinity, minHeight: 640)
-        .padding(.horizontal, 32)
-        .safeAreaPadding(.bottom)
+        .frame(maxWidth: 440)
+        .padding(AppTheme.Spacing.lg)
+        .frame(maxWidth: .infinity, minHeight: geometry.size.height)
       }
+      .scrollIndicators(.hidden)
     }
+    .appScreenBackground()
     .navigationBarBackButtonHidden()
     .appNavigationStyle()
     .accessibilityElement(children: .contain)
   }
 
-  private enum MenuButtonStyle { case primary, secondary }
+  @ViewBuilder private var utilities: some View {
+    utility("Settings", systemImage: "gearshape", identifier: "settingsButton", action: settings)
+    utility("Help", systemImage: "questionmark.circle", identifier: "helpButton", action: help)
+  }
 
-  @ViewBuilder
-  private func menuButton(
-    _ title: String, systemImage: String, style: MenuButtonStyle, action: @escaping () -> Void
+  private func utility(
+    _ title: String, systemImage: String, identifier: String, action: @escaping () -> Void
   ) -> some View {
-    let button = Button(action: action) { Label(title, systemImage: systemImage) }
-      .accessibilityLabel(title)
-    switch style {
-    case .primary: button.buttonStyle(AppPrimaryButtonStyle())
-    case .secondary: button.buttonStyle(AppSecondaryButtonStyle())
+    Button(action: action) {
+      Label(title, systemImage: systemImage).appTextStyle(.caption)
+        .fontWeight(.semibold)
+        .frame(maxWidth: .infinity, minHeight: AppTheme.Layout.minimumHitTarget)
+        .contentShape(Rectangle())
     }
+    .buttonStyle(.plain)
+    .foregroundStyle(AppTheme.Colors.textSecondary)
+    .appSurface(cornerRadius: AppTheme.Radius.control)
+    .accessibilityIdentifier(identifier)
+    .accessibilityLabel(title)
   }
 }
 
@@ -72,6 +82,7 @@ struct LevelSelectionOption: Identifiable, Equatable {
 
   var id: LevelID { levelID }
   var title: String { levelID.displayName }
+  var isEndingArea: Bool { levelID == .countryRoad || levelID == .heroWelcome }
   var accessibilityIdentifier: String { "level\(number)Button" }
 }
 
@@ -92,23 +103,68 @@ struct LevelSelectView: View {
     .init(number: 12, levelID: .heroWelcome),
   ]
 
+  @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+
   var body: some View {
-    ZStack {
-      AppBackground()
-      ScrollView {
-        VStack(spacing: 14) {
-          Text("Level Select").appTextStyle(.h1).accessibilityAddTraits(.isHeader)
-          Text("Start directly in any level.")
-            .appTextStyle(.paragraph).foregroundStyle(AppTheme.Colors.text.opacity(0.7))
+    ScrollView {
+      VStack(alignment: .leading, spacing: AppTheme.Spacing.lg) {
+        VStack(alignment: .leading, spacing: AppTheme.Spacing.sm) {
+          Text("Choose your adventure")
+            .appTextStyle(.h1).accessibilityAddTraits(.isHeader)
+          Text("Enter any dungeon or visit the journey’s end.")
+            .appTextStyle(.paragraph).foregroundStyle(AppTheme.Colors.textSecondary)
+        }
+        LazyVGrid(
+          columns: Array(repeating: GridItem(.flexible(), spacing: AppTheme.Spacing.md),
+                         count: dynamicTypeSize.isAccessibilitySize ? 1 : 2),
+          spacing: AppTheme.Spacing.md
+        ) {
           ForEach(Self.levels) { level in
-            Button(level.title) { playLevel(level.levelID) }
-              .buttonStyle(AppPrimaryButtonStyle())
-              .accessibilityIdentifier(level.accessibilityIdentifier)
+            Button { playLevel(level.levelID) } label: {
+              LevelSelectionCard(level: level)
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel(level.title)
+            .accessibilityHint(level.isEndingArea ? "Enter ending area" : "Enter dungeon")
+            .accessibilityIdentifier(level.accessibilityIdentifier)
           }
-        }.padding(24)
+        }
       }
+      .frame(maxWidth: 640)
+      .padding(AppTheme.Spacing.lg)
+      .frame(maxWidth: .infinity)
     }
-    .navigationTitle("Levels")
+    .appScreenBackground()
+    .navigationTitle("Level Select")
+    .navigationBarTitleDisplayMode(.inline)
     .appNavigationStyle()
+  }
+}
+
+private struct LevelSelectionCard: View {
+  let level: LevelSelectionOption
+
+  var body: some View {
+    VStack(alignment: .leading, spacing: AppTheme.Spacing.md) {
+      HStack {
+        Text(level.isEndingArea ? "EPILOGUE" : String(format: "%02d", level.number))
+          .appTextStyle(.caption).fontWeight(.bold)
+          .foregroundStyle(level.isEndingArea ? AppTheme.Colors.highlight : AppTheme.Colors.accent)
+          .padding(.horizontal, AppTheme.Spacing.sm).padding(.vertical, AppTheme.Spacing.xs)
+          .background(AppTheme.Colors.backgroundElevated, in: Capsule())
+        Spacer(minLength: 0)
+        Image(systemName: "arrow.up.right").appTextStyle(.caption)
+          .foregroundStyle(AppTheme.Colors.textMuted)
+      }
+      Text(level.title).appTextStyle(.h3)
+        .multilineTextAlignment(.leading).fixedSize(horizontal: false, vertical: true)
+      Text(level.isEndingArea ? "Journey’s end" : "Dungeon")
+        .appTextStyle(.caption).foregroundStyle(AppTheme.Colors.textSecondary)
+    }
+    .frame(maxWidth: .infinity, minHeight: 112, alignment: .leading)
+    .padding(AppTheme.Spacing.md)
+    .appSurface(style: level.isEndingArea ? .hero : .elevated)
+    .contentShape(RoundedRectangle(cornerRadius: AppTheme.Radius.card))
+    .accessibilityElement(children: .ignore)
   }
 }
