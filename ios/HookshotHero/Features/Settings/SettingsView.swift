@@ -35,21 +35,25 @@ struct SettingsView: View {
         NavigationLink { SettingsHelpDestination() } label: {
           AppNavigationRow(title: "Help", systemImage: "questionmark.circle", subtitle: "Your dungeon guide")
         }
+        .buttonStyle(AppSurfaceButtonStyle(cornerRadius: AppTheme.Radius.control))
         .accessibilityLabel("Help").accessibilityIdentifier("settingsHelpLink")
         AppDivider()
         NavigationLink { PrivacyPolicyView() } label: {
           AppNavigationRow(title: "Privacy Policy", systemImage: "shield", subtitle: "How information is handled")
         }
+        .buttonStyle(AppSurfaceButtonStyle(cornerRadius: AppTheme.Radius.control))
         .accessibilityLabel("Privacy Policy").accessibilityIdentifier("privacyPolicyLink")
         AppDivider()
         NavigationLink { SupportView() } label: {
           AppNavigationRow(title: "Support", systemImage: "lifepreserver", subtitle: "Troubleshooting and contact")
         }
+        .buttonStyle(AppSurfaceButtonStyle(cornerRadius: AppTheme.Radius.control))
         .accessibilityLabel("Support").accessibilityIdentifier("supportLink")
         AppDivider()
         NavigationLink { CreditsLicensesView() } label: {
           AppNavigationRow(title: "Credits & Licenses", systemImage: "doc.text", subtitle: "Creators and legal information")
         }
+        .buttonStyle(AppSurfaceButtonStyle(cornerRadius: AppTheme.Radius.control))
         .accessibilityLabel("Credits & Licenses").accessibilityIdentifier("creditsLicensesLink")
       }
       AppInformationSection(title: "About") {

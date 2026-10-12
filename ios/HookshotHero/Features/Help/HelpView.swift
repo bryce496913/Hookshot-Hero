@@ -81,11 +81,13 @@ struct HelpView: View {
         NavigationLink { SupportView() } label: {
           AppNavigationRow(title: "Support", systemImage: "lifepreserver")
         }
+        .buttonStyle(AppSurfaceButtonStyle(cornerRadius: AppTheme.Radius.control))
         .accessibilityLabel("Support").accessibilityIdentifier("helpSupportLink")
         AppDivider()
         NavigationLink { PrivacyPolicyView() } label: {
           AppNavigationRow(title: "Privacy Policy", systemImage: "shield")
         }
+        .buttonStyle(AppSurfaceButtonStyle(cornerRadius: AppTheme.Radius.control))
         .accessibilityLabel("Privacy Policy").accessibilityIdentifier("helpPrivacyPolicyLink")
       }
       Button("Done", action: dismiss).buttonStyle(AppPrimaryButtonStyle())
