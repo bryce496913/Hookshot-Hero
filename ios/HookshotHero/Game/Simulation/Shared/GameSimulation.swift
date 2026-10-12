@@ -197,7 +197,9 @@ extension LevelAssetManifest {
     ])
     .union(sharedPlayerTextureAssetIDs)
     .union(sharedCoinTextureAssetIDs)
-    .union(sharedEnemyTextureAssetIDs),
+    .union(sharedEnemyTextureAssetIDs.filter {
+      !$0.rawValue.hasPrefix("enemy.flying-terror")
+    }),
     animationIDs: Set([
       LevelOneRenderAnimations.coinSpin, LevelOneRenderAnimations.lidiaWalk(.up),
       LevelOneRenderAnimations.lidiaWalk(.down), LevelOneRenderAnimations.lidiaWalk(.left),
@@ -205,10 +207,6 @@ extension LevelAssetManifest {
       LevelTwoRenderAnimations.enemy(.skeleton, .down),
       LevelTwoRenderAnimations.enemy(.skeleton, .left),
       LevelTwoRenderAnimations.enemy(.skeleton, .right),
-      LevelTwoRenderAnimations.enemy(.flyingTerror, .up),
-      LevelTwoRenderAnimations.enemy(.flyingTerror, .down),
-      LevelTwoRenderAnimations.enemy(.flyingTerror, .left),
-      LevelTwoRenderAnimations.enemy(.flyingTerror, .right),
     ]))
   static let levelThree = LevelAssetManifest(
     textureAssetIDs: Set([

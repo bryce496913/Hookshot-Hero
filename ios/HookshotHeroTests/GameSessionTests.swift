@@ -340,7 +340,7 @@ final class GameSessionTests: XCTestCase {
       session.simulation.renderSnapshot.entities.contains {
         $0.asset == EnemyArchetype.skeleton.asset
       })
-    XCTAssertTrue(
+    XCTAssertFalse(
       session.simulation.renderSnapshot.entities.contains {
         $0.asset == EnemyArchetype.flyingTerror.asset
       })
@@ -813,20 +813,138 @@ final class LevelTwoDefinitionTests: XCTestCase {
       LevelAssetManifest.levelTwo.textureAssetIDs.contains(LevelTwoRenderAssets.entryDoor))
     XCTAssertTrue(
       LevelAssetManifest.levelTwo.textureAssetIDs.contains(EnemyArchetype.skeleton.asset))
-    XCTAssertTrue(
+    XCTAssertFalse(
       LevelAssetManifest.levelTwo.textureAssetIDs.contains(EnemyArchetype.flyingTerror.asset))
     XCTAssertTrue(
       LevelAssetManifest.levelTwo.animationIDs.contains(
         LevelTwoRenderAnimations.enemy(.skeleton, .right)))
-    XCTAssertTrue(
+    XCTAssertFalse(
       LevelAssetManifest.levelTwo.animationIDs.contains(
         LevelTwoRenderAnimations.enemy(.flyingTerror, .right)))
+    XCTAssertFalse(LevelAssetManifest.levelTwo.textureAssetIDs.contains {
+      $0.rawValue.hasPrefix("enemy.flying-terror")
+    })
+    XCTAssertFalse(LevelAssetManifest.levelTwo.animationIDs.contains {
+      $0.rawValue.hasPrefix("enemy.flying-terror")
+    })
   }
 
 }
 
 @MainActor
 final class LevelTwoSpawnAndEnemyTests: XCTestCase {
+  func testBothLevelTwoEntriesConstructWithOneSkeletonAndDeterministicItems() throws {
+    for entry in [LevelEntryPosition.bottom, .top] {
+      for seed in [UInt64(1), 2, 42, 496_913] {
+        let first = try LevelTwoSimulation(seed: seed, entryPosition: entry)
+        let second = try LevelTwoSimulation(seed: seed, entryPosition: entry)
+        XCTAssertEqual(first.enemies.count, 1)
+        XCTAssertEqual(first.enemies.map(\.archetype), [.skeleton])
+        XCTAssertFalse(first.renderSnapshot.entities.contains {
+          $0.asset == EnemyArchetype.flyingTerror.asset
+        })
+        XCTAssertEqual(first.entities.map(\.kind), second.entities.map(\.kind))
+        XCTAssertEqual(first.entities.map(\.position), second.entities.map(\.position))
+        XCTAssertEqual(first.entities.filter { $0.kind == .mine }.count, 3)
+        XCTAssertEqual(first.entities.filter { $0.kind == .cabbage }.count, 2)
+        XCTAssertEqual(first.entities.filter { $0.kind == .coin }.count, 10)
+        let arrival = CollisionProfile.player.region(at: first.player.position)
+        XCTAssertFalse(first.level.isBlocked(arrival))
+        XCTAssertFalse(first.level.overlapsLava(arrival))
+        let skeleton = try XCTUnwrap(first.enemies.first)
+        let enemyRegion = skeleton.archetype.footprint.region(at: skeleton.position)
+        for item in first.entities {
+          let footprint = CollisionProfile.footprint(for: item.kind).region(at: item.position)
+          XCTAssertFalse(first.level.isBlocked(footprint))
+          XCTAssertFalse(first.level.overlapsLava(footprint))
+          XCTAssertFalse(footprint.intersects(arrival))
+          XCTAssertFalse(footprint.intersects(enemyRegion))
+        }
+        let runtime = try DefaultGameLevelRuntimeFactory().makeRuntime(
+          levelID: .levelTwo,
+          configuration: .init(reducedMotion: false, controlHintsEnabled: true), seed: seed,
+          entryPosition: entry, carryover: nil)
+        let produced = try XCTUnwrap(runtime.simulation as? LevelTwoSimulation)
+        XCTAssertEqual(produced.enemies.map(\.archetype), [.skeleton])
+      }
+    }
+  }
+
+  func testRemainingLevelTwoSkeletonStillSeeksAndDamagesPlayer() throws {
+    let simulation = try LevelTwoSimulation()
+    simulation.entities = []
+    simulation.player.position = .init(row: 6, column: 29)
+    let health = simulation.player.health
+    for _ in 0..<5 { simulation.update(deltaTime: 0.1) }
+    XCTAssertEqual(simulation.enemies.first?.position, .init(row: 6, column: 24))
+    XCTAssertEqual(simulation.enemies.first?.behaviorState, .seek)
+    for _ in 0..<10 { simulation.update(deltaTime: 0.1) }
+    XCTAssertEqual(simulation.player.health, health - 1)
+    XCTAssertEqual(simulation.enemies.count, 1)
+  }
+
+  func testLevelTwoRoutesRemainReachableAndPreserveCompletionReward() throws {
+    let levelOne = try LevelOneSimulation(startOverride: .init(row: 5, column: 29), entities: [])
+    var arrival: LevelTransitionRequest?
+    levelOne.onLevelTransition = { arrival = $0 }
+    levelOne.input.send(.move(.up))
+    levelOne.update(deltaTime: 0)
+    let request = try XCTUnwrap(arrival)
+    XCTAssertEqual(request.destinationLevelID, .levelTwo)
+    XCTAssertEqual(request.destinationEntry, .bottom)
+    let arrived = try LevelTwoSimulation(entryPosition: request.destinationEntry,
+                                         carryover: request.carryover)
+    XCTAssertEqual(arrived.enemies.map(\.archetype), [.skeleton])
+
+    let forward = try LevelTwoSimulation(entryPosition: .top)
+    forward.entities = []
+    var next: LevelTransitionRequest?
+    forward.onLevelTransition = { next = $0 }
+    forward.input.send(.move(.right))
+    forward.update(deltaTime: 0)
+    forward.input.send(.move(.up))
+    forward.update(deltaTime: 0)
+    XCTAssertEqual(next?.destinationLevelID, .levelThree)
+    XCTAssertEqual(next?.destinationEntry, .bottom)
+    XCTAssertEqual(forward.player.score, 100)
+    XCTAssertTrue(forward.completedLevelIDs.contains(.levelTwo))
+    forward.update(deltaTime: 0)
+    XCTAssertEqual(forward.player.score, 100, "Completion reward must not be duplicated")
+
+    let backward = try LevelTwoSimulation()
+    backward.entities = []
+    var previous: LevelTransitionRequest?
+    backward.onLevelTransition = { previous = $0 }
+    backward.input.send(.move(.right))
+    backward.update(deltaTime: 0)
+    for _ in 0..<5 {
+      backward.input.send(.move(.down))
+      backward.update(deltaTime: 0)
+    }
+    XCTAssertEqual(previous?.destinationLevelID, .levelOne)
+    XCTAssertEqual(previous?.destinationEntry, .top)
+    XCTAssertEqual(previous?.reason, .returnedBackward)
+    XCTAssertEqual(backward.player.score, 0)
+  }
+
+  func testFlyingTerrorsRemainAvailableInLaterDungeonLevels() throws {
+    let factory = DefaultGameLevelRuntimeFactory()
+    for levelID in [LevelID.levelThree, .levelFive, .levelSix, .levelSeven, .levelEight, .levelNine] {
+      let runtime = try factory.makeRuntime(
+        levelID: levelID,
+        configuration: .init(reducedMotion: false, controlHintsEnabled: true), seed: 496_913)
+      let simulation = try XCTUnwrap(runtime.simulation as? LevelOneSimulation)
+      XCTAssertEqual(simulation.enemies.filter { $0.archetype == .flyingTerror }.count, 1)
+      XCTAssertTrue(simulation.renderSnapshot.entities.contains {
+        $0.asset == EnemyArchetype.flyingTerror.asset
+      })
+      XCTAssertTrue(runtime.assetManifest.textureAssetIDs.contains(EnemyArchetype.flyingTerror.asset))
+      XCTAssertTrue(runtime.assetManifest.animationIDs.contains(
+        LevelTwoRenderAnimations.enemy(.flyingTerror, .right)))
+    }
+    XCTAssertNotNil(LevelOneTextureCatalog.entries[EnemyArchetype.flyingTerror.asset])
+  }
+
   func testLevelTwoSpawnsItemsAndEnemiesDeterministically() throws {
     let first = try LevelTwoSimulation(seed: 496_913)
     let second = try LevelTwoSimulation(seed: 496_913)
@@ -837,7 +955,12 @@ final class LevelTwoSpawnAndEnemyTests: XCTestCase {
     XCTAssertEqual(
       Set(first.renderSnapshot.entities.map(\.asset))
         .intersection([EnemyArchetype.skeleton.asset, EnemyArchetype.flyingTerror.asset]),
-      Set([EnemyArchetype.skeleton.asset, EnemyArchetype.flyingTerror.asset]))
+      Set([EnemyArchetype.skeleton.asset]))
+    XCTAssertEqual(first.enemies.count, 1)
+    XCTAssertEqual(first.enemies.map(\.archetype), [.skeleton])
+    XCTAssertEqual(first.enemies.first?.position, .init(row: 6, column: 23))
+    XCTAssertEqual(first.enemies.first?.health, 3)
+    XCTAssertEqual(first.enemies.first?.maximumHealth, 3)
   }
 
   func testLevelTwoEnemyConstants() throws {
