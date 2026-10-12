@@ -52,7 +52,10 @@ struct AppIconHeroView: View {
     }
     .shadow(color: AppTheme.Colors.accent.opacity(0.2), radius: 24, y: 8)
     .background {
-      Circle().fill(AppTheme.Colors.accentSecondary.opacity(0.18)).blur(radius: 32)
+      RadialGradient(colors: [AppTheme.Colors.accentSecondary.opacity(0.18), .clear],
+                     center: .center, startRadius: size * 0.3, endRadius: size * 0.75)
+        .frame(width: size * 1.5, height: size * 1.5)
+        .allowsHitTesting(false)
     }
     .accessibilityHidden(true)
   }

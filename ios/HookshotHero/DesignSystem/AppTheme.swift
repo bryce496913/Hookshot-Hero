@@ -148,6 +148,10 @@ enum AppTheme {
     static let actionRadius: CGFloat = 8
   }
 
+  enum Interaction {
+    static let pressedTintOpacity: Double = 0.08
+  }
+
   enum Gradients {
     static var primary: LinearGradient {
       LinearGradient(colors: [Colors.accentSecondary, Colors.primaryEnd],
@@ -364,7 +368,7 @@ private struct AppButtonChrome: View {
       system: systemReducedMotion, appSetting: appReducedMotion)
     label
       .font(AppTextStyle.h3.font)
-      .foregroundStyle(role.foreground)
+      .foregroundStyle(isEnabled ? role.foreground : AppTheme.Colors.textMuted)
       .multilineTextAlignment(.center)
       .fixedSize(horizontal: false, vertical: true)
       .padding(.horizontal, expands ? AppTheme.Spacing.md : AppTheme.Spacing.sm)
@@ -373,7 +377,8 @@ private struct AppButtonChrome: View {
              maxWidth: expands ? .infinity : nil,
              minHeight: expands ? AppTheme.Layout.buttonHeight : AppTheme.Layout.minimumHitTarget)
       .background {
-        shape.fill(role.fill(isPressed: isPressed && isEnabled))
+        shape.fill(isEnabled ? role.fill(isPressed: isPressed)
+                   : AnyShapeStyle(AppTheme.Colors.backgroundElevated))
           .shadow(color: role == .primary && isEnabled ? AppTheme.Colors.shadow : .clear,
                   radius: AppTheme.Elevation.actionRadius, y: AppTheme.Elevation.offset)
       }
@@ -381,7 +386,6 @@ private struct AppButtonChrome: View {
                              : AppTheme.Colors.divider, lineWidth: AppTheme.Layout.borderWidth)
         .allowsHitTesting(false))
       .contentShape(shape)
-      .opacity(isEnabled ? 1 : 0.45)
       .scaleEffect(AppMotion.pressScale(isPressed: isPressed && isEnabled && expands,
                                        reducedMotion: reducedMotion))
       .animation(AppMotion.animation(reducedMotion: reducedMotion), value: isPressed)
@@ -397,6 +401,40 @@ struct AppPrimaryButtonStyle: ButtonStyle {
 struct AppSecondaryButtonStyle: ButtonStyle {
   func makeBody(configuration: Configuration) -> some View {
     AppButtonChrome(label: configuration.label, isPressed: configuration.isPressed, role: .secondary)
+  }
+}
+
+/// Pressed feedback for labels that already contain their own card/row surface.
+/// No scaling: the hit target and two-column layout remain stable during a press.
+struct AppSurfaceButtonStyle: ButtonStyle {
+  var cornerRadius: CGFloat = AppTheme.Radius.card
+
+  func makeBody(configuration: Configuration) -> some View {
+    AppSurfaceButtonChrome(label: configuration.label, isPressed: configuration.isPressed,
+                          cornerRadius: cornerRadius)
+  }
+}
+
+private struct AppSurfaceButtonChrome: View {
+  let label: ButtonStyleConfiguration.Label
+  let isPressed: Bool
+  let cornerRadius: CGFloat
+  @Environment(\.isEnabled) private var isEnabled
+  @Environment(\.accessibilityReduceMotion) private var systemReducedMotion
+  @Environment(\.appReducedMotion) private var appReducedMotion
+
+  var body: some View {
+    let active = isPressed && isEnabled
+    let shape = RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+    label
+      .overlay {
+        shape.fill(AppTheme.Colors.accent.opacity(active ? AppTheme.Interaction.pressedTintOpacity : 0))
+          .overlay(shape.stroke(active ? AppTheme.Colors.accent : .clear,
+                                lineWidth: AppTheme.Layout.borderWidth))
+          .allowsHitTesting(false)
+      }
+      .animation(AppMotion.animation(reducedMotion: AppMotion.shouldReduceMotion(
+        system: systemReducedMotion, appSetting: appReducedMotion)), value: active)
   }
 }
 

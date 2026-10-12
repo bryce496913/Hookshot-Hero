@@ -68,7 +68,7 @@ struct MainMenuView: View {
         .frame(maxWidth: .infinity, minHeight: AppTheme.Layout.minimumHitTarget)
         .contentShape(Rectangle())
     }
-    .buttonStyle(.plain)
+    .buttonStyle(AppSurfaceButtonStyle(cornerRadius: AppTheme.Radius.control))
     .foregroundStyle(AppTheme.Colors.textSecondary)
     .appSurface(cornerRadius: AppTheme.Radius.control)
     .accessibilityIdentifier(identifier)
@@ -123,7 +123,8 @@ struct LevelSelectView: View {
             Button { playLevel(level.levelID) } label: {
               LevelSelectionCard(level: level)
             }
-            .buttonStyle(.plain)
+            .buttonStyle(AppSurfaceButtonStyle(
+              cornerRadius: level.isEndingArea ? AppTheme.Radius.hero : AppTheme.Radius.card))
             .accessibilityLabel(level.title)
             .accessibilityHint(level.isEndingArea ? "Enter ending area" : "Enter dungeon")
             .accessibilityIdentifier(level.accessibilityIdentifier)
@@ -164,7 +165,8 @@ private struct LevelSelectionCard: View {
     .frame(maxWidth: .infinity, minHeight: 112, alignment: .leading)
     .padding(AppTheme.Spacing.md)
     .appSurface(style: level.isEndingArea ? .hero : .elevated)
-    .contentShape(RoundedRectangle(cornerRadius: AppTheme.Radius.card))
+    .contentShape(RoundedRectangle(
+      cornerRadius: level.isEndingArea ? AppTheme.Radius.hero : AppTheme.Radius.card))
     .accessibilityElement(children: .ignore)
   }
 }

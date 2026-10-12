@@ -79,6 +79,31 @@ import XCTest
     XCTAssertGreaterThanOrEqual(contrast(AppTheme.Colors.background, AppTheme.Colors.highlight), 4.5)
   }
 
+  func testPressedSurfaceLabelsKeepReadableContrast() {
+    let foregrounds = [AppTheme.Colors.text, AppTheme.Colors.textSecondary,
+                       AppTheme.Colors.textMuted, AppTheme.Colors.accent, AppTheme.Colors.highlight]
+    let backgrounds = [AppTheme.Colors.surface, AppTheme.Colors.surfaceElevated,
+                       AppTheme.Colors.backgroundElevated]
+    for foreground in foregrounds {
+      for background in backgrounds {
+        // The pressed overlay composites over both label and surface.
+        XCTAssertGreaterThanOrEqual(contrast(pressedTint(foreground), pressedTint(background)), 4.5)
+      }
+    }
+    XCTAssertGreaterThanOrEqual(contrast(AppTheme.Colors.textMuted, AppTheme.Colors.backgroundElevated), 4.5)
+  }
+
+  func testSurfaceButtonStylePreservesTargetsAndAccessibleLabelGrowth() {
+    let button = Button {} label: {
+      AppNavigationRow(title: "Privacy Policy", systemImage: "shield",
+                       subtitle: "How information is handled")
+    }.buttonStyle(AppSurfaceButtonStyle(cornerRadius: AppTheme.Radius.control))
+    let regular = fittedHeight(button.environment(\.dynamicTypeSize, .large), width: 220)
+    let accessible = fittedHeight(button.environment(\.dynamicTypeSize, .accessibility3), width: 220)
+    XCTAssertGreaterThanOrEqual(regular, 44)
+    XCTAssertGreaterThan(accessible, regular)
+  }
+
   func testDecorativeMotionCanBeDisabledBySystemOrAppPreference() {
     XCTAssertFalse(AppMotion.shouldReduceMotion(system: false, appSetting: false))
     XCTAssertTrue(AppMotion.shouldReduceMotion(system: true, appSetting: false))
@@ -136,6 +161,20 @@ import XCTest
     controller.view.frame = CGRect(x: 0, y: 0, width: width, height: 1_000)
     controller.view.layoutIfNeeded()
     return controller.sizeThatFits(in: CGSize(width: width, height: 10_000)).height
+  }
+
+  private func pressedTint(_ base: Color) -> Color {
+    func rgb(_ color: Color) -> (Double, Double, Double) {
+      var r: CGFloat = 0, g: CGFloat = 0, b: CGFloat = 0, a: CGFloat = 0
+      XCTAssertTrue(UIColor(color).getRed(&r, green: &g, blue: &b, alpha: &a))
+      return (Double(r), Double(g), Double(b))
+    }
+    let background = rgb(base)
+    let overlay = rgb(AppTheme.Colors.accent)
+    let alpha = AppTheme.Interaction.pressedTintOpacity
+    return Color(red: overlay.0 * alpha + background.0 * (1 - alpha),
+                 green: overlay.1 * alpha + background.1 * (1 - alpha),
+                 blue: overlay.2 * alpha + background.2 * (1 - alpha))
   }
 
   private func contrast(_ lhs: Color, _ rhs: Color) -> Double {
