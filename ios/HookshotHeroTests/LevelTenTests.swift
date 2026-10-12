@@ -8,6 +8,145 @@ import XCTest
 @MainActor final class LevelTenTests: XCTestCase {
   private let configuration = GameConfiguration(reducedMotion: false, controlHintsEnabled: true)
 
+  func testGhostWizardMovementIntervalAndOtherEnemySpeeds() {
+    XCTAssertEqual(EnemyArchetype.ghostWizard.seekInterval, 0.35)
+    XCTAssertEqual(EnemyArchetype.skeleton.seekInterval, 0.5)
+    XCTAssertEqual(EnemyArchetype.flyingTerror.seekInterval, 0.3)
+    XCTAssertEqual(EnemyArchetype.minotaur.seekInterval, 0.35)
+  }
+
+  func testGhostWizardWaitsForMovementIntervalWhileAnimationAdvances() throws {
+    let simulation = try LevelTenSimulation()
+    simulation.entities = []
+    let initial = try XCTUnwrap(simulation.boss)
+    var animationFrames: Set<Int> = []
+    for _ in 0..<6 {
+      simulation.update(deltaTime: 0.05)
+      XCTAssertEqual(simulation.boss?.position, initial.position)
+      let rendered = try XCTUnwrap(
+        simulation.renderSnapshot.entities.first { $0.id == initial.id })
+      animationFrames.insert(try XCTUnwrap(rendered.animation?.frameIndex))
+    }
+    XCTAssertEqual(animationFrames, [0, 1], "Animation must continue between movement decisions")
+    simulation.update(deltaTime: 0.05)
+    XCTAssertEqual(simulation.boss?.position, initial.position.moved(.right))
+    XCTAssertEqual(try XCTUnwrap(simulation.boss).animationTime, 0.35, accuracy: 0.000_001)
+  }
+
+  func testGhostWizardRetainsFractionalMovementTime() throws {
+    let simulation = try LevelTenSimulation()
+    simulation.entities = []
+    let initial = try XCTUnwrap(simulation.boss).position
+    for _ in 0..<4 { simulation.update(deltaTime: 0.1) }
+    XCTAssertEqual(simulation.boss?.position, initial.moved(.right))
+    XCTAssertEqual(try XCTUnwrap(simulation.boss).decisionAccumulator, 0.05, accuracy: 0.000_001)
+    for _ in 0..<5 { simulation.update(deltaTime: 0.05) }
+    XCTAssertEqual(simulation.boss?.position, initial.moved(.right))
+    simulation.update(deltaTime: 0.05)
+    XCTAssertEqual(simulation.boss?.position, initial.moved(.right).moved(.right))
+  }
+
+  func testGhostWizardMovementIsDeterministicAcrossFrameSequences() throws {
+    let sequences = [
+      Array(repeating: 0.05, count: 28),
+      Array(repeating: 0.1, count: 14),
+      Array(repeating: 1.0 / 60.0, count: 84),
+      Array(repeating: 1.0 / 120.0, count: 168),
+      Array(repeating: [0.05, 0.1], count: 9).flatMap { $0 } + [0.05],
+    ]
+    for frames in sequences {
+      let simulation = try LevelTenSimulation(seed: 42)
+      simulation.entities = []
+      let initial = try XCTUnwrap(simulation.boss).position
+      for frame in frames { simulation.update(deltaTime: frame) }
+      let boss = try XCTUnwrap(simulation.boss)
+      XCTAssertEqual(boss.position, .init(row: initial.row, column: initial.column + 4))
+      XCTAssertEqual(boss.decisionAccumulator, 0, accuracy: 0.000_001)
+      XCTAssertEqual(boss.animationTime, 1.4, accuracy: 0.000_001)
+    }
+  }
+
+  func testGhostWizardOversizedDeltaIsClampedWithoutMovementBurst() throws {
+    let simulation = try LevelTenSimulation()
+    simulation.entities = []
+    for _ in 0..<3 { simulation.update(deltaTime: 0.1) }
+    let before = try XCTUnwrap(simulation.boss)
+    simulation.update(deltaTime: 100)
+    let after = try XCTUnwrap(simulation.boss)
+    XCTAssertEqual(after.position, before.position.moved(.right))
+    XCTAssertEqual(after.animationTime - before.animationTime, 0.1, accuracy: 0.000_001)
+    XCTAssertEqual(after.decisionAccumulator, 0.05, accuracy: 0.000_001)
+    simulation.update(deltaTime: -1)
+    XCTAssertEqual(simulation.boss?.position, after.position)
+  }
+
+  func testGhostWizardPursuesPlayerWithoutCrossingWallsOrBoundaries() throws {
+    for target in [GridPosition(row: 5, column: 5), .init(row: 54, column: 54)] {
+      let simulation = try LevelTenSimulation()
+      simulation.entities = []
+      simulation.player.position = target
+      // Keep the pursuit running after contact so boundary behavior remains observable.
+      simulation.player.health = 1_000
+      let initial = try XCTUnwrap(simulation.boss).position
+      let initialDistance = abs(initial.row - target.row) + abs(initial.column - target.column)
+      var previous = initial
+      for _ in 0..<200 {
+        simulation.update(deltaTime: 0.1)
+        let boss = try XCTUnwrap(simulation.boss)
+        let footprint = boss.archetype.footprint.region(at: boss.position)
+        XCTAssertTrue(footprint.cells.allSatisfy(simulation.level.isInside))
+        XCTAssertFalse(simulation.level.isBlocked(footprint))
+        XCTAssertLessThanOrEqual(
+          abs(boss.position.row - previous.row) + abs(boss.position.column - previous.column), 1)
+        previous = boss.position
+      }
+      XCTAssertLessThan(abs(previous.row - target.row) + abs(previous.column - target.column),
+                        initialDistance)
+    }
+  }
+
+  func testGhostWizardStillFiresAtThreeSecondsAndProjectilesAdvance() throws {
+    let simulation = try LevelTenSimulation()
+    simulation.entities = []
+    simulation.player.position = .init(row: 25, column: 40)
+    for _ in 0..<29 { simulation.update(deltaTime: 0.1) }
+    XCTAssertTrue(simulation.projectiles.isEmpty)
+    simulation.update(deltaTime: 0.1)
+    let shot = try XCTUnwrap(simulation.projectiles.first)
+    XCTAssertEqual(simulation.projectiles.count, 1)
+    XCTAssertEqual(shot.direction, .right)
+    simulation.update(deltaTime: 0.1)
+    XCTAssertEqual(simulation.projectiles.first?.id, shot.id)
+    XCTAssertEqual(simulation.projectiles.first?.position, shot.position.moved(.right))
+  }
+
+  func testSlowerGhostWizardStillTakesTenGrappleHitsAndRewardsOnce() throws {
+    let simulation = try LevelTenSimulation()
+    simulation.entities = []
+    simulation.player.health = simulation.player.maximumHealth
+    XCTAssertEqual(simulation.boss?.health, 10)
+    for remainingHealth in stride(from: 9, through: 0, by: -1) {
+      let boss = try XCTUnwrap(simulation.boss)
+      simulation.player.position = .init(row: boss.position.row, column: boss.position.column + 10)
+      simulation.player.facing = .left
+      simulation.inputController.send(.fireHook)
+      for _ in 0..<12 { simulation.update(deltaTime: 0.05) }
+      XCTAssertEqual(simulation.boss?.health ?? 0, remainingHealth)
+    }
+    XCTAssertNil(simulation.boss)
+    XCTAssertTrue(simulation.worldState.defeatedBossLevelIDs.contains(.levelTen))
+    XCTAssertTrue(simulation.isExitUnlocked)
+    XCTAssertEqual(simulation.chestStates.count, 1)
+    let combatScore = simulation.player.score
+    XCTAssertEqual(combatScore, 100)
+    simulation.player.position = LevelTenDefinition.chestAnchor
+    simulation.update(deltaTime: 0)
+    XCTAssertTrue(simulation.chestStates.first?.isOpened == true)
+    XCTAssertEqual(simulation.player.score, combatScore + 100)
+    simulation.update(deltaTime: 0.05)
+    XCTAssertEqual(simulation.player.score, combatScore + 100)
+  }
+
   func testGhostWizardUsesJavaDirectionalRowsAndTwoRegisteredFrames() throws {
     let expected: [(RenderOrientation, Int)] = [
       (.down, 0), (.right, 1), (.left, 2), (.up, 3),

@@ -162,8 +162,11 @@ struct GhostProjectileState: Identifiable, Equatable, Sendable {
     guard var current = boss else { return }
     current.animationTime += dt
     current.decisionAccumulator += dt
-    if current.decisionAccumulator >= 0.15 {
-      current.decisionAccumulator = 0
+    let movementInterval = EnemyArchetype.ghostWizard.seekInterval
+    if current.decisionAccumulator >= movementInterval {
+      // Keep fractional time for the next decision. The 0.1-second update clamp
+      // permits at most one cell of movement per update at this interval.
+      current.decisionAccumulator -= movementInterval
       if let direction = GridDirection.allCases.filter({ d in
         let r = current.archetype.footprint.region(at: current.position.moved(d))
         return r.cells.allSatisfy(level.isInside) && !level.walls.contains(where: r.intersects)
