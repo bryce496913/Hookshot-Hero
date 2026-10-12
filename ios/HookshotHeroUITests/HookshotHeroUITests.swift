@@ -25,6 +25,12 @@ final class HookshotHeroUITests: XCTestCase {
     XCTAssertTrue(app.otherElements["gameplayHUD"].waitForExistence(timeout: 5))
     XCTAssertTrue(app.staticTexts["healthValue"].exists)
     XCTAssertTrue(app.staticTexts["scoreValue"].exists)
+    XCTAssertEqual(app.staticTexts["healthValue"].label, "Health")
+    XCTAssertEqual(app.staticTexts["healthValue"].value as? String, "3")
+    XCTAssertEqual(app.staticTexts["scoreValue"].label, "Score")
+    XCTAssertEqual(app.buttons["pauseButton"].label, "Pause game")
+    XCTAssertGreaterThanOrEqual(app.buttons["pauseButton"].frame.width, 44)
+    XCTAssertGreaterThanOrEqual(app.buttons["pauseButton"].frame.height, 44)
     XCTAssertTrue(app.otherElements["movementJoystick"].exists)
     XCTAssertTrue(app.buttons["moveUpButton"].exists)
     XCTAssertTrue(app.buttons["grappleButton"].exists)
@@ -37,6 +43,30 @@ final class HookshotHeroUITests: XCTestCase {
     app.buttons["returnToMenuButton"].tap()
     XCTAssertTrue(app.buttons["playButton"].waitForExistence(timeout: 5))
   }
+  func testDisabledControlHintsLeaveAccessibleThumbControls() {
+    launch()
+    app.buttons["settingsButton"].tap()
+    app.switches["controlHintsToggle"].tap()
+    app.buttons["settingsDoneButton"].tap()
+    app.buttons["playButton"].tap()
+    XCTAssertTrue(app.buttons["grappleButton"].waitForExistence(timeout: 5))
+    XCTAssertFalse(app.staticTexts["moveControlHint"].exists)
+    XCTAssertFalse(app.staticTexts["grappleControlHint"].exists)
+    XCTAssertTrue(app.otherElements["movementJoystick"].isHittable)
+    XCTAssertEqual(app.buttons["grappleButton"].label, "Fire grapple")
+    XCTAssertTrue(app.buttons["grappleButton"].isHittable)
+  }
+
+  func testLoadingPresentationIsDetectableAndBlocksUnderlyingControls() {
+    launch("--preview-level-loading-overlay")
+    app.buttons["playButton"].tap()
+    let loading = app.staticTexts["levelLoadingOverlay"]
+    XCTAssertTrue(loading.waitForExistence(timeout: 5))
+    XCTAssertEqual(loading.label, "Entering Level 7")
+    XCTAssertFalse(app.buttons["grappleButton"].isHittable)
+    XCTAssertFalse(app.otherElements["movementJoystick"].isHittable)
+  }
+
   func testDesignSystemButtonsKeepNativeSemanticsAndMinimumTargets() {
     app.launchEnvironment["UIPreferredContentSizeCategoryName"] =
       "UICTContentSizeCategoryAccessibilityExtraExtraExtraLarge"
@@ -256,6 +286,13 @@ final class HookshotHeroUITests: XCTestCase {
     app.buttons["playButton"].tap()
     XCTAssertTrue(app.buttons["pauseButton"].waitForExistence(timeout: 5))
     XCTAssertTrue(app.buttons["pauseButton"].isHittable)
+    let window = app.windows.firstMatch.frame
+    for identifier in ["healthValue", "scoreValue", "levelTitle"] {
+      let stat = app.staticTexts[identifier]
+      XCTAssertTrue(stat.isHittable)
+      XCTAssertGreaterThanOrEqual(stat.frame.minX, window.minX)
+      XCTAssertLessThanOrEqual(stat.frame.maxX, window.maxX)
+    }
   }
   func testStandardPhoneControlDockIsSeparatedHittableAndSafe() {
     launch()
@@ -437,29 +474,30 @@ final class HookshotHeroUITests: XCTestCase {
     let joystick = app.otherElements["movementJoystick"]
     XCTAssertTrue(joystick.waitForExistence(timeout: 5))
     app.buttons["pauseButton"].tap()
-    XCTAssertFalse(joystick.isEnabled)
+    XCTAssertFalse(joystick.isHittable)
     app.buttons["overlayResumeButton"].tap()
     XCTAssertTrue(joystick.isEnabled)
 
     for _ in 0..<2 { app.buttons["moveRightButton"].tap() }
     for _ in 0..<5 { app.buttons["moveUpButton"].tap() }
     XCTAssertTrue(app.staticTexts["chestDialogue"].waitForExistence(timeout: 5))
-    XCTAssertFalse(joystick.isEnabled)
+    XCTAssertEqual(app.staticTexts["chestDialogue"].label, "Message")
+    XCTAssertFalse(app.staticTexts["Talking Chest"].exists)
+    XCTAssertFalse(joystick.isHittable)
   }
-  func testPausedDirectionControlsAreSemanticallyDisabledAndReenable() {
+  func testPauseBlocksUnderlyingControlsAndReenablesMovement() {
     launch()
     app.buttons["playButton"].tap()
     let coordinate = app.staticTexts["playerPosition"]
     XCTAssertTrue(coordinate.waitForExistence(timeout: 5))
+    let beforePause = position(coordinate)
     app.buttons["pauseButton"].tap()
-    for id in ["moveUpButton", "moveDownButton", "moveLeftButton", "moveRightButton"] {
-      XCTAssertTrue(app.buttons[id].exists)
-      XCTAssertFalse(app.buttons[id].isEnabled)
+    XCTAssertTrue(app.buttons["overlayResumeButton"].isHittable)
+    for id in ["moveUpButton", "moveDownButton", "moveLeftButton", "moveRightButton", "grappleButton"] {
+      XCTAssertFalse(app.buttons[id].isHittable)
     }
-    let paused = position(coordinate)
-    app.buttons["moveUpButton"].tap()
-    XCTAssertEqual(position(coordinate), paused)
     app.buttons["overlayResumeButton"].tap()
+    XCTAssertEqual(position(coordinate), beforePause)
     XCTAssertTrue(app.buttons["moveUpButton"].isEnabled)
     app.buttons["moveUpButton"].tap()
     XCTAssertTrue(waitForPosition(coordinate, [49, 27]))
@@ -473,9 +511,10 @@ final class HookshotHeroUITests: XCTestCase {
     for id in [
       "moveUpButton", "moveDownButton", "moveLeftButton", "moveRightButton", "grappleButton",
     ] {
-      XCTAssertTrue(app.buttons[id].exists)
-      XCTAssertFalse(app.buttons[id].isEnabled)
+      XCTAssertFalse(app.buttons[id].isHittable)
     }
+    XCTAssertEqual(app.staticTexts["chestDialogue"].label, "Message")
+    XCTAssertTrue(app.buttons["dialogueContinueButton"].isHittable)
     app.buttons["dialogueContinueButton"].tap()
     XCTAssertTrue(app.buttons["moveUpButton"].isEnabled)
     XCTAssertTrue(app.buttons["grappleButton"].isEnabled)
