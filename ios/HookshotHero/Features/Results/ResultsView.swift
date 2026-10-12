@@ -1,58 +1,95 @@
 import SwiftUI
 
 struct ResultsView: View {
-    let result: GameResult
-    let returnToMenu: () -> Void
-    var body: some View {
-        ZStack {
-            AppBackground()
-            VStack(spacing: 14) {
-                Text(result.outcome == .won ? "Victory" : "Game Over")
-                    .appTextStyle(.h1)
-                    .foregroundStyle(AppTheme.Colors.highlight)
-                    .accessibilityAddTraits(.isHeader)
-                    .accessibilityIdentifier("resultsTitle")
-                VStack(spacing: 8) {
-                    Text("Score: \(result.score)")
-                        .appTextStyle(.h2)
-                        .accessibilityLabel("Final score")
-                        .accessibilityValue("\(result.score)")
-                        .accessibilityIdentifier("resultsScore")
-                    Text(result.levelID.displayName)
-                        .appTextStyle(.h3)
-                        .accessibilityLabel(result.levelID.displayName)
-                        .accessibilityIdentifier("resultsLevel")
-                    Text("Time: \(result.elapsedTime.formatted(.number.precision(.fractionLength(1)))) seconds")
-                        .appTextStyle(.h3)
-                        .accessibilityIdentifier("resultsTime")
-                    Text(result.outcome == .won ? "Your run is complete." : "Try again and master the hookshot.")
-                        .appTextStyle(.paragraph)
-                        .foregroundStyle(AppTheme.Colors.text.opacity(0.7))
-                        .multilineTextAlignment(.center)
-                }
-                .frame(maxWidth: .infinity)
-                .padding(18)
-                .appSurface()
-                resultActionButton
-            }
-            .padding(24)
-        }
-        .navigationBarBackButtonHidden()
-        .appNavigationStyle()
-    }
+  let result: GameResult
+  let returnToMenu: () -> Void
+  @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+  private var won: Bool { result.outcome == .won }
+  private var elapsed: String {
+    result.elapsedTime.formatted(.number.precision(.fractionLength(1)))
+  }
 
-    @ViewBuilder
-    private var resultActionButton: some View {
-        if result.outcome == .won {
-            Button("Return to Menu", action: returnToMenu)
-                .buttonStyle(AppPrimaryButtonStyle())
-                .accessibilityLabel("Return to Main Menu")
-                .accessibilityIdentifier("resultsReturnToMenuButton")
-        } else {
-            Button("Return to Menu", action: returnToMenu)
-                .buttonStyle(AppHighlightButtonStyle())
-                .accessibilityLabel("Return to Main Menu")
-                .accessibilityIdentifier("resultsReturnToMenuButton")
+  var body: some View {
+    AppStateScreen {
+      AppCard(style: won ? .hero : .standard) {
+        VStack(spacing: AppTheme.Spacing.md) {
+          Label(won ? "Run complete" : "Run ended",
+                systemImage: won ? "flag.checkered" : "shield.lefthalf.filled")
+            .appTextStyle(.caption).fontWeight(.semibold)
+            .foregroundStyle(won ? AppTheme.Colors.highlight : AppTheme.Colors.textSecondary)
+            .accessibilityHidden(true)
+          Text(won ? "Victory" : "Game Over")
+            .appTextStyle(.heroTitle)
+            .foregroundStyle(won ? AppTheme.Colors.accent : AppTheme.Colors.text)
+            .accessibilityAddTraits(.isHeader)
+            .accessibilityIdentifier("resultsTitle")
+          Text(result.levelID.displayName).appTextStyle(.h3)
+            .foregroundStyle(AppTheme.Colors.textSecondary)
+            .accessibilityLabel(result.levelID.displayName)
+            .accessibilityIdentifier("resultsLevel")
         }
+        .multilineTextAlignment(.center)
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, AppTheme.Spacing.md)
+      }
+      if dynamicTypeSize.isAccessibilitySize {
+        VStack(spacing: AppTheme.Spacing.md) { stats }
+      } else {
+        ViewThatFits(in: .horizontal) {
+          HStack(alignment: .top, spacing: AppTheme.Spacing.md) { stats }
+          VStack(spacing: AppTheme.Spacing.md) { stats }
+        }
+      }
+      Text(won ? "Your run is complete." : "Try again and master the hookshot.")
+        .appTextStyle(.paragraph).foregroundStyle(AppTheme.Colors.textSecondary)
+        .multilineTextAlignment(.center)
+      if won {
+        menuButton.buttonStyle(AppPrimaryButtonStyle())
+      } else {
+        menuButton.buttonStyle(AppSecondaryButtonStyle())
+      }
     }
+  }
+
+  @ViewBuilder private var stats: some View {
+    ResultStat(title: "SCORE", value: result.score.formatted(), unit: nil,
+               accessibilityLabel: "Final score", accessibilityValue: String(result.score),
+               identifier: "resultsScore")
+    ResultStat(title: "TIME", value: elapsed, unit: "seconds",
+               accessibilityLabel: "Elapsed time", accessibilityValue: "\(elapsed) seconds",
+               identifier: "resultsTime")
+  }
+
+  private var menuButton: some View {
+    Button("Return to Menu", action: returnToMenu)
+      .accessibilityLabel("Return to Main Menu")
+      .accessibilityIdentifier("resultsReturnToMenuButton")
+  }
+}
+
+private struct ResultStat: View {
+  let title: String
+  let value: String
+  let unit: String?
+  let accessibilityLabel: String
+  let accessibilityValue: String
+  let identifier: String
+
+  var body: some View {
+    AppCard {
+      VStack(alignment: .leading, spacing: AppTheme.Spacing.sm) {
+        Text(title).appTextStyle(.caption).fontWeight(.semibold)
+          .foregroundStyle(AppTheme.Colors.textSecondary).accessibilityHidden(true)
+        Text(value).appTextStyle(.h1).monospacedDigit()
+          .fixedSize(horizontal: false, vertical: true)
+          .accessibilityLabel(accessibilityLabel).accessibilityValue(accessibilityValue)
+          .accessibilityIdentifier(identifier)
+        if let unit {
+          Text(unit).appTextStyle(.caption).foregroundStyle(AppTheme.Colors.textMuted)
+            .accessibilityHidden(true)
+        }
+      }
+      .frame(maxWidth: .infinity, alignment: .leading)
+    }
+  }
 }

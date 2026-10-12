@@ -257,6 +257,54 @@ final class HookshotHeroUITests: XCTestCase {
     XCTAssertTrue(waitForPosition(coordinate, [53, 29]))
     XCTAssertFalse(app.staticTexts["Unable to Load Level"].exists)
   }
+  func testLoadingFailureRetryPreservesRequestAndReturnWorks() throws {
+    #if DEBUG
+    launch("--preview-loading-failure")
+    XCTAssertTrue(app.staticTexts["Unable to Load Level"].waitForExistence(timeout: 5))
+    let requested = app.staticTexts.matching(NSPredicate(format: "label CONTAINS %@", "ui-test-unsupported-level")).firstMatch
+    XCTAssertTrue(requested.exists)
+    XCTAssertEqual(app.staticTexts["loadingFailureDiagnosticCode"].label, "Diagnostic code: unsupported-level")
+    tapScrollable(app.buttons["retryLevelButton"])
+    XCTAssertTrue(app.staticTexts["Unable to Load Level"].waitForExistence(timeout: 5))
+    XCTAssertTrue(requested.exists)
+    XCTAssertFalse(app.otherElements["gameplayHUD"].exists)
+    tapScrollable(app.buttons["loadingFailureMenuButton"])
+    XCTAssertTrue(app.buttons["playButton"].waitForExistence(timeout: 5))
+    XCTAssertFalse(app.staticTexts["loadingFailureDiagnosticCode"].exists)
+    #else
+    throw XCTSkip("The loading failure fixture is DEBUG-only; inspect diagnostic absence in Release manually.")
+    #endif
+  }
+
+  func testUnavailableSessionReturnsWithoutStartingAnotherLevel() throws {
+    #if DEBUG
+    launch("--preview-session-unavailable")
+    XCTAssertTrue(app.staticTexts["Session unavailable"].waitForExistence(timeout: 5))
+    XCTAssertFalse(app.otherElements["gameplayHUD"].exists)
+    tapScrollable(app.buttons["sessionUnavailableMenuButton"])
+    XCTAssertTrue(app.buttons["playButton"].waitForExistence(timeout: 5))
+    XCTAssertFalse(app.otherElements["gameplayHUD"].exists)
+    #else
+    throw XCTSkip("The session-unavailable fixture is DEBUG-only.")
+    #endif
+  }
+
+  func testAccessibleVictoryKeepsStatsAndReturnReachable() {
+    app.launchEnvironment["UIPreferredContentSizeCategoryName"] =
+      "UICTContentSizeCategoryAccessibilityExtraExtraExtraLarge"
+    app.launchEnvironment["HOOKSHOT_START_LEVEL"] = "hero-welcome"
+    launch("--force-game-outcome=win")
+    app.buttons["playButton"].tap()
+    XCTAssertTrue(app.staticTexts["resultsTitle"].waitForExistence(timeout: 5))
+    XCTAssertEqual(app.staticTexts["resultsLevel"].label, "Hero's Welcome")
+    scrollTo(app.staticTexts["resultsScore"])
+    XCTAssertTrue(app.staticTexts["resultsScore"].isHittable)
+    scrollTo(app.staticTexts["resultsTime"])
+    XCTAssertTrue(app.staticTexts["resultsTime"].isHittable)
+    tapScrollable(app.buttons["resultsReturnToMenuButton"])
+    XCTAssertTrue(app.buttons["playButton"].waitForExistence(timeout: 5))
+  }
+
   func testForcedWinAndResultsReturn() {
     assertForcedResult("--force-game-outcome=win", title: "Victory")
   }
@@ -645,9 +693,12 @@ final class HookshotHeroUITests: XCTestCase {
     XCTAssertTrue(app.staticTexts["resultsTitle"].waitForExistence(timeout: 5))
     XCTAssertEqual(app.staticTexts["resultsTitle"].label, title)
     XCTAssertEqual(app.staticTexts["resultsScore"].label, "Final score")
+    XCTAssertNotNil(Int(app.staticTexts["resultsScore"].value as? String ?? ""))
+    XCTAssertEqual(app.staticTexts["resultsTime"].label, "Elapsed time")
+    XCTAssertTrue((app.staticTexts["resultsTime"].value as? String ?? "").hasSuffix(" seconds"))
     XCTAssertEqual(app.buttons["resultsReturnToMenuButton"].label, "Return to Main Menu")
     XCTAssertTrue(app.buttons["resultsReturnToMenuButton"].isHittable)
-    app.buttons["resultsReturnToMenuButton"].tap()
+    tapScrollable(app.buttons["resultsReturnToMenuButton"])
     XCTAssertTrue(app.buttons["playButton"].waitForExistence(timeout: 5))
   }
   private func assertResultLevels(

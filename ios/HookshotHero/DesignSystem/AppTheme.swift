@@ -1,5 +1,24 @@
 import SwiftUI
 
+/// Balanced conclusion/recovery states; long content scrolls instead of clipping.
+struct AppStateScreen<Content: View>: View {
+  @ViewBuilder let content: () -> Content
+
+  var body: some View {
+    GeometryReader { geometry in
+      ScrollView {
+        VStack(spacing: AppTheme.Spacing.lg) { content() }
+          .frame(maxWidth: 480)
+          .padding(AppTheme.Spacing.lg)
+          .frame(maxWidth: .infinity, minHeight: geometry.size.height)
+      }
+    }
+    .appScreenBackground()
+    .navigationBarBackButtonHidden()
+    .appNavigationStyle()
+  }
+}
+
 /// Shared scrollable structure for settings, guidance and legal information.
 struct AppSecondaryScreen<Content: View>: View {
   let title: String

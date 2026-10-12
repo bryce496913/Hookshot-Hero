@@ -2,6 +2,7 @@ import SwiftUI
 
 struct RootView: View {
     @Environment(\.accessibilityReduceMotion) private var systemReduceMotion
+    @State private var initializedStateFixture = false
     @ObservedObject var router: AppRouter
     @ObservedObject var settingsStore: SettingsStore
 
@@ -25,14 +26,7 @@ struct RootView: View {
                             controlLayout: settingsStore.settings.controlLayout,
                             returnToMenu: router.returnToMenu)
                     } else {
-                        ContentUnavailableView {
-                            Label("Session unavailable", systemImage: "exclamationmark.triangle")
-                                .appTextStyle(.h1)
-                        } description: {
-                            Text("Return to the main menu and start a new run.").appTextStyle(.paragraph)
-                        }
-                        .appScreenBackground()
-                        .appNavigationStyle()
+                        SessionUnavailableView(returnToMenu: router.returnToMenu)
                     }
                 case .settings:
                     SettingsView(store: settingsStore, dismiss: router.dismiss)
@@ -49,7 +43,22 @@ struct RootView: View {
         .foregroundStyle(AppTheme.Colors.text)
         .preferredColorScheme(.dark)
         .environment(\.appReducedMotion, settingsStore.settings.reducedMotion)
+        .onAppear(perform: initializeStateFixture)
     }
+    private func initializeStateFixture() {
+        #if DEBUG
+        let arguments = ProcessInfo.processInfo.arguments
+        guard !initializedStateFixture, arguments.contains("--ui-testing") else { return }
+        initializedStateFixture = true
+        if arguments.contains("--preview-loading-failure") {
+            // Exercise the real unsupported request/retry path; never substitute another level.
+            router.startGame(levelID: LevelID(rawValue: "ui-test-unsupported-level"))
+        } else if arguments.contains("--preview-session-unavailable") {
+            router.path = [.gameplay]
+        }
+        #endif
+    }
+
 }
 
 struct GameLoadingFailureView: View {
@@ -58,44 +67,52 @@ struct GameLoadingFailureView: View {
     let returnToMenu: () -> Void
 
     var body: some View {
-        ZStack {
-            AppBackground()
-            VStack(spacing: 14) {
-                Image(systemName: "exclamationmark.triangle")
-                    .font(.system(size: 34, weight: .bold, design: .rounded))
-                    .foregroundStyle(AppTheme.Colors.highlight)
-                    .accessibilityHidden(true)
-                Text(failure.title)
-                    .appTextStyle(.h1)
-                    .multilineTextAlignment(.center)
-                    .accessibilityAddTraits(.isHeader)
-                Text(failure.message)
-                    .appTextStyle(.paragraph)
-                    .multilineTextAlignment(.center)
-                Text(failure.recoverySuggestion)
-                    .appTextStyle(.paragraph)
-                    .foregroundStyle(AppTheme.Colors.text.opacity(0.7))
-                    .multilineTextAlignment(.center)
-                #if DEBUG
-                Text("Diagnostic code: \(failure.diagnosticCode)")
-                    .appTextStyle(.paragraph)
-                    .foregroundStyle(AppTheme.Colors.text.opacity(0.6))
-                    .multilineTextAlignment(.center)
-                    .accessibilityIdentifier("loadingFailureDiagnosticCode")
-                #endif
-                Button("Retry", action: retry)
-                    .buttonStyle(AppPrimaryButtonStyle())
-                    .accessibilityIdentifier("retryLevelButton")
-                Button("Return to Menu", action: returnToMenu)
-                    .buttonStyle(AppSecondaryButtonStyle())
-                    .overlay(RoundedRectangle(cornerRadius: 14, style: .continuous).stroke(AppTheme.Colors.highlight, lineWidth: 1))
-                    .accessibilityIdentifier("loadingFailureMenuButton")
+        AppStateScreen {
+            AppCard(style: .elevated) {
+                VStack(spacing: AppTheme.Spacing.md) {
+                    Image(systemName: "exclamationmark.triangle")
+                        .appTextStyle(.heroTitle).foregroundStyle(AppTheme.Colors.accent)
+                        .accessibilityHidden(true)
+                    Text(failure.title).appTextStyle(.h1).accessibilityAddTraits(.isHeader)
+                    Text(failure.message).appTextStyle(.paragraph)
+                    Text(failure.recoverySuggestion).appTextStyle(.paragraph)
+                        .foregroundStyle(AppTheme.Colors.textSecondary)
+                    #if DEBUG
+                    Text("Diagnostic code: \(failure.diagnosticCode)")
+                        .appTextStyle(.caption).foregroundStyle(AppTheme.Colors.textMuted)
+                        .accessibilityIdentifier("loadingFailureDiagnosticCode")
+                    #endif
+                }
+                .multilineTextAlignment(.center)
+                .frame(maxWidth: .infinity)
             }
-            .padding(20)
-            .appSurface()
-            .padding(24)
+            Button("Retry", action: retry).buttonStyle(AppPrimaryButtonStyle())
+                .accessibilityIdentifier("retryLevelButton")
+            Button("Return to Menu", action: returnToMenu).buttonStyle(AppSecondaryButtonStyle())
+                .accessibilityIdentifier("loadingFailureMenuButton")
         }
-        .navigationBarBackButtonHidden()
-        .appNavigationStyle()
+    }
+}
+
+struct SessionUnavailableView: View {
+    let returnToMenu: () -> Void
+
+    var body: some View {
+        AppStateScreen {
+            AppCard(style: .elevated) {
+                VStack(spacing: AppTheme.Spacing.md) {
+                    Image(systemName: "scope").appTextStyle(.heroTitle)
+                        .foregroundStyle(AppTheme.Colors.accent).accessibilityHidden(true)
+                    Text("Session unavailable").appTextStyle(.h1).accessibilityAddTraits(.isHeader)
+                    Text("Return to the main menu and start a new run.")
+                        .appTextStyle(.paragraph).foregroundStyle(AppTheme.Colors.textSecondary)
+                }
+                .multilineTextAlignment(.center)
+                .frame(maxWidth: .infinity)
+            }
+            Button("Return to Menu", action: returnToMenu).buttonStyle(AppPrimaryButtonStyle())
+                .accessibilityIdentifier("sessionUnavailableMenuButton")
+        }
+        .accessibilityIdentifier("sessionUnavailableScreen")
     }
 }
