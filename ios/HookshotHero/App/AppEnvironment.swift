@@ -30,10 +30,18 @@ struct AppEnvironment {
         let outcome: GameOutcome? =
           arguments.contains("--force-game-outcome=win")
           ? .won : (arguments.contains("--force-game-outcome=loss") ? .lost : nil)
+        let progressionRepository = ProgressionRepository(
+          fileURL: root.appending(path: "progression.json"))
+        if arguments.contains("--unlock-level-select") {
+          // Seed the real persisted milestone, never bypass the production menu gate.
+          let progression = ProgressionStore(repository: progressionRepository)
+          progression.record(result: GameResult(
+            sessionID: UUID(), levelID: .levelTen, missionID: nil,
+            score: 0, elapsedTime: 0, outcome: .won))
+        }
         return AppEnvironment(
           settingsRepository: UserDefaultsSettingsRepository(defaults: defaults),
-          progressionRepository: ProgressionRepository(
-            fileURL: root.appending(path: "progression.json")),
+          progressionRepository: progressionRepository,
           forcedOutcome: outcome,
           levelSeed: ProcessInfo.processInfo.environment["HOOKSHOT_LEVEL_SEED"].flatMap(
             UInt64.init),

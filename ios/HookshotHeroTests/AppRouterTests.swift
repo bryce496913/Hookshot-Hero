@@ -1,3 +1,4 @@
+import Combine
 import XCTest
 
 @testable import HookshotHero
@@ -30,6 +31,72 @@ import XCTest
       try FileManager.default.removeItem(at: directory)
     }
   }
+  func testFreshProgressionAndFirstNineCompletionsKeepLevelSelectLocked() {
+    XCTAssertEqual(progression.progression, .defaults)
+    XCTAssertFalse(router.isLevelSelectUnlocked)
+    for level in LevelSelectView.levels.prefix(9) {
+      progression.record(result: unlockResult(level: level.levelID))
+      XCTAssertFalse(router.isLevelSelectUnlocked)
+    }
+    XCTAssertEqual(progression.progression.completedLevelIDs.count, 9)
+  }
+
+  func testOnlySuccessfulLevelTenCompletionUnlocksWithoutEndingCompletions() {
+    progression.record(result: unlockResult(level: .levelTen, outcome: .lost))
+    XCTAssertFalse(router.isLevelSelectUnlocked)
+    progression.record(result: unlockResult(level: .levelTen))
+    XCTAssertTrue(router.isLevelSelectUnlocked)
+    XCTAssertEqual(progression.progression.completedLevelIDs, [.levelTen])
+    progression.record(result: unlockResult(level: .levelOne, outcome: .lost))
+    XCTAssertTrue(router.isLevelSelectUnlocked)
+  }
+
+  func testEndingCompletionsAloneDoNotUnlockLevelSelect() {
+    for level in [LevelID.countryRoad, .heroWelcome] {
+      progression.record(result: unlockResult(level: level))
+      XCTAssertFalse(router.isLevelSelectUnlocked)
+    }
+  }
+
+  func testExistingSaveWithLevelTenUnlocksOnLaunchWithoutMigration() throws {
+    let repository = ProgressionRepository(fileURL: directory.appending(path: "existing.json"))
+    var existing = Progression.defaults
+    existing.highScore = 120
+    existing.completedLevelIDs = [.levelTen]
+    try repository.save(existing)
+    let store = ProgressionStore(repository: repository)
+    let loadedRouter = AppRouter(progressionStore: store)
+    XCTAssertEqual(store.loadResult, .loaded(existing))
+    XCTAssertEqual(store.progression, existing)
+    XCTAssertTrue(loadedRouter.isLevelSelectUnlocked)
+  }
+
+  func testLevelSelectUnlockSurvivesSaveReload() {
+    progression.record(result: unlockResult(level: .levelTen))
+    XCTAssertFalse(progression.hasUnsavedChanges)
+    let repository = ProgressionRepository(fileURL: directory.appending(path: "save.json"))
+    XCTAssertEqual(repository.load(), .loaded(progression.progression))
+    let reloaded = ProgressionStore(repository: repository)
+    XCTAssertTrue(AppRouter(progressionStore: reloaded).isLevelSelectUnlocked)
+    XCTAssertEqual(reloaded.progression.completedLevelIDs, [.levelTen])
+  }
+
+  func testNestedProgressionChangeNotifiesMenuWithoutNavigationMutation() {
+    let path = router.path
+    var notifications = 0
+    let observation = router.objectWillChange.sink { notifications += 1 }
+    defer { observation.cancel() }
+    progression.record(result: unlockResult(level: .levelTen))
+    XCTAssertGreaterThan(notifications, 0)
+    XCTAssertEqual(router.path, path)
+    XCTAssertTrue(router.isLevelSelectUnlocked)
+  }
+
+  private func unlockResult(level: LevelID, outcome: GameOutcome = .won) -> GameResult {
+    GameResult(sessionID: UUID(), levelID: level, missionID: nil,
+               score: 0, elapsedTime: 1, outcome: outcome)
+  }
+
   func testStartingSecondGameDisposesFirstAndUsesLatestConfiguration() {
     router.startNewGame(configuration: .init(reducedMotion: false, controlHintsEnabled: true))
     let first = router.activeSession!

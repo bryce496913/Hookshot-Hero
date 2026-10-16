@@ -18,6 +18,34 @@ final class HookshotHeroUITests: XCTestCase {
     if let extra { app.launchArguments.append(extra) }
     app.launch()
   }
+  func testFreshMenuHidesLevelSelectAndKeepsNormalActions() {
+    launch()
+    XCTAssertTrue(app.staticTexts["Hookshot Hero"].waitForExistence(timeout: 5))
+    XCTAssertFalse(app.buttons["levelSelectButton"].exists)
+    for identifier in ["playButton", "settingsButton", "helpButton"] {
+      XCTAssertTrue(app.buttons[identifier].exists)
+      XCTAssertTrue(app.buttons[identifier].isHittable)
+    }
+  }
+
+  func testUnlockedMenuShowsLevelSelectAndPersistsAcrossRelaunchWithoutReseeding() {
+    launch("--unlock-level-select")
+    XCTAssertTrue(app.buttons["levelSelectButton"].waitForExistence(timeout: 5))
+    for identifier in ["playButton", "settingsButton", "helpButton"] {
+      XCTAssertTrue(app.buttons[identifier].exists)
+    }
+    app.buttons["levelSelectButton"].tap()
+    for number in 1...12 {
+      scrollTo(app.buttons["level\(number)Button"])
+      XCTAssertTrue(app.buttons["level\(number)Button"].exists)
+    }
+    app.navigationBars.buttons.firstMatch.tap()
+    app.terminate()
+    app.launchArguments.removeAll { $0 == "--reset-persistent-state" || $0 == "--unlock-level-select" }
+    app.launch()
+    XCTAssertTrue(app.buttons["levelSelectButton"].waitForExistence(timeout: 5))
+  }
+
   func testLaunchPlayPauseResumeAndReturnAccessibility() {
     launch()
     XCTAssertTrue(app.staticTexts["Hookshot Hero"].waitForExistence(timeout: 5))
@@ -190,6 +218,7 @@ final class HookshotHeroUITests: XCTestCase {
     XCTAssertEqual(grapple.label, "Fire grapple")
   }
   func testLevelSelectIsReachableAndStartsLevelFive() {
+    app.launchArguments.append("--unlock-level-select")
     launch()
     let levelSelect = app.buttons["levelSelectButton"]
     XCTAssertTrue(levelSelect.waitForExistence(timeout: 5))
@@ -202,6 +231,7 @@ final class HookshotHeroUITests: XCTestCase {
     XCTAssertEqual(position(coordinate), levelFiveLeftStart)
   }
   func testLevelSelectStartsLevelSixWithControls() {
+    app.launchArguments.append("--unlock-level-select")
     launch()
     app.buttons["levelSelectButton"].tap()
     tapLevelCard("level6Button")
@@ -230,6 +260,7 @@ final class HookshotHeroUITests: XCTestCase {
       expectedMovedPosition: [53, 30])
   }
   func testLevelSelectStartsLevelSevenAndMovesOneCell() {
+    app.launchArguments.append("--unlock-level-select")
     launch()
     app.buttons["levelSelectButton"].tap()
     tapLevelCard("level7Button")
@@ -245,6 +276,7 @@ final class HookshotHeroUITests: XCTestCase {
     XCTAssertFalse(app.staticTexts["Unable to Load Level"].exists)
   }
   func testLevelSelectStartsLevelEightAtSafeBottomEntry() {
+    app.launchArguments.append("--unlock-level-select")
     launch()
     app.buttons["levelSelectButton"].tap()
     tapLevelCard("level8Button")
@@ -647,6 +679,7 @@ final class HookshotHeroUITests: XCTestCase {
   }
 
   func testLevelSelectEndingCardsAndNativeBackNavigation() {
+    app.launchArguments.append("--unlock-level-select")
     launch()
     app.buttons["levelSelectButton"].tap()
     let scroll = app.scrollViews.firstMatch
