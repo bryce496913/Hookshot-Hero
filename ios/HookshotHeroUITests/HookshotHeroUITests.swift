@@ -333,6 +333,9 @@ final class HookshotHeroUITests: XCTestCase {
     XCTAssertTrue(app.staticTexts["resultsScore"].isHittable)
     scrollTo(app.staticTexts["resultsTime"])
     XCTAssertTrue(app.staticTexts["resultsTime"].isHittable)
+    XCTAssertFalse(app.staticTexts["seconds"].exists)
+    XCTAssertLessThanOrEqual(app.staticTexts["resultsTime"].frame.height,
+                            app.staticTexts["resultsScore"].frame.height + 1)
     tapScrollable(app.buttons["resultsReturnToMenuButton"])
     XCTAssertTrue(app.buttons["playButton"].waitForExistence(timeout: 5))
   }
@@ -728,7 +731,14 @@ final class HookshotHeroUITests: XCTestCase {
     XCTAssertEqual(app.staticTexts["resultsScore"].label, "Final score")
     XCTAssertNotNil(Int(app.staticTexts["resultsScore"].value as? String ?? ""))
     XCTAssertEqual(app.staticTexts["resultsTime"].label, "Elapsed time")
-    XCTAssertTrue((app.staticTexts["resultsTime"].value as? String ?? "").hasSuffix(" seconds"))
+    let time = app.staticTexts["resultsTime"]
+    let spoken = time.value as? String ?? ""
+    XCTAssertNotNil(spoken.range(of: #"^([0-9]+ minutes?( [0-9]+ seconds?)?|[0-9]+ seconds?)$"#,
+                                options: .regularExpression))
+    XCTAssertFalse(spoken.contains(":"), "VoiceOver should receive words rather than the visual clock")
+    XCTAssertFalse(app.staticTexts["seconds"].exists, "No separate visual unit line")
+    XCTAssertLessThanOrEqual(time.frame.height, app.staticTexts["resultsScore"].frame.height + 1,
+                            "The timer must fit in the same single-line height as the score")
     XCTAssertEqual(app.buttons["resultsReturnToMenuButton"].label, "Return to Main Menu")
     XCTAssertTrue(app.buttons["resultsReturnToMenuButton"].isHittable)
     tapScrollable(app.buttons["resultsReturnToMenuButton"])
