@@ -31,6 +31,10 @@ struct AppGameLoadingLogger: GameLoadingLogging {
   @Published var path: [AppRoute] = []
   @Published private(set) var activeSession: GameSession?
   private let progressionStore: ProgressionStore
+  private var progressionObservation: AnyCancellable?
+  var isLevelSelectUnlocked: Bool {
+    progressionStore.progression.completedLevelIDs.contains(.levelTen)
+  }
   private var sessionObservation: AnyCancellable?
   private var completedSessionIDs: Set<UUID> = []
   private let forcedOutcome: GameOutcome?
@@ -54,6 +58,10 @@ struct AppGameLoadingLogger: GameLoadingLogging {
     self.levelSeed = levelSeed
     self.startConfiguration = startConfiguration
     self.logger = logger
+    // Forward nested progression changes even when the navigation path stays unchanged.
+    progressionObservation = progressionStore.$progression.dropFirst().sink { [weak self] _ in
+      self?.objectWillChange.send()
+    }
   }
   func startNewGame(
     configuration: GameConfiguration = .init(reducedMotion: false, controlHintsEnabled: true)

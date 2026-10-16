@@ -9,6 +9,7 @@ struct RootView: View {
     var body: some View {
         NavigationStack(path: $router.path) {
             MainMenuView(
+                isLevelSelectUnlocked: router.isLevelSelectUnlocked,
                 play: { router.startNewGame(configuration: settingsStore.configuration(systemReduceMotion: systemReduceMotion)) },
                 playLevel: { levelID in
                     router.setGameConfiguration(settingsStore.configuration(systemReduceMotion: systemReduceMotion))

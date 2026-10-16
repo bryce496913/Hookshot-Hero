@@ -1,6 +1,7 @@
 import SwiftUI
 
 struct MainMenuView: View {
+  let isLevelSelectUnlocked: Bool
   let play: () -> Void
   let playLevel: (LevelID) -> Void
   let settings: () -> Void
@@ -28,13 +29,15 @@ struct MainMenuView: View {
             Button(action: play) { Label("Play", systemImage: "play.fill") }
               .buttonStyle(AppPrimaryButtonStyle())
               .accessibilityIdentifier("playButton")
-            NavigationLink {
-              LevelSelectView(playLevel: playLevel)
-            } label: {
-              Label("Level Select", systemImage: "square.grid.2x2")
+            if isLevelSelectUnlocked {
+              NavigationLink {
+                LevelSelectView(playLevel: playLevel)
+              } label: {
+                Label("Level Select", systemImage: "square.grid.2x2")
+              }
+              .buttonStyle(AppSecondaryButtonStyle())
+              .accessibilityIdentifier("levelSelectButton")
             }
-            .buttonStyle(AppSecondaryButtonStyle())
-            .accessibilityIdentifier("levelSelectButton")
           }
           if dynamicTypeSize.isAccessibilitySize {
             VStack(spacing: AppTheme.Spacing.sm) { utilities }

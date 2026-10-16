@@ -9,6 +9,34 @@ import XCTest
     reducedMotion: false, controlHintsEnabled: true)
   private let seed: UInt64 = 496_913
 
+  func testLevelTenForwardTransitionPersistsUnlockBeforeReturningToMenu() async throws {
+    let directory = FileManager.default.temporaryDirectory.appending(path: UUID().uuidString)
+    defer { try? FileManager.default.removeItem(at: directory) }
+    let repository = ProgressionRepository(fileURL: directory.appending(path: "save.json"))
+    let progression = ProgressionStore(repository: repository)
+    let router = AppRouter(progressionStore: progression, levelSeed: seed)
+    router.startGame(levelID: .levelTen)
+    let session = try XCTUnwrap(router.activeSession)
+    let source = try XCTUnwrap(session.simulation as? LevelTenSimulation)
+    XCTAssertFalse(router.isLevelSelectUnlocked)
+    source.defeatBossForTesting()
+    XCTAssertFalse(router.isLevelSelectUnlocked, "Boss defeat alone is not level completion")
+    XCTAssertTrue(session.continueDialogue(), "Dismiss the existing forward-route guidance")
+    source.player.position = .init(row: 27, column: 27)
+    session.advance(by: 0.01)
+    XCTAssertEqual(session.pendingTransitionRequest?.reason, .completedForward)
+    await waitUntil { session.runtimeGeneration == 1 }
+    XCTAssertEqual(session.levelID, .countryRoad)
+    XCTAssertTrue(router.isLevelSelectUnlocked)
+    XCTAssertEqual(progression.progression.completedLevelIDs, [.levelTen])
+    XCTAssertEqual(repository.load(), .loaded(progression.progression))
+    router.returnToMenu()
+    XCTAssertTrue(router.path.isEmpty)
+    XCTAssertTrue(router.isLevelSelectUnlocked)
+    let reloaded = ProgressionStore(repository: repository)
+    XCTAssertTrue(AppRouter(progressionStore: reloaded).isLevelSelectUnlocked)
+  }
+
   func testLevelFourRightDoorLoadsLevelFiveThroughRouterAndWaitsForSceneAttachment() async throws {
     try await assertLevelFourTransition(
       exit: .init(row: 29, column: 57), destination: .levelFive, entry: .left,
