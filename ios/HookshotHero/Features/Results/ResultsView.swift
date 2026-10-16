@@ -6,7 +6,7 @@ struct ResultsView: View {
   @Environment(\.dynamicTypeSize) private var dynamicTypeSize
   private var won: Bool { result.outcome == .won }
   private var elapsed: String {
-    result.elapsedTime.formatted(.number.precision(.fractionLength(1)))
+    GameDurationFormatter.displayString(for: result.elapsedTime)
   }
 
   var body: some View {
@@ -52,12 +52,13 @@ struct ResultsView: View {
   }
 
   @ViewBuilder private var stats: some View {
-    ResultStat(title: "SCORE", value: result.score.formatted(), unit: nil,
+    ResultStat(title: "SCORE", value: result.score.formatted(),
                accessibilityLabel: "Final score", accessibilityValue: String(result.score),
                identifier: "resultsScore")
-    ResultStat(title: "TIME", value: elapsed, unit: "seconds",
-               accessibilityLabel: "Elapsed time", accessibilityValue: "\(elapsed) seconds",
-               identifier: "resultsTime")
+    ResultStat(title: "TIME", value: elapsed,
+               accessibilityLabel: "Elapsed time",
+               accessibilityValue: GameDurationFormatter.spokenString(for: result.elapsedTime),
+               identifier: "resultsTime", keepsValueOnOneLine: true)
   }
 
   private var menuButton: some View {
@@ -70,10 +71,10 @@ struct ResultsView: View {
 private struct ResultStat: View {
   let title: String
   let value: String
-  let unit: String?
   let accessibilityLabel: String
   let accessibilityValue: String
   let identifier: String
+  var keepsValueOnOneLine = false
 
   var body: some View {
     AppCard {
@@ -81,13 +82,11 @@ private struct ResultStat: View {
         Text(title).appTextStyle(.caption).fontWeight(.semibold)
           .foregroundStyle(AppTheme.Colors.textSecondary).accessibilityHidden(true)
         Text(value).appTextStyle(.h1).monospacedDigit()
+          .lineLimit(keepsValueOnOneLine ? 1 : nil)
+          .minimumScaleFactor(keepsValueOnOneLine ? 0.5 : 1)
           .fixedSize(horizontal: false, vertical: true)
           .accessibilityLabel(accessibilityLabel).accessibilityValue(accessibilityValue)
           .accessibilityIdentifier(identifier)
-        if let unit {
-          Text(unit).appTextStyle(.caption).foregroundStyle(AppTheme.Colors.textMuted)
-            .accessibilityHidden(true)
-        }
       }
       .frame(maxWidth: .infinity, alignment: .leading)
     }
