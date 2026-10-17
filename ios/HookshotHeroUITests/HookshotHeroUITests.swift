@@ -22,7 +22,7 @@ final class HookshotHeroUITests: XCTestCase {
     launch()
     XCTAssertTrue(app.staticTexts["Hookshot Hero"].waitForExistence(timeout: 5))
     XCTAssertFalse(app.buttons["levelSelectButton"].exists)
-    for identifier in ["playButton", "settingsButton", "helpButton"] {
+    for identifier in ["playButton", "highScoresButton", "settingsButton", "helpButton"] {
       XCTAssertTrue(app.buttons[identifier].exists)
       XCTAssertTrue(app.buttons[identifier].isHittable)
     }
@@ -31,10 +31,10 @@ final class HookshotHeroUITests: XCTestCase {
   func testUnlockedMenuShowsLevelSelectAndPersistsAcrossRelaunchWithoutReseeding() {
     launch("--unlock-level-select")
     XCTAssertTrue(app.buttons["levelSelectButton"].waitForExistence(timeout: 5))
-    for identifier in ["playButton", "settingsButton", "helpButton"] {
+    for identifier in ["playButton", "highScoresButton", "settingsButton", "helpButton"] {
       XCTAssertTrue(app.buttons[identifier].exists)
     }
-    app.buttons["levelSelectButton"].tap()
+    tapScrollable(app.buttons["levelSelectButton"])
     for number in 1...12 {
       scrollTo(app.buttons["level\(number)Button"])
       XCTAssertTrue(app.buttons["level\(number)Button"].exists)
@@ -44,6 +44,68 @@ final class HookshotHeroUITests: XCTestCase {
     app.launchArguments.removeAll { $0 == "--reset-persistent-state" || $0 == "--unlock-level-select" }
     app.launch()
     XCTAssertTrue(app.buttons["levelSelectButton"].waitForExistence(timeout: 5))
+  }
+
+  func testHighScoresOpensEmptyBoardBeforeLevelSelectUnlock() {
+    launch()
+    XCTAssertFalse(app.buttons["levelSelectButton"].exists)
+    tapScrollable(app.buttons["highScoresButton"])
+    XCTAssertTrue(app.descendants(matching: .any)["highScoresScreen"].waitForExistence(timeout: 5))
+    XCTAssertTrue(app.staticTexts["No completed runs yet."].exists)
+    XCTAssertTrue(app.staticTexts["Finish the campaign from Play to set your first high score."].exists)
+    XCTAssertFalse(app.otherElements["highScoreRow1"].exists)
+    app.navigationBars.buttons.firstMatch.tap()
+    XCTAssertFalse(app.buttons["levelSelectButton"].exists)
+    XCTAssertTrue(app.buttons["playButton"].exists)
+  }
+
+  func testHighScoresOneEntryShowsDistinctScoresAndPersistsWithoutReseeding() {
+    launch("--high-scores-fixture=one")
+    tapScrollable(app.buttons["highScoresButton"])
+    let row = app.descendants(matching: .any)["highScoreRow1"]
+    XCTAssertTrue(row.waitForExistence(timeout: 5))
+    XCTAssertEqual(row.label, "Rank 1. Final score 1300. Game score 100. Time bonus 1200. Time 20 minutes.")
+    XCTAssertFalse(app.descendants(matching: .any)["highScoreRow2"].exists)
+    app.terminate()
+    app.launchArguments.removeAll { $0 == "--reset-persistent-state" || $0 == "--high-scores-fixture=one" }
+    app.launch()
+    XCTAssertFalse(app.buttons["levelSelectButton"].exists)
+    tapScrollable(app.buttons["highScoresButton"])
+    XCTAssertTrue(row.waitForExistence(timeout: 5))
+    XCTAssertEqual(row.label, "Rank 1. Final score 1300. Game score 100. Time bonus 1200. Time 20 minutes.")
+  }
+
+  func testHighScoresTenEntriesKeepRankingAndScrollAtAccessibleTextSize() {
+    app.launchEnvironment["UIPreferredContentSizeCategoryName"] =
+      "UICTContentSizeCategoryAccessibilityExtraExtraExtraLarge"
+    launch("--high-scores-fixture=ten")
+    tapScrollable(app.buttons["highScoresButton"])
+    for rank in 1...10 {
+      let row = app.descendants(matching: .any)["highScoreRow\(rank)"]
+      scrollTo(row)
+      let index = 11 - rank
+      let raw = index * 100
+      let seconds = (11 - index) * 120
+      let bonus = (3600 - seconds) / 2
+      XCTAssertTrue(row.label.contains("Rank \(rank). Final score \(raw + bonus). Game score \(raw). Time bonus \(bonus)."))
+      XCTAssertGreaterThanOrEqual(row.frame.minX, app.windows.firstMatch.frame.minX)
+      XCTAssertLessThanOrEqual(row.frame.maxX, app.windows.firstMatch.frame.maxX)
+    }
+    XCTAssertFalse(app.descendants(matching: .any)["highScoreRow11"].exists)
+  }
+
+  func testLevelSelectHeroWelcomeVictoryDoesNotPopulateHighScores() {
+    app.launchArguments.append("--unlock-level-select")
+    launch("--force-game-outcome=win")
+    tapScrollable(app.buttons["levelSelectButton"])
+    tapLevelCard("level12Button")
+    XCTAssertTrue(app.staticTexts["resultsTitle"].waitForExistence(timeout: 5))
+    XCTAssertFalse(app.staticTexts["resultsTimeBonus"].exists)
+    XCTAssertFalse(app.staticTexts["resultsFinalScore"].exists)
+    XCTAssertFalse(app.staticTexts["resultsRankingStatus"].exists)
+    tapScrollable(app.buttons["resultsReturnToMenuButton"])
+    tapScrollable(app.buttons["highScoresButton"])
+    XCTAssertTrue(app.staticTexts["No completed runs yet."].waitForExistence(timeout: 5))
   }
 
   func testLaunchPlayPauseResumeAndReturnAccessibility() {
@@ -73,7 +135,7 @@ final class HookshotHeroUITests: XCTestCase {
   }
   func testDisabledControlHintsLeaveAccessibleThumbControls() {
     launch()
-    app.buttons["settingsButton"].tap()
+    tapScrollable(app.buttons["settingsButton"])
     app.switches["controlHintsToggle"].tap()
     tapScrollable(app.buttons["settingsDoneButton"])
     app.buttons["playButton"].tap()
@@ -100,7 +162,7 @@ final class HookshotHeroUITests: XCTestCase {
       "UICTContentSizeCategoryAccessibilityExtraExtraExtraLarge"
     launch()
     let scroll = app.scrollViews.firstMatch
-    for identifier in ["playButton", "settingsButton", "helpButton"] {
+    for identifier in ["playButton", "highScoresButton", "settingsButton", "helpButton"] {
       let button = app.buttons[identifier]
       XCTAssertTrue(button.waitForExistence(timeout: 5))
       for _ in 0..<8 where !button.isHittable { scroll.swipeUp() }
@@ -109,7 +171,7 @@ final class HookshotHeroUITests: XCTestCase {
       XCTAssertGreaterThanOrEqual(button.frame.height, 44)
       XCTAssertFalse(button.label.isEmpty)
     }
-    app.buttons["helpButton"].tap()
+    tapScrollable(app.buttons["helpButton"])
     XCTAssertTrue(app.staticTexts.matching(identifier: "Help").firstMatch.waitForExistence(timeout: 5))
   }
 
@@ -120,7 +182,7 @@ final class HookshotHeroUITests: XCTestCase {
   }
   func testSettingsAreIsolated() {
     launch()
-    app.buttons["settingsButton"].tap()
+    tapScrollable(app.buttons["settingsButton"])
     XCTAssertTrue(app.descendants(matching: .any)["settingsScreen"].waitForExistence(timeout: 5))
     XCTAssertFalse(app.switches["reducedMotionToggle"].isSelected)
     app.switches["reducedMotionToggle"].tap()
@@ -128,7 +190,7 @@ final class HookshotHeroUITests: XCTestCase {
   }
   func testCreditsAndLicensesAreReachableFromSettings() {
     launch()
-    app.buttons["settingsButton"].tap()
+    tapScrollable(app.buttons["settingsButton"])
     app.scrollViews.firstMatch.swipeUp()
     let link = app.buttons["creditsLicensesLink"]
     XCTAssertTrue(link.waitForExistence(timeout: 5))
@@ -143,7 +205,7 @@ final class HookshotHeroUITests: XCTestCase {
   }
   func testSettingsLinksToScrollablePrivacyPolicyAndSupport() {
     launch()
-    app.buttons["settingsButton"].tap()
+    tapScrollable(app.buttons["settingsButton"])
     let settings = app.scrollViews.firstMatch
     settings.swipeUp()
     scrollTo(app.staticTexts["settingsVersionInformation"])
@@ -164,7 +226,7 @@ final class HookshotHeroUITests: XCTestCase {
   }
   func testHelpLinksToPrivacyPolicy() {
     launch()
-    app.buttons["helpButton"].tap()
+    tapScrollable(app.buttons["helpButton"])
     let help = app.scrollViews.firstMatch
     for _ in 0..<12 where !app.buttons["helpPrivacyPolicyLink"].isHittable { help.swipeUp() }
     XCTAssertTrue(app.buttons["helpPrivacyPolicyLink"].waitForExistence(timeout: 5))
@@ -175,7 +237,7 @@ final class HookshotHeroUITests: XCTestCase {
     app.launchEnvironment["UIPreferredContentSizeCategoryName"] =
       "UICTContentSizeCategoryAccessibilityExtraExtraExtraLarge"
     launch()
-    app.buttons["helpButton"].tap()
+    tapScrollable(app.buttons["helpButton"])
     let help = app.scrollViews.firstMatch
     XCTAssertTrue(help.waitForExistence(timeout: 5))
     XCTAssertTrue(app.staticTexts["Controls"].exists)
@@ -194,7 +256,7 @@ final class HookshotHeroUITests: XCTestCase {
   }
   func testHelpIncludesJavaStoryIntro() {
     launch()
-    app.buttons["helpButton"].tap()
+    tapScrollable(app.buttons["helpButton"])
     XCTAssertTrue(app.otherElements["storyIntro"].waitForExistence(timeout: 5))
     XCTAssertTrue(app.staticTexts["The Story"].exists)
     XCTAssertTrue(
@@ -203,7 +265,7 @@ final class HookshotHeroUITests: XCTestCase {
   }
   func testLeftHandedLayoutSwapsControlsWithoutChangingAccessibilityIdentity() {
     launch()
-    app.buttons["settingsButton"].tap()
+    tapScrollable(app.buttons["settingsButton"])
     XCTAssertTrue(app.otherElements["controlLayoutPicker"].waitForExistence(timeout: 5))
     app.buttons["Left-Handed"].tap()
     tapScrollable(app.buttons["settingsDoneButton"])
@@ -236,7 +298,7 @@ final class HookshotHeroUITests: XCTestCase {
   func testLevelSelectStartsLevelSixWithControls() {
     app.launchArguments.append("--unlock-level-select")
     launch()
-    app.buttons["levelSelectButton"].tap()
+    tapScrollable(app.buttons["levelSelectButton"])
     tapLevelCard("level6Button")
     XCTAssertTrue(app.otherElements["gameplayHUD"].waitForExistence(timeout: 5))
     XCTAssertTrue(app.staticTexts["Level 6"].exists)
@@ -265,7 +327,7 @@ final class HookshotHeroUITests: XCTestCase {
   func testLevelSelectStartsLevelSevenAndMovesOneCell() {
     app.launchArguments.append("--unlock-level-select")
     launch()
-    app.buttons["levelSelectButton"].tap()
+    tapScrollable(app.buttons["levelSelectButton"])
     tapLevelCard("level7Button")
     XCTAssertTrue(app.otherElements["gameplayHUD"].waitForExistence(timeout: 5))
     XCTAssertTrue(app.staticTexts["Level 7"].exists)
@@ -281,7 +343,7 @@ final class HookshotHeroUITests: XCTestCase {
   func testLevelSelectStartsLevelEightAtSafeBottomEntry() {
     app.launchArguments.append("--unlock-level-select")
     launch()
-    app.buttons["levelSelectButton"].tap()
+    tapScrollable(app.buttons["levelSelectButton"])
     tapLevelCard("level8Button")
     XCTAssertTrue(app.otherElements["gameplayHUD"].waitForExistence(timeout: 5))
     XCTAssertTrue(app.staticTexts["Level 8"].exists)
@@ -647,7 +709,7 @@ final class HookshotHeroUITests: XCTestCase {
     app.launchEnvironment["UIPreferredContentSizeCategoryName"] =
       "UICTContentSizeCategoryAccessibilityExtraExtraExtraLarge"
     launch()
-    app.buttons["settingsButton"].tap()
+    tapScrollable(app.buttons["settingsButton"])
     tapScrollable(app.descendants(matching: .any)["controlLayoutPicker"])
     app.buttons["Left-Handed"].tap()
     tapScrollable(app.buttons["supportLink"])
@@ -665,7 +727,7 @@ final class HookshotHeroUITests: XCTestCase {
 
   func testSettingsPersistAndHelpReturnsToSettings() {
     launch()
-    app.buttons["settingsButton"].tap()
+    tapScrollable(app.buttons["settingsButton"])
     app.switches["reducedMotionToggle"].tap()
     app.switches["controlHintsToggle"].tap()
     tapScrollable(app.buttons["settingsHelpLink"])
@@ -676,7 +738,7 @@ final class HookshotHeroUITests: XCTestCase {
     app.terminate()
     app.launchArguments.removeAll { $0 == "--reset-persistent-state" }
     app.launch()
-    app.buttons["settingsButton"].tap()
+    tapScrollable(app.buttons["settingsButton"])
     XCTAssertEqual(app.switches["reducedMotionToggle"].value as? String, "1")
     XCTAssertEqual(app.switches["controlHintsToggle"].value as? String, "0")
   }
@@ -696,7 +758,7 @@ final class HookshotHeroUITests: XCTestCase {
   func testLevelSelectEndingCardsAndNativeBackNavigation() {
     app.launchArguments.append("--unlock-level-select")
     launch()
-    app.buttons["levelSelectButton"].tap()
+    tapScrollable(app.buttons["levelSelectButton"])
     let scroll = app.scrollViews.firstMatch
     for _ in 0..<8 {
       if app.buttons["level12Button"].isHittable { break }

@@ -6,6 +6,7 @@ struct MainMenuView: View {
   let playLevel: (LevelID) -> Void
   let settings: () -> Void
   let help: () -> Void
+  let highScores: () -> Void
   @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
   var body: some View {
@@ -38,6 +39,14 @@ struct MainMenuView: View {
               .buttonStyle(AppSecondaryButtonStyle())
               .accessibilityIdentifier("levelSelectButton")
             }
+            Button(action: highScores) {
+              Label { Text("High Scores") } icon: {
+                Image(systemName: "trophy.fill").accessibilityHidden(true)
+              }
+            }
+            .buttonStyle(AppSecondaryButtonStyle())
+            .accessibilityLabel("High Scores")
+            .accessibilityIdentifier("highScoresButton")
           }
           if dynamicTypeSize.isAccessibilitySize {
             VStack(spacing: AppTheme.Spacing.sm) { utilities }

@@ -283,6 +283,9 @@ private func scoreEntry(_ number: Int, raw: Int, elapsed: Double, total: Int) ->
     XCTAssertEqual(entry.elapsedTime, session.elapsedTime)
     XCTAssertEqual(entry.rawScore, session.score)
     XCTAssertEqual(entry.timeBonus, HighScoreScoring.timeBonus(for: session.elapsedTime))
+    guard case .results(let presented) = router.path.first else { return XCTFail("Expected Results") }
+    XCTAssertEqual(presented.leaderboardEntry, entry)
+    XCTAssertEqual(presented.leaderboardRank, 1)
     router.finishGame(sessionID: id, outcome: .won)
     XCTAssertEqual(store.progression.highScoreEntries.count, 1)
   }
@@ -296,6 +299,9 @@ private func scoreEntry(_ number: Int, raw: Int, elapsed: Double, total: Int) ->
     direct.advance(by: 0.05)
     await settle { router.activeSession == nil }
     XCTAssertTrue(store.progression.highScoreEntries.isEmpty)
+    guard case .results(let directResult) = router.path.first else { return XCTFail("Expected Results") }
+    XCTAssertNil(directResult.leaderboardEntry)
+    XCTAssertNil(directResult.leaderboardRank)
     router.startNewGame()
     let loss = try XCTUnwrap(router.activeSession)
     loss.lose()
