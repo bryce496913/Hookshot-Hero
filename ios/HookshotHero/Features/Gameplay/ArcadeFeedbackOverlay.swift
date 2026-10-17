@@ -22,10 +22,45 @@ struct ArcadeFeedbackPresentation: Equatable {
   }
 }
 
-enum ArcadeFeedbackLayout {
-  static let travel: CGFloat = 32
-  static let maximumScale: CGFloat = 1.16
+/// FNV-1a over the UUID's 16 ordered bytes, followed by SplitMix64 samples.
+/// Neither Swift's process-randomized hashing nor rendering-time randomness is involved.
+struct ArcadeFeedbackVariation: Equatable {
+  static let minimumTravel: CGFloat = 22
+  static let maximumTravel: CGFloat = 42
+  static let maximumRotation = 7.0
+  static let maximumScale: CGFloat = 1.12
+  let direction: CGPoint
+  let travel: CGFloat
+  let lateralOffset: CGFloat
+  let rotationDegrees: Double
+  let initialScale: CGFloat
+  let peakScale: CGFloat
 
+  init(id: UUID) {
+    var seed: UInt64 = 14_695_981_039_346_656_037
+    let bytes = id.uuid
+    withUnsafeBytes(of: bytes) { bytes in
+      for byte in bytes { seed = (seed ^ UInt64(byte)) &* 1_099_511_628_211 }
+    }
+    func sample() -> Double {
+      seed &+= 0x9E3779B97F4A7C15
+      var value = seed
+      value = (value ^ (value >> 30)) &* 0xBF58476D1CE4E5B9
+      value = (value ^ (value >> 27)) &* 0x94D049BB133111EB
+      value ^= value >> 31
+      return Double(value >> 11) / 9_007_199_254_740_992
+    }
+    let angle = (-135 + 90 * sample()) * .pi / 180
+    direction = CGPoint(x: CGFloat(cos(angle)), y: CGFloat(sin(angle)))
+    travel = Self.minimumTravel + CGFloat(sample()) * (Self.maximumTravel - Self.minimumTravel)
+    lateralOffset = CGFloat(-4 + 8 * sample())
+    rotationDegrees = -Self.maximumRotation + 2 * Self.maximumRotation * sample()
+    initialScale = 0.86 + CGFloat(sample()) * 0.06
+    peakScale = 1.06 + CGFloat(sample()) * (Self.maximumScale - 1.06)
+  }
+}
+
+enum ArcadeFeedbackLayout {
   static func lanes(for feedback: [GameplayFeedback], previous: [UUID: Int]) -> [UUID: Int] {
     var result = previous.filter { id, _ in feedback.contains { $0.id == id } }
     for event in feedback where result[event.id] == nil {
@@ -52,37 +87,105 @@ enum ArcadeFeedbackLayout {
                      + (CGFloat(coordinate.row) + 0.5) * cell)
   }
 
-  static func center(anchor: CGPoint, board: CGSize, label: CGSize, lane: Int,
-                     reducedMotion: Bool) -> CGPoint {
-    let halfWidth = min(board.width / 2, label.width * maximumScale / 2 + 6)
-    let halfHeight = min(board.height / 2, label.height * maximumScale / 2 + 6)
-    let rise = reducedMotion ? CGFloat.zero : travel
-    let lowerY = min(board.height / 2, halfHeight + rise)
-    let upperY = max(lowerY, board.height - halfHeight)
-    // Stack toward the board interior, after clamping the subject's base position.
-    // Reserve a two-line pitch so chest health and a neighboring event stay distinct.
-    let baseY = min(max(anchor.y, lowerY), upperY)
-    let direction: CGFloat = anchor.y < board.height / 2 ? 1 : -1
-    let offset = CGFloat(lane) * (max(label.height, 64) * maximumScale + 8)
-    return CGPoint(x: min(max(anchor.x, halfWidth), max(halfWidth, board.width - halfWidth)),
-                   y: min(max(baseY + direction * offset, lowerY), upperY))
+  /// A group's reserved capacity can grow, but never shrinks while any peer is active.
+  /// Expiration therefore neither renumbers lanes nor moves their reserved regions.
+  static func capacities(for feedback: [GameplayFeedback], lanes: [UUID: Int],
+                         previous: [GridPosition?: Int]) -> [GridPosition?: Int] {
+    let coordinates = Set(feedback.map(\.coordinate))
+    var result = previous.filter { coordinates.contains($0.key) }
+    for event in feedback {
+      result[event.coordinate] = max(result[event.coordinate] ?? 1, (lanes[event.id] ?? 0) + 1)
+    }
+    return result
+  }
+
+  static func trajectory(anchor: CGPoint, board: CGSize, label: CGSize, lane: Int,
+                         capacity: Int, variation: ArcadeFeedbackVariation,
+                         reducedMotion: Bool) -> ArcadeFeedbackTrajectory {
+    let count = max(1, capacity)
+    // Reserve a compact block around the subject instead of spreading a small group
+    // across the whole board. A lone popout can use all available trajectory space.
+    let blockHeight = count == 1 ? max(0, board.height) : min(max(0, board.height), CGFloat(count) * 64)
+    let blockY = min(max(anchor.y - blockHeight / 2, 0), max(0, board.height - blockHeight))
+    let bandHeight = blockHeight / CGFloat(count)
+    // Nearest band belongs to lane zero. Further lanes expand locally toward available space.
+    let bands = (0..<count).sorted { lhs, rhs in
+      let left = abs(blockY + (CGFloat(lhs) + 0.5) * bandHeight - anchor.y)
+      let right = abs(blockY + (CGFloat(rhs) + 0.5) * bandHeight - anchor.y)
+      return left == right ? lhs < rhs : left < right
+    }
+    let band = bands[min(max(0, lane), count - 1)]
+    let region = CGRect(x: 0, y: blockY + CGFloat(band) * bandHeight,
+                        width: max(0, board.width), height: bandHeight)
+    let margin = min(6, min(region.width, region.height) / 4)
+    let rotation = reducedMotion ? 0 : variation.rotationDegrees
+    let radians = rotation * .pi / 180
+    let peak = reducedMotion ? CGFloat(1) : variation.peakScale
+    // The constant rotation and maximum pop scale give an envelope valid for EVERY frame.
+    let cosine = CGFloat(abs(cos(radians))), sine = CGFloat(abs(sin(radians)))
+    let rotatedWidth = cosine * label.width + sine * label.height
+    let rotatedHeight = sine * label.width + cosine * label.height
+    let fitScale = min(1, min(max(0, region.width - 2 * margin) / max(1, rotatedWidth * peak),
+                             max(0, region.height - 2 * margin) / max(1, rotatedHeight * peak)))
+    let half = CGSize(width: rotatedWidth * peak * fitScale / 2,
+                      height: rotatedHeight * peak * fitScale / 2)
+    let minX = region.minX + margin + half.width
+    let maxX = max(minX, region.maxX - margin - half.width)
+    let minY = region.minY + margin + half.height
+    let maxY = max(minY, region.maxY - margin - half.height)
+    let start = CGPoint(x: min(max(anchor.x + (reducedMotion ? 0 : variation.lateralOffset), minX), maxX),
+                        y: min(max(anchor.y, minY), maxY))
+    var dx = variation.direction.x * variation.travel
+    let dy = variation.direction.y * variation.travel
+    // Mirror an outward launch when the opposite side offers more room.
+    let available = dx < 0 ? start.x - minX : maxX - start.x
+    let opposite = dx < 0 ? maxX - start.x : start.x - minX
+    if abs(dx) > available && opposite > available { dx = -dx }
+    let horizontalRoom = dx < 0 ? start.x - minX : maxX - start.x
+    let horizontalFactor = abs(dx) > 0 ? horizontalRoom / abs(dx) : 1
+    let verticalFactor = abs(dy) > 0 ? (start.y - minY) / abs(dy) : 1
+    // Uniform reduction preserves the upward angle instead of flattening it at the top edge.
+    let factor = reducedMotion ? CGFloat.zero : max(0, min(1, min(horizontalFactor, verticalFactor)))
+    return .init(start: start, xTravel: dx * factor, yTravel: dy * factor,
+                 rotationDegrees: rotation, fitScale: fitScale, halfExtents: half, region: region)
+  }
+}
+
+struct ArcadeFeedbackTrajectory: Equatable {
+  let start: CGPoint
+  let xTravel: CGFloat
+  let yTravel: CGFloat
+  let rotationDegrees: Double
+  let fitScale: CGFloat
+  let halfExtents: CGSize
+  let region: CGRect
+
+  func envelope(at point: CGPoint) -> CGRect {
+    CGRect(x: point.x - halfExtents.width, y: point.y - halfExtents.height,
+           width: halfExtents.width * 2, height: halfExtents.height * 2)
   }
 }
 
 struct ArcadeFeedbackMotion: Equatable {
   let scale: CGFloat
-  let rise: CGFloat
+  let xOffset: CGFloat
+  let yOffset: CGFloat
+  let rotationDegrees: Double
   let opacity: Double
 
-  init(age: TimeInterval, duration: TimeInterval, reducedMotion: Bool) {
+  init(age: TimeInterval, duration: TimeInterval, variation: ArcadeFeedbackVariation,
+       trajectory: ArcadeFeedbackTrajectory, reducedMotion: Bool) {
     let progress = min(1, max(0, age / max(duration, 0.001)))
     opacity = min(1, progress / 0.04) * min(1, (1 - progress) / 0.25)
     if reducedMotion {
-      scale = 1; rise = 0
+      scale = 1; xOffset = 0; yOffset = 0; rotationDegrees = 0
     } else {
-      scale = progress < 0.08 ? 0.78 + CGFloat(progress / 0.08) * 0.38
-        : progress < 0.18 ? 1.16 - CGFloat((progress - 0.08) / 0.1) * 0.16 : 1
-      rise = ArcadeFeedbackLayout.travel * CGFloat(progress)
+      scale = progress < 0.08
+        ? variation.initialScale + CGFloat(progress / 0.08) * (variation.peakScale - variation.initialScale)
+        : progress < 0.18 ? variation.peakScale - CGFloat((progress - 0.08) / 0.1) * (variation.peakScale - 1) : 1
+      xOffset = trajectory.xTravel * CGFloat(progress)
+      yOffset = trajectory.yTravel * CGFloat(progress)
+      rotationDegrees = trajectory.rotationDegrees
     }
   }
 }
@@ -91,26 +194,34 @@ struct ArcadeFeedbackOverlay: View {
   let feedback: [GameplayFeedback]
   let gridSize: GridSize
   let reducedMotion: Bool
-
   @State private var lanes: [UUID: Int]
+  @State private var capacities: [GridPosition?: Int]
 
   init(feedback: [GameplayFeedback], gridSize: GridSize, reducedMotion: Bool) {
     self.feedback = feedback; self.gridSize = gridSize; self.reducedMotion = reducedMotion
-    _lanes = State(initialValue: ArcadeFeedbackLayout.lanes(for: feedback, previous: [:]))
+    let lanes = ArcadeFeedbackLayout.lanes(for: feedback, previous: [:])
+    _lanes = State(initialValue: lanes)
+    _capacities = State(initialValue: ArcadeFeedbackLayout.capacities(for: feedback, lanes: lanes, previous: [:]))
   }
 
   var body: some View {
+    // Resolve new arrivals before drawing their first frame; retain reservations after removal.
+    let activeLanes = ArcadeFeedbackLayout.lanes(for: feedback, previous: lanes)
+    let activeCapacities = ArcadeFeedbackLayout.capacities(for: feedback, lanes: activeLanes, previous: capacities)
     GeometryReader { geometry in
       ZStack(alignment: .topLeading) {
         ForEach(feedback) { event in
           ArcadeFeedbackPopout(event: event, grid: gridSize, board: geometry.size,
-                               lane: lanes[event.id] ?? 0,
+                               lane: activeLanes[event.id] ?? 0,
+                               capacity: activeCapacities[event.coordinate] ?? 1,
                                reducedMotion: reducedMotion)
         }
       }.frame(width: geometry.size.width, height: geometry.size.height)
     }
     .onChange(of: feedback) { _, events in
-      lanes = ArcadeFeedbackLayout.lanes(for: events, previous: lanes)
+      let next = ArcadeFeedbackLayout.lanes(for: events, previous: lanes)
+      capacities = ArcadeFeedbackLayout.capacities(for: events, lanes: next, previous: capacities)
+      lanes = next
     }
     .allowsHitTesting(false)
     .accessibilityHidden(true) // The coordinator announces every event once, with full context.
@@ -123,31 +234,36 @@ private struct ArcadeFeedbackPopout: View {
   let board: CGSize
   let reducedMotion: Bool
   let lane: Int
+  let capacity: Int
+  let variation: ArcadeFeedbackVariation
   @State private var appearedAt = Date()
-  @State private var labelSize = CGSize(width: 80, height: 32)
+  @State private var labelSize = CGSize(width: 60, height: 28)
 
-  init(event: GameplayFeedback, grid: GridSize, board: CGSize, lane: Int, reducedMotion: Bool) {
+  init(event: GameplayFeedback, grid: GridSize, board: CGSize, lane: Int, capacity: Int, reducedMotion: Bool) {
     self.event = event; self.grid = grid; self.board = board; self.reducedMotion = reducedMotion
-    self.lane = lane
+    self.lane = lane; self.capacity = capacity
+    variation = ArcadeFeedbackVariation(id: event.id)
   }
 
   var body: some View {
     let presentation = ArcadeFeedbackPresentation(event.kind)
-    let center = ArcadeFeedbackLayout.center(
+    // Geometry, rotation envelope and edge adjustment are outside the per-frame closure.
+    let trajectory = ArcadeFeedbackLayout.trajectory(
       anchor: ArcadeFeedbackLayout.anchor(event.coordinate, grid: grid, board: board),
-      board: board, label: labelSize, lane: lane, reducedMotion: reducedMotion)
+      board: board, label: labelSize, lane: lane, capacity: capacity,
+      variation: variation, reducedMotion: reducedMotion)
     TimelineView(.animation) { context in
       let motion = ArcadeFeedbackMotion(age: context.date.timeIntervalSince(appearedAt),
-                                         duration: event.duration, reducedMotion: reducedMotion)
+        duration: event.duration, variation: variation, trajectory: trajectory, reducedMotion: reducedMotion)
       VStack(spacing: 2) {
         Text(presentation.text).foregroundStyle(color(presentation.tone))
         if let secondary = presentation.secondaryText {
           Text(secondary).foregroundStyle(AppTheme.Colors.success)
         }
       }
-      .appTextStyle(.h3).fontWeight(.heavy).monospacedDigit()
+      .appTextStyle(.caption).fontWeight(presentation.tone == .completion ? .heavy : .bold).monospacedDigit()
       .multilineTextAlignment(.center)
-      .frame(maxWidth: max(0, board.width / ArcadeFeedbackLayout.maximumScale - 12))
+      .frame(maxWidth: max(0, board.width - 12))
       .fixedSize(horizontal: true, vertical: true)
       .background {
         GeometryReader { proxy in
@@ -156,8 +272,9 @@ private struct ArcadeFeedbackPopout: View {
         }
       }
       .shadow(color: .black, radius: 2, y: 1)
-      .scaleEffect(motion.scale).opacity(motion.opacity)
-      .position(x: center.x, y: center.y - motion.rise)
+      .scaleEffect(motion.scale * trajectory.fitScale)
+      .rotationEffect(.degrees(motion.rotationDegrees)).opacity(motion.opacity)
+      .position(x: trajectory.start.x + motion.xOffset, y: trajectory.start.y + motion.yOffset)
     }
   }
 
