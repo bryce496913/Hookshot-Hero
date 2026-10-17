@@ -42,8 +42,9 @@ enum PauseReason: Equatable, Sendable { case user, applicationLifecycle }
 
 @MainActor final class GameSession: ObservableObject {
   let identifier: UUID
-  /// Origin metadata, immutable across runtime/level replacement. Direct sessions default to false.
+  /// Full-campaign origin metadata, used only for the victory time-bonus qualification.
   let isLeaderboardEligible: Bool
+  private(set) var hasNaturalTerminalOutcome = false
   let configuration: GameConfiguration
   @Published private(set) var runtimeGeneration: Int = 0
   private(set) var runtime: GameLevelRuntime
@@ -207,7 +208,11 @@ enum PauseReason: Equatable, Sendable { case user, applicationLifecycle }
 
   private func bindSimulation() {
     simulation.onUISnapshotChange = { [weak self] _ in self?.refreshUISnapshot() }
-    simulation.onOutcome = { [weak self] outcome in self?.transitionToTerminal(outcome) }
+    simulation.onOutcome = { [weak self] outcome in
+      guard let self, self.state == .running else { return }
+      self.hasNaturalTerminalOutcome = true
+      self.transitionToTerminal(outcome)
+    }
     simulation.onDialogue = { [weak self] message in self?.openDialogue(message) }
     simulation.onLevelTransition = { [weak self] request in self?.beginTransition(request) }
   }

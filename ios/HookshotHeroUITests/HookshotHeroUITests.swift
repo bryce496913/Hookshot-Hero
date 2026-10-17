@@ -51,8 +51,8 @@ final class HookshotHeroUITests: XCTestCase {
     XCTAssertFalse(app.buttons["levelSelectButton"].exists)
     tapScrollable(app.buttons["highScoresButton"])
     XCTAssertTrue(app.descendants(matching: .any)["highScoresScreen"].waitForExistence(timeout: 5))
-    XCTAssertTrue(app.staticTexts["No completed runs yet."].exists)
-    XCTAssertTrue(app.staticTexts["Finish the campaign from Play to set your first high score."].exists)
+    XCTAssertTrue(app.staticTexts["No scores yet."].exists)
+    XCTAssertTrue(app.staticTexts["Finish a game and enter your initials to set your first high score."].exists)
     XCTAssertFalse(app.otherElements["highScoreRow1"].exists)
     app.navigationBars.buttons.firstMatch.tap()
     XCTAssertFalse(app.buttons["levelSelectButton"].exists)
@@ -64,7 +64,7 @@ final class HookshotHeroUITests: XCTestCase {
     tapScrollable(app.buttons["highScoresButton"])
     let row = app.descendants(matching: .any)["highScoreRow1"]
     XCTAssertTrue(row.waitForExistence(timeout: 5))
-    XCTAssertEqual(row.label, "Rank 1. Final score 1300. Game score 100. Time bonus 1200. Time 20 minutes.")
+    XCTAssertEqual(row.label, "Rank 1. TST. Victory. Final score 1300. Game score 100. Time bonus 1200. Time 20 minutes.")
     XCTAssertFalse(app.descendants(matching: .any)["highScoreRow2"].exists)
     app.terminate()
     app.launchArguments.removeAll { $0 == "--reset-persistent-state" || $0 == "--high-scores-fixture=one" }
@@ -72,7 +72,7 @@ final class HookshotHeroUITests: XCTestCase {
     XCTAssertFalse(app.buttons["levelSelectButton"].exists)
     tapScrollable(app.buttons["highScoresButton"])
     XCTAssertTrue(row.waitForExistence(timeout: 5))
-    XCTAssertEqual(row.label, "Rank 1. Final score 1300. Game score 100. Time bonus 1200. Time 20 minutes.")
+    XCTAssertEqual(row.label, "Rank 1. TST. Victory. Final score 1300. Game score 100. Time bonus 1200. Time 20 minutes.")
   }
 
   func testHighScoresTenEntriesKeepRankingAndScrollAtAccessibleTextSize() {
@@ -87,7 +87,7 @@ final class HookshotHeroUITests: XCTestCase {
       let raw = index * 100
       let seconds = (11 - index) * 120
       let bonus = (3600 - seconds) / 2
-      XCTAssertTrue(row.label.contains("Rank \(rank). Final score \(raw + bonus). Game score \(raw). Time bonus \(bonus)."))
+      XCTAssertTrue(row.label.contains("Rank \(rank). TST. Victory. Final score \(raw + bonus). Game score \(raw). Time bonus \(bonus)."))
       XCTAssertGreaterThanOrEqual(row.frame.minX, app.windows.firstMatch.frame.minX)
       XCTAssertLessThanOrEqual(row.frame.maxX, app.windows.firstMatch.frame.maxX)
     }
@@ -105,7 +105,84 @@ final class HookshotHeroUITests: XCTestCase {
     XCTAssertFalse(app.staticTexts["resultsRankingStatus"].exists)
     tapScrollable(app.buttons["resultsReturnToMenuButton"])
     tapScrollable(app.buttons["highScoresButton"])
-    XCTAssertTrue(app.staticTexts["No completed runs yet."].waitForExistence(timeout: 5))
+    XCTAssertTrue(app.staticTexts["No scores yet."].waitForExistence(timeout: 5))
+  }
+
+  func testQualifyingLossRequiresThreeLettersAndPersistsSubmittedInitials() {
+    launch("--score-results-fixture=qualifying")
+    XCTAssertTrue(app.staticTexts["resultsTitle"].waitForExistence(timeout: 5))
+    XCTAssertEqual(app.staticTexts["resultsTitle"].label, "Game Over")
+    scrollTo(app.textFields["highScoreInitialsEntry"])
+    let field = app.textFields["highScoreInitialsEntry"]
+    XCTAssertTrue(field.exists)
+    for index in 1...3 { XCTAssertTrue(app.staticTexts["highScoreInitial\(index)"].exists) }
+    XCTAssertEqual(app.staticTexts["highScoreProvisionalRank"].label, "Provisional rank 1")
+    let save = app.buttons["highScoreSubmitButton"]
+    XCTAssertFalse(save.isEnabled)
+    field.tap()
+    field.typeText("ab")
+    XCTAssertFalse(save.isEnabled)
+    field.typeText("cdef")
+    XCTAssertEqual(field.value as? String, "ABC")
+    XCTAssertTrue(save.isEnabled)
+    // Native Done follows the same once-only submission path as SAVE SCORE.
+    app.keyboards.buttons["Done"].tap()
+    XCTAssertTrue(app.staticTexts["highScoreSavedConfirmation"].waitForExistence(timeout: 5))
+    XCTAssertFalse(save.exists)
+    tapScrollable(app.buttons["resultsReturnToMenuButton"])
+    XCTAssertFalse(app.buttons["levelSelectButton"].exists)
+    tapScrollable(app.buttons["highScoresButton"])
+    let row = app.descendants(matching: .any)["highScoreRow1"]
+    XCTAssertTrue(row.waitForExistence(timeout: 5))
+    XCTAssertEqual(row.label, "Rank 1. ABC. Level 7. Final score 5000. Game score 5000. Time bonus 0. Time 1 minute 23 seconds.")
+    app.terminate()
+    app.launchArguments.removeAll { $0 == "--reset-persistent-state" || $0 == "--score-results-fixture=qualifying" }
+    app.launch()
+    tapScrollable(app.buttons["highScoresButton"])
+    XCTAssertTrue(row.waitForExistence(timeout: 5))
+    XCTAssertTrue(row.label.contains("ABC. Level 7. Final score 5000."))
+    XCTAssertFalse(app.descendants(matching: .any)["highScoreRow2"].exists)
+  }
+
+  func testQualifyingScoreDisplacesTenthAndSaveButtonSubmitsOnce() {
+    app.launchArguments.append("--high-scores-fixture=ten")
+    launch("--score-results-fixture=qualifying")
+    let field = app.textFields["highScoreInitialsEntry"]
+    scrollTo(field)
+    field.tap()
+    field.typeText("bry")
+    tapScrollable(app.buttons["highScoreSubmitButton"])
+    XCTAssertTrue(app.staticTexts["highScoreSavedConfirmation"].waitForExistence(timeout: 5))
+    tapScrollable(app.buttons["resultsReturnToMenuButton"])
+    tapScrollable(app.buttons["highScoresButton"])
+    XCTAssertTrue(app.descendants(matching: .any)["highScoreRow1"].label.contains("BRY. Level 7."))
+    let tenth = app.descendants(matching: .any)["highScoreRow10"]
+    scrollTo(tenth)
+    XCTAssertTrue(tenth.label.contains("Game score 200."))
+    XCTAssertFalse(app.descendants(matching: .any)["highScoreRow11"].exists)
+  }
+
+  func testEleventhPlaceLossNeverOffersInitialsOrMutatesBoard() {
+    launch("--score-results-fixture=nonqualifying")
+    XCTAssertTrue(app.staticTexts["resultsTitle"].waitForExistence(timeout: 5))
+    scrollTo(app.staticTexts["highScoreNonQualifier"])
+    XCTAssertFalse(app.textFields["highScoreInitialsEntry"].exists)
+    XCTAssertFalse(app.buttons["highScoreSubmitButton"].exists)
+    tapScrollable(app.buttons["resultsReturnToMenuButton"])
+    tapScrollable(app.buttons["highScoresButton"])
+    XCTAssertTrue(app.descendants(matching: .any)["highScoreRow1"].label.contains("TST. Victory. Final score 2740."))
+    let tenth = app.descendants(matching: .any)["highScoreRow10"]
+    scrollTo(tenth)
+    XCTAssertTrue(tenth.label.contains("Game score 100."))
+    XCTAssertFalse(app.descendants(matching: .any)["highScoreRow11"].exists)
+  }
+
+  func testReturningToMenuDiscardsUnnamedCandidate() {
+    launch("--score-results-fixture=qualifying")
+    XCTAssertTrue(app.staticTexts["resultsTitle"].waitForExistence(timeout: 5))
+    tapScrollable(app.buttons["resultsReturnToMenuButton"])
+    tapScrollable(app.buttons["highScoresButton"])
+    XCTAssertTrue(app.staticTexts["No scores yet."].waitForExistence(timeout: 5))
   }
 
   func testLaunchPlayPauseResumeAndReturnAccessibility() {

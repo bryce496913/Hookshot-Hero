@@ -2,7 +2,7 @@ import Combine
 import Foundation
 
 struct Progression: Codable, Equatable, Sendable {
-    static let currentSchemaVersion = 2
+    static let currentSchemaVersion = 3
     var schemaVersion: Int = currentSchemaVersion
     /// Legacy best raw gameplay score; ranking uses HighScoreEntry.totalScore instead.
     var highScore = 0
@@ -127,12 +127,24 @@ struct ProgressionRepository {
                 version = 1
             case 1:
                 let old = try JSONDecoder().decode(ProgressionV1.self, from: migrationData)
-                let current = Progression(highScore: old.highScore,
+                let current = ProgressionV2(schemaVersion: 2, highScore: old.highScore,
                     completedLevelIDs: old.completedLevelIDs,
                     completedMissionIDs: old.completedMissionIDs,
                     unlockedContentIDs: old.unlockedContentIDs, highScoreEntries: [])
                 migrationData = try JSONEncoder().encode(current)
                 version = 2
+            case 2:
+                let old = try JSONDecoder().decode(ProgressionV2.self, from: migrationData)
+                let current = Progression(highScore: old.highScore,
+                    completedLevelIDs: old.completedLevelIDs,
+                    completedMissionIDs: old.completedMissionIDs,
+                    unlockedContentIDs: old.unlockedContentIDs,
+                    highScoreEntries: HighScoreScoring.topEntries(old.highScoreEntries.map {
+                        HighScoreEntry(id: $0.id, rawScore: $0.rawScore, elapsedTime: $0.elapsedTime,
+                            timeBonus: $0.timeBonus, totalScore: $0.totalScore, initials: "---")
+                    }))
+                migrationData = try JSONEncoder().encode(current)
+                version = 3
             default:
                 throw ProgressionError.noMigration(version)
             }
@@ -148,6 +160,21 @@ private struct ProgressionV1: Codable {
     let completedLevelIDs: Set<LevelID>
     let completedMissionIDs: Set<MissionID>
     let unlockedContentIDs: Set<UnlockID>
+}
+private struct ProgressionV2: Codable {
+    let schemaVersion: Int
+    let highScore: Int
+    let completedLevelIDs: Set<LevelID>
+    let completedMissionIDs: Set<MissionID>
+    let unlockedContentIDs: Set<UnlockID>
+    let highScoreEntries: [HighScoreEntryV2]
+}
+private struct HighScoreEntryV2: Codable {
+    let id: UUID
+    let rawScore: Int
+    let elapsedTime: TimeInterval
+    let timeBonus: Int
+    let totalScore: Int
 }
 private struct ProgressionV0: Codable { let schemaVersion: Int; let highScore: Int; let completedLevelIDs: [String] }
 private enum ProgressionError: Error {
@@ -181,7 +208,7 @@ final class ProgressionStore: ObservableObject {
         }
     }
 
-    func record(result: GameResult, leaderboardEligible: Bool = false) {
+    func record(result: GameResult) {
         var changed = false
         if result.score > progression.highScore { progression.highScore = result.score; changed = true }
         if result.outcome == .won {
@@ -190,19 +217,21 @@ final class ProgressionStore: ObservableObject {
                 changed = progression.completedMissionIDs.insert(missionID).inserted || changed
             }
         }
-        // Intermediate progression records call this with the default false eligibility.
-        if leaderboardEligible, result.outcome == .won, result.levelID == .heroWelcome,
-           !progression.highScoreEntries.contains(where: { $0.id == result.sessionID }),
-           let entry = HighScoreEntry.completedRun(result) {
-            let ranked = HighScoreScoring.topEntries(progression.highScoreEntries + [entry])
-            if ranked != progression.highScoreEntries {
-                progression.highScoreEntries = ranked
-                changed = true
-            }
-        }
         if changed { hasUnsavedChanges = true }
         guard changed || hasUnsavedChanges else { return }
         flushPendingSave()
+    }
+
+    /// Accept once in memory, then use the existing dirty/atomic-save retry lifecycle.
+    @discardableResult
+    func submit(candidate: HighScoreCandidate, initials: String) -> HighScoreEntry? {
+        guard let entry = candidate.finalized(initials: initials),
+              HighScoreScoring.qualifyingRank(candidate: candidate,
+                  existingEntries: progression.highScoreEntries) != nil else { return nil }
+        progression.highScoreEntries = HighScoreScoring.topEntries(progression.highScoreEntries + [entry])
+        hasUnsavedChanges = true
+        flushPendingSave()
+        return entry
     }
 
     func flushPendingSave() {

@@ -39,16 +39,18 @@ struct AppEnvironment {
             sessionID: UUID(), levelID: .levelTen, missionID: nil,
             score: 0, elapsedTime: 0, outcome: .won))
         }
-        let fixtureCount = arguments.contains("--high-scores-fixture=ten") ? 10
+        let fixtureCount = (arguments.contains("--high-scores-fixture=ten")
+          || arguments.contains("--score-results-fixture=nonqualifying")) ? 10
           : (arguments.contains("--high-scores-fixture=one") ? 1 : 0)
         if fixtureCount > 0 {
           let progression = ProgressionStore(repository: progressionRepository)
           for index in 1...fixtureCount {
             guard let id = UUID(uuidString: String(format: "00000000-0000-0000-0000-%012d", index)) else { continue }
-            progression.record(result: GameResult(
-              sessionID: id, levelID: .heroWelcome, missionID: nil,
-              score: index * 100, elapsedTime: Double((11 - index) * 120), outcome: .won),
-              leaderboardEligible: true)
+            let result = GameResult(sessionID: id, levelID: .heroWelcome, missionID: nil,
+              score: index * 100, elapsedTime: Double((11 - index) * 120), outcome: .won)
+            if let candidate = HighScoreCandidate.terminalResult(result, fullCampaignVictory: true) {
+              progression.submit(candidate: candidate, initials: "TST")
+            }
           }
         }
         return AppEnvironment(

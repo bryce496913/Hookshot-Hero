@@ -36,6 +36,8 @@ struct AppGameLoadingLogger: GameLoadingLogging {
     progressionStore.progression.completedLevelIDs.contains(.levelTen)
   }
   var highScoreEntries: [HighScoreEntry] { progressionStore.progression.highScoreEntries }
+  var highScoreSavePending: Bool { progressionStore.hasUnsavedChanges }
+  func retryHighScoreSave() { progressionStore.flushPendingSave() }
   private var sessionObservation: AnyCancellable?
   private var completedSessionIDs: Set<UUID> = []
   private let forcedOutcome: GameOutcome?
@@ -61,7 +63,7 @@ struct AppGameLoadingLogger: GameLoadingLogging {
     self.startConfiguration = startConfiguration
     self.logger = logger
     // Forward nested progression changes even when the navigation path stays unchanged.
-    progressionObservation = progressionStore.$progression.dropFirst().sink { [weak self] _ in
+    progressionObservation = progressionStore.objectWillChange.sink { [weak self] _ in
       self?.objectWillChange.send()
     }
   }
@@ -207,16 +209,38 @@ struct AppGameLoadingLogger: GameLoadingLogging {
     var result = GameResult(
       sessionID: sessionID, levelID: session.levelID, missionID: session.missionID,
       score: session.score, elapsedTime: session.elapsedTime, outcome: outcome)
-    let eligible = session.isLeaderboardEligible && forcedOutcome == nil
-      && outcome == .won && session.levelID == .heroWelcome
-    progressionStore.record(result: result, leaderboardEligible: eligible)
-    if eligible, let entry = HighScoreEntry.completedRun(result) {
-      result.leaderboardEntry = entry
-      result.leaderboardRank = highScoreEntries.firstIndex(where: { $0.id == entry.id }).map { $0 + 1 }
+    progressionStore.record(result: result)
+    if session.hasNaturalTerminalOutcome && forcedOutcome == nil {
+      attachScoreCandidate(to: &result, fullCampaignVictory: session.isLeaderboardEligible)
     }
     endActiveSession(expectedID: sessionID)
     path = [.results(result)]
   }
+  private func attachScoreCandidate(to result: inout GameResult, fullCampaignVictory: Bool) {
+    guard let candidate = HighScoreCandidate.terminalResult(result, fullCampaignVictory: fullCampaignVictory) else { return }
+    result.highScoreCandidate = candidate
+    result.leaderboardRank = HighScoreScoring.qualifyingRank(candidate: candidate, existingEntries: highScoreEntries)
+  }
+
+  /// The route is the authority: stale results, duplicate taps and discarded candidates cannot submit.
+  func submitHighScore(sessionID: UUID, initials: String) -> HighScoreEntry? {
+    guard case .results(let result) = path.last, result.sessionID == sessionID,
+          let candidate = result.highScoreCandidate, result.leaderboardRank != nil else { return nil }
+    return progressionStore.submit(candidate: candidate, initials: initials)
+  }
+
+  #if DEBUG
+  /// Explicit scoring-path fixture; ordinary forced outcomes still cannot create candidates.
+  func presentHighScoreFixture(qualifying: Bool) {
+    returnToMenu()
+    var result = GameResult(sessionID: UUID(uuidString: "FFFFFFFF-FFFF-FFFF-FFFF-FFFFFFFFFFFF")!,
+      levelID: .levelSeven, missionID: nil, score: qualifying ? 5000 : 0, elapsedTime: 83.4, outcome: .lost)
+    progressionStore.record(result: result)
+    attachScoreCandidate(to: &result, fullCampaignVictory: false)
+    path = [.results(result)]
+  }
+  #endif
+
   private func observe(_ session: GameSession) {
     let id = session.identifier
     sessionObservation = session.$state.sink { [weak self] state in

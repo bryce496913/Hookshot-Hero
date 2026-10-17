@@ -12,39 +12,93 @@ final class HighScorePolicyTests: XCTestCase {
     ]
     for (elapsed, bonus) in examples {
       XCTAssertEqual(HighScoreScoring.timeBonus(for: elapsed), bonus)
+      XCTAssertEqual(HighScoreScoring.timeBonus(for: elapsed, outcome: .gameOver), 0)
     }
     XCTAssertEqual(HighScoreScoring.maximumTimeBonus, 1800)
   }
 
-  func testTotalThenTimeThenRawScoreThenUUIDDetermineRanking() {
-    let totalWinner = scoreEntry(4, raw: 100, elapsed: 100, total: 1000)
-    let faster = scoreEntry(3, raw: 40, elapsed: 90, total: 900)
-    let rawWinner = scoreEntry(2, raw: 80, elapsed: 100, total: 900)
-    let tieLowID = scoreEntry(1, raw: 70, elapsed: 100, total: 900)
-    let tieHighID = scoreEntry(5, raw: 70, elapsed: 100, total: 900)
-    let expected = [totalWinner, faster, rawWinner, tieLowID, tieHighID]
-    XCTAssertEqual(HighScoreScoring.topEntries(Array(expected.reversed())), expected)
-    XCTAssertEqual(HighScoreScoring.topEntries([tieHighID, rawWinner, totalWinner, tieLowID, faster]), expected)
+  func testInitialsNormalizeOnlyThreeASCIILetters() {
+    XCTAssertEqual(HighScoreInitials.validated("bry"), "BRY")
+    XCTAssertEqual(HighScoreInitials.validated("BRY"), "BRY")
+    XCTAssertEqual(HighScoreInitials.constrained("abcd"), "ABC")
+    XCTAssertEqual(HighScoreInitials.constrained("a1b"), "AB")
+    for invalid in ["ab", "abcd", "a1b", "😀", "A B", "   ", "ébc", "ßbc", "---"] {
+      XCTAssertNil(HighScoreInitials.validated(invalid))
+    }
   }
 
-  func testFasterEqualRawScoreWinsAndOnlyTenUniqueEntriesRemain() throws {
-    let slow = try XCTUnwrap(HighScoreEntry.completedRun(scoreResult(id: scoreID(1), score: 100, time: 3600)))
-    let fast = try XCTUnwrap(HighScoreEntry.completedRun(scoreResult(id: scoreID(2), score: 100, time: 3000)))
-    XCTAssertEqual(HighScoreScoring.topEntries([slow, fast]), [fast, slow])
-    let entries = (1...11).map { scoreEntry($0, raw: $0, elapsed: 60, total: $0) }
-    let ranked = HighScoreScoring.topEntries(entries + [entries[10]])
-    XCTAssertEqual(ranked.count, 10)
-    XCTAssertEqual(ranked.map(\.rawScore), Array((2...11).reversed()))
-  }
-
-  func testEntryRoundTripsAndInvalidTimeIsRejected() throws {
-    let entry = try XCTUnwrap(HighScoreEntry.completedRun(scoreResult(score: 123, time: 300)))
-    XCTAssertEqual(entry.rawScore, 123)
-    XCTAssertEqual(entry.timeBonus, 1650)
-    XCTAssertEqual(entry.totalScore, 1773)
+  func testLossesUseRawScoreAndVictoryRetainsBonusAndInvalidTimeIsRejected() throws {
+    for level in [LevelID.levelOne, .levelSeven, .levelTen, .heroWelcome] {
+      let loss = try XCTUnwrap(HighScoreCandidate.terminalResult(
+        scoreResult(level: level, score: 123, time: 0.1, outcome: .lost), fullCampaignVictory: false))
+      XCTAssertEqual(loss.timeBonus, 0)
+      XCTAssertEqual(loss.totalScore, 123)
+      XCTAssertEqual(loss.levelID, level)
+      XCTAssertEqual(loss.outcome, .gameOver)
+    }
+    let win = try XCTUnwrap(HighScoreCandidate.terminalResult(scoreResult(score: 123, time: 300), fullCampaignVictory: true))
+    XCTAssertEqual(win.timeBonus, 1650)
+    XCTAssertEqual(win.totalScore, 1773)
+    let entry = try XCTUnwrap(win.finalized(initials: "BRY"))
     XCTAssertEqual(try JSONDecoder().decode(HighScoreEntry.self, from: JSONEncoder().encode(entry)), entry)
-    XCTAssertNil(HighScoreEntry.completedRun(scoreResult(time: .nan)))
-    XCTAssertEqual(HighScoreEntry.completedRun(scoreResult(score: Int.max, time: 0))?.totalScore, Int.max)
+    XCTAssertNil(HighScoreCandidate.terminalResult(scoreResult(time: .nan), fullCampaignVictory: true))
+    XCTAssertEqual(HighScoreScoring.totalScore(rawScore: Int.max, elapsedTime: 0), Int.max)
+    XCTAssertEqual(HighScoreCandidate.terminalResult(scoreResult(), fullCampaignVictory: false)?.timeBonus, 0)
+    XCTAssertNil(HighScoreCandidate.terminalResult(scoreResult(level: .levelTen), fullCampaignVictory: true))
+  }
+
+  func testTotalThenRawThenVictoryTimeThenIDDetermineOneConsistentOrder() {
+    let winner = scoreEntry(4, raw: 100, elapsed: 100, total: 1000)
+    let rawWinner = scoreEntry(2, raw: 80, elapsed: 100, total: 900)
+    let faster = scoreEntry(3, raw: 70, elapsed: 90, total: 900)
+    let lowID = scoreEntry(1, raw: 70, elapsed: 100, total: 900)
+    let highID = scoreEntry(5, raw: 70, elapsed: 100, total: 900)
+    let expected = [winner, rawWinner, faster, lowID, highID]
+    XCTAssertEqual(HighScoreScoring.topEntries(Array(expected.reversed())), expected)
+    var loss1 = lowID; loss1.outcome = .gameOver
+    var loss2 = highID; loss2.outcome = .gameOver
+    XCTAssertTrue(HighScoreScoring.precedes(loss1, loss2))
+    // Changing initials never changes the ranking; mixed outcomes remain transitive.
+    var renamed = highID; renamed.initials = "AAA"
+    XCTAssertFalse(HighScoreScoring.precedes(renamed, lowID))
+    let mixed = [loss1, faster, loss2, highID]
+    for a in mixed { for b in mixed { for c in mixed {
+      if HighScoreScoring.precedes(a, b) && HighScoreScoring.precedes(b, c) {
+        XCTAssertTrue(HighScoreScoring.precedes(a, c))
+      }
+    } } }
+  }
+
+  func testQualificationForEmptyNineFullAndDeterministicTies() throws {
+    func candidate(_ id: Int, _ score: Int) throws -> HighScoreCandidate {
+      try XCTUnwrap(HighScoreCandidate.terminalResult(scoreResult(id: scoreID(id),
+        score: score, time: 3600, outcome: .lost), fullCampaignVictory: false))
+    }
+    let board = (1...10).map { scoreEntry($0, raw: 110 - $0 * 10, elapsed: 3600, total: 110 - $0 * 10) }
+    XCTAssertEqual(HighScoreScoring.qualifyingRank(candidate: try candidate(20, 0), existingEntries: []), 1)
+    XCTAssertEqual(HighScoreScoring.qualifyingRank(candidate: try candidate(20, 0), existingEntries: Array(board.prefix(9))), 10)
+    XCTAssertEqual(HighScoreScoring.qualifyingRank(candidate: try candidate(20, 500), existingEntries: board), 1)
+    XCTAssertEqual(HighScoreScoring.qualifyingRank(candidate: try candidate(20, 11), existingEntries: board), 10)
+    XCTAssertNil(HighScoreScoring.qualifyingRank(candidate: try candidate(20, 0), existingEntries: board))
+    var lossBoard = board; lossBoard[9].outcome = .gameOver
+    XCTAssertEqual(HighScoreScoring.qualifyingRank(candidate: try candidate(0, 10), existingEntries: lossBoard), 10)
+    XCTAssertNil(HighScoreScoring.qualifyingRank(candidate: try candidate(20, 10), existingEntries: lossBoard))
+  }
+
+  func testNewFirstAndTenthDisplaceBottomAndEleventhDoesNotMutate() throws {
+    let board = (1...10).map { scoreEntry($0, raw: 110 - $0 * 10, elapsed: 3600, total: 110 - $0 * 10) }
+    for score in [500, 11] {
+      let candidate = try XCTUnwrap(HighScoreCandidate.terminalResult(
+        scoreResult(id: scoreID(20), score: score, outcome: .lost), fullCampaignVictory: false))
+      let entry = try XCTUnwrap(candidate.finalized(initials: "BRY"))
+      let inserted = HighScoreScoring.topEntries(board + [entry, entry])
+      XCTAssertEqual(inserted.count, 10)
+      XCTAssertFalse(inserted.contains { $0.id == scoreID(10) })
+      XCTAssertEqual(inserted.firstIndex { $0.id == entry.id }, score == 500 ? 0 : 9)
+      if score == 500 { XCTAssertEqual(Array(inserted.dropFirst()), Array(board.prefix(9))) }
+    }
+    let low = try XCTUnwrap(HighScoreCandidate.terminalResult(scoreResult(score: 0, outcome: .lost), fullCampaignVictory: false))
+    XCTAssertEqual(HighScoreScoring.topEntries(board + [try XCTUnwrap(low.finalized(initials: "BRY"))]), board)
   }
 }
 
@@ -59,32 +113,46 @@ final class HighScorePolicyTests: XCTestCase {
     if FileManager.default.fileExists(atPath: directory.path) { try FileManager.default.removeItem(at: directory) }
   }
 
-  func testOnlyEligibleTerminalWinRecordsAndRawHighScoreKeepsItsMeaning() {
+  func testOrdinaryProgressionNeverPersistsUnnamedScores() throws {
     let store = ProgressionStore(repository: repository)
-    store.record(result: scoreResult(score: 100)) // Direct entry.
-    store.record(result: scoreResult(score: 100, outcome: .lost), leaderboardEligible: true)
-    for level in [LevelID.levelOne, .levelTen, .countryRoad] {
-      store.record(result: scoreResult(level: level, score: 100), leaderboardEligible: true)
+    for outcome in [GameOutcome.won, .lost] {
+      store.record(result: scoreResult(score: 100, outcome: outcome))
     }
-    XCTAssertTrue(store.progression.highScoreEntries.isEmpty)
-    let result = scoreResult(score: 100, time: 300)
-    store.record(result: result, leaderboardEligible: true)
-    store.record(result: result, leaderboardEligible: true)
     XCTAssertEqual(store.progression.highScore, 100)
-    XCTAssertEqual(store.progression.highScoreEntries.count, 1)
-    XCTAssertEqual(store.progression.highScoreEntries.first?.totalScore, 1750)
+    XCTAssertTrue(store.progression.highScoreEntries.isEmpty)
+    let candidate = try XCTUnwrap(HighScoreCandidate.terminalResult(scoreResult(), fullCampaignVictory: true))
+    XCTAssertNil(store.submit(candidate: candidate, initials: "ab"))
+    XCTAssertTrue(store.progression.highScoreEntries.isEmpty)
+    XCTAssertNotNil(store.submit(candidate: candidate, initials: "bry"))
+    XCTAssertNil(store.submit(candidate: candidate, initials: "XYZ"))
+    XCTAssertEqual(store.progression.highScoreEntries.first?.initials, "BRY")
+    XCTAssertEqual(store.progression.highScore, 100)
+    XCTAssertEqual(repository.load(), .loaded(store.progression))
     let reloaded = ProgressionStore(repository: repository)
-    reloaded.record(result: result, leaderboardEligible: true)
+    XCTAssertNil(reloaded.submit(candidate: candidate, initials: "XYZ"))
     XCTAssertEqual(reloaded.progression.highScoreEntries, store.progression.highScoreEntries)
   }
 
   func testStorePersistsOnlyTopTenAndDiscardsLowerEleventh() {
     let store = ProgressionStore(repository: repository)
     for index in (1...11).reversed() {
-      store.record(result: scoreResult(id: scoreID(index), score: index, time: 3600), leaderboardEligible: true)
+      store.recordScoreForTest(scoreResult(id: scoreID(index), score: index, time: 3600))
     }
     XCTAssertEqual(store.progression.highScoreEntries.map(\.rawScore), Array((2...11).reversed()))
     XCTAssertEqual(repository.load(), .loaded(store.progression))
+  }
+
+  func testNonQualifyingEleventhNeverMutatesProgressionOrSavedBytes() throws {
+    let store = ProgressionStore(repository: repository)
+    for index in 1...10 { store.recordScoreForTest(scoreResult(id: scoreID(index), score: index, time: 3600)) }
+    let before = store.progression
+    let bytes = try Data(contentsOf: repository.fileURL)
+    let candidate = try XCTUnwrap(HighScoreCandidate.terminalResult(
+      scoreResult(score: 0, outcome: .lost), fullCampaignVictory: false))
+    XCTAssertNil(store.submit(candidate: candidate, initials: "BRY"))
+    XCTAssertEqual(store.progression, before)
+    XCTAssertEqual(try Data(contentsOf: repository.fileURL), bytes)
+    XCTAssertFalse(store.hasUnsavedChanges)
   }
 
   func testRepositoryCanonicalSaveBoundsAndSortsEntries() throws {
@@ -97,11 +165,11 @@ final class HighScorePolicyTests: XCTestCase {
     XCTAssertEqual(repository.load(), .loaded(decoded))
   }
 
-  func testV1MigrationPreservesEveryLegacyFieldAndUnlockAndSavesV2() throws {
+  func testV1MigrationPreservesEveryLegacyFieldAndUnlockAndSavesV3() throws {
     let legacy = LegacyProgressionV1()
     try write(JSONEncoder().encode(legacy))
     let store = ProgressionStore(repository: repository)
-    XCTAssertEqual(store.progression.schemaVersion, 2)
+    XCTAssertEqual(store.progression.schemaVersion, 3)
     XCTAssertEqual(store.progression.highScore, legacy.highScore)
     XCTAssertEqual(store.progression.completedLevelIDs, legacy.completedLevelIDs)
     XCTAssertEqual(store.progression.completedMissionIDs, legacy.completedMissionIDs)
@@ -112,10 +180,10 @@ final class HighScorePolicyTests: XCTestCase {
     XCTAssertEqual(repository.load(), .loaded(store.progression))
   }
 
-  func testV0MigratesThroughV1ToV2AndKeepsLevelTenUnlock() throws {
+  func testV0MigratesThroughV1AndV2ToV3AndKeepsLevelTenUnlock() throws {
     try write(Data(#"{"schemaVersion":0,"highScore":22,"completedLevelIDs":["level-10"]}"#.utf8))
     let store = ProgressionStore(repository: repository)
-    XCTAssertEqual(store.progression.schemaVersion, 2)
+    XCTAssertEqual(store.progression.schemaVersion, 3)
     XCTAssertEqual(store.progression.highScore, 22)
     XCTAssertTrue(store.progression.highScoreEntries.isEmpty)
     XCTAssertTrue(AppRouter(progressionStore: store).isLevelSelectUnlocked)
@@ -131,11 +199,14 @@ final class HighScorePolicyTests: XCTestCase {
     })
     let store = ProgressionStore(repository: retrying)
     let result = scoreResult()
-    store.record(result: result, leaderboardEligible: true)
+    store.recordScoreForTest(result)
     XCTAssertTrue(store.hasUnsavedChanges)
     XCTAssertNotNil(store.lastSaveError)
     XCTAssertEqual(store.progression.highScoreEntries.count, 1)
-    store.record(result: result, leaderboardEligible: true)
+    let candidate = try XCTUnwrap(HighScoreCandidate.terminalResult(result, fullCampaignVictory: true))
+    XCTAssertNil(store.submit(candidate: candidate, initials: "XYZ"))
+    XCTAssertEqual(store.progression.highScoreEntries.first?.initials, "TST")
+    store.flushPendingSave()
     XCTAssertEqual(attempts, 2)
     XCTAssertFalse(store.hasUnsavedChanges)
     XCTAssertNil(store.lastSaveError)
@@ -150,7 +221,7 @@ final class HighScorePolicyTests: XCTestCase {
       try self.repository.save(value)
     })
     let store = ProgressionStore(repository: retrying)
-    store.record(result: scoreResult(), leaderboardEligible: true)
+    store.recordScoreForTest(scoreResult())
     let entries = store.progression.highScoreEntries
     XCTAssertTrue(store.hasUnsavedChanges)
     fails = false
@@ -182,7 +253,7 @@ final class HighScorePolicyTests: XCTestCase {
       let bytes = Data(text.utf8)
       try write(bytes)
       let store = ProgressionStore(repository: repository)
-      store.record(result: scoreResult(), leaderboardEligible: true)
+      store.recordScoreForTest(scoreResult())
       XCTAssertEqual(try Data(contentsOf: directory.appending(path: "progression-v1.\(suffix).json")), bytes)
       XCTAssertEqual(store.progression.highScoreEntries.count, 1)
       XCTAssertEqual(repository.load(), .loaded(store.progression))
@@ -195,10 +266,48 @@ final class HighScorePolicyTests: XCTestCase {
     let protected = ProgressionRepository(fileURL: repository.fileURL,
       quarantineOverride: { _ in throw ScoreTestError.expected })
     let store = ProgressionStore(repository: protected)
-    store.record(result: scoreResult(), leaderboardEligible: true)
+    store.recordScoreForTest(scoreResult())
     XCTAssertTrue(store.hasUnsavedChanges)
     XCTAssertEqual(store.progression.highScoreEntries.count, 1)
     XCTAssertEqual(try Data(contentsOf: repository.fileURL), original)
+  }
+
+  func testV2MigratesToV3WithUnknownInitialsAndContextPreservingScoresAndUnlock() throws {
+    let id = scoreID(1)
+    let json = """
+    {"schemaVersion":2,"highScore":400,"completedLevelIDs":["level-10"],
+     "completedMissionIDs":["mission-1"],"unlockedContentIDs":["unlock-1"],
+     "highScoreEntries":[{"id":"\(id.uuidString)","rawScore":100,"elapsedTime":1200.25,
+       "timeBonus":1199,"totalScore":1299}]}
+    """
+    try write(Data(json.utf8))
+    let store = ProgressionStore(repository: repository)
+    let entry = try XCTUnwrap(store.progression.highScoreEntries.first)
+    XCTAssertEqual(entry.id, id)
+    XCTAssertEqual(entry.initials, "---")
+    XCTAssertNil(entry.levelID)
+    XCTAssertNil(entry.outcome)
+    XCTAssertEqual(entry.rawScore, 100)
+    XCTAssertEqual(entry.elapsedTime, 1200.25)
+    XCTAssertEqual(entry.timeBonus, 1199)
+    XCTAssertEqual(entry.totalScore, 1299)
+    XCTAssertEqual(store.progression.highScore, 400)
+    XCTAssertEqual(store.progression.completedMissionIDs, [.init(rawValue: "mission-1")])
+    XCTAssertEqual(store.progression.unlockedContentIDs, [.init(rawValue: "unlock-1")])
+    XCTAssertEqual(store.loadResult, .migrated(store.progression, fromVersion: 2))
+    XCTAssertTrue(AppRouter(progressionStore: store).isLevelSelectUnlocked)
+    XCTAssertEqual(repository.load(), .loaded(store.progression))
+  }
+
+  func testV3RoundTripPreservesInitialsAndLossContext() throws {
+    let store = ProgressionStore(repository: repository)
+    let candidate = try XCTUnwrap(HighScoreCandidate.terminalResult(
+      scoreResult(level: .levelSeven, outcome: .lost), fullCampaignVictory: false))
+    store.submit(candidate: candidate, initials: "BRY")
+    let loaded = ProgressionStore(repository: repository)
+    XCTAssertEqual(loaded.progression.highScoreEntries, store.progression.highScoreEntries)
+    XCTAssertEqual(loaded.progression.highScoreEntries.first?.levelID, .levelSeven)
+    XCTAssertEqual(loaded.progression.highScoreEntries.first?.outcome, .gameOver)
   }
 
   private func write(_ data: Data) throws {
@@ -224,7 +333,15 @@ private func scoreResult(id: UUID = UUID(), level: LevelID = .heroWelcome, score
 }
 private func scoreEntry(_ number: Int, raw: Int, elapsed: Double, total: Int) -> HighScoreEntry {
   HighScoreEntry(id: scoreID(number), rawScore: raw, elapsedTime: elapsed,
-                 timeBonus: total - raw, totalScore: total)
+                 timeBonus: total - raw, totalScore: total, initials: "TST", outcome: .campaignVictory)
+}
+
+@MainActor private extension ProgressionStore {
+  func recordScoreForTest(_ result: GameResult) {
+    if let candidate = HighScoreCandidate.terminalResult(result, fullCampaignVictory: true) {
+      submit(candidate: candidate, initials: "TST")
+    }
+  }
 }
 
 @MainActor final class HighScoreEligibilityTests: XCTestCase {
@@ -238,37 +355,54 @@ private func scoreEntry(_ number: Int, raw: Int, elapsed: Double, total: Int) ->
     if FileManager.default.fileExists(atPath: directory.path) { try FileManager.default.removeItem(at: directory) }
   }
 
-  func testPlayStartsEligibleButDirectLevelEntriesAndDebugStartsDoNot() throws {
+  func testNaturalLossesFromPlayAndLevelSelectQualifyWithoutSavingUntilInitials() async throws {
     let router = AppRouter(progressionStore: store)
-    router.startNewGame()
-    XCTAssertEqual(router.activeSession?.levelID, .levelOne)
-    XCTAssertTrue(try XCTUnwrap(router.activeSession).isLeaderboardEligible)
-    for level in [LevelID.levelOne, .levelTen, .heroWelcome] {
-      router.startGame(levelID: level)
-      XCTAssertFalse(try XCTUnwrap(router.activeSession).isLeaderboardEligible)
+    for level in [LevelID.levelOne, .levelSeven, .levelTen] {
+      if level == .levelOne { router.startNewGame() } else { router.startGame(levelID: level) }
+      let session = try XCTUnwrap(router.activeSession)
+      let simulation = try XCTUnwrap(session.simulation as? LevelOneSimulation)
+      simulation.player.score = 123
+      simulation.player.health = 0
+      simulation.checkLoss() // Actual simulation terminal callback, not DEBUG session.lose().
+      await settle { router.activeSession == nil }
+      guard case .results(let result) = router.path.first else { return XCTFail("Expected Results") }
+      let candidate = try XCTUnwrap(result.highScoreCandidate)
+      XCTAssertEqual(candidate.outcome, .gameOver)
+      XCTAssertEqual(candidate.totalScore, 123)
+      XCTAssertEqual(candidate.timeBonus, 0)
+      XCTAssertEqual(candidate.levelID, level)
+      XCTAssertTrue(store.progression.highScoreEntries.isEmpty)
+      XCTAssertNotNil(result.leaderboardRank)
+      router.returnToMenu() // Discarding initials never writes a temporary entry.
+      XCTAssertNil(router.submitHighScore(sessionID: result.sessionID, initials: "BRY"))
+      XCTAssertTrue(store.progression.highScoreEntries.isEmpty)
     }
-    let debugRouter = AppRouter(progressionStore: store,
-                                startConfiguration: .init(initialLevelID: .heroWelcome))
-    debugRouter.startNewGame()
-    XCTAssertFalse(try XCTUnwrap(debugRouter.activeSession).isLeaderboardEligible)
-    router.returnToMenu()
-    debugRouter.returnToMenu()
+    // A direct Level Select loss can save once, with no unlock side effect.
+    router.startGame(levelID: .levelSeven)
+    let session = try XCTUnwrap(router.activeSession)
+    let simulation = try XCTUnwrap(session.simulation as? LevelOneSimulation)
+    simulation.player.health = 0
+    simulation.checkLoss()
+    await settle { router.activeSession == nil }
+    XCTAssertNotNil(router.submitHighScore(sessionID: session.identifier, initials: "bry"))
+    XCTAssertNil(router.submitHighScore(sessionID: session.identifier, initials: "XYZ"))
+    XCTAssertEqual(store.progression.highScoreEntries.count, 1)
+    XCTAssertEqual(store.progression.highScoreEntries.first?.initials, "BRY")
+    XCTAssertFalse(router.isLevelSelectUnlocked)
   }
 
-  func testEligibleOriginSurvivesTransitionAndNaturalTerminalWinRecordsOnce() async throws {
+  func testCampaignOriginSurvivesTransitionAndNaturalVictoryNeedsInitials() async throws {
     let router = AppRouter(progressionStore: store)
     router.startNewGame()
     let session = try XCTUnwrap(router.activeSession)
     let id = session.identifier
     session.advance(by: 0.05)
     let elapsed = session.elapsedTime
-    // Test-only transition shortcut; production routing and eligibility are not modified.
     session.simulation.onLevelTransition?(.init(
       sourceLevelID: .levelOne, destinationLevelID: .heroWelcome, destinationEntry: .bottom,
       carryover: .init(characterID: EntityID(), health: 3, score: 100, completedLevelIDs: [.levelOne]),
       reason: .completedForward))
     await settle { session.runtimeGeneration == 1 }
-    XCTAssertEqual(session.levelID, .heroWelcome)
     XCTAssertEqual(session.identifier, id)
     XCTAssertTrue(session.isLeaderboardEligible)
     XCTAssertEqual(session.elapsedTime, elapsed)
@@ -277,64 +411,79 @@ private func scoreEntry(_ number: Int, raw: Int, elapsed: Double, total: Int) ->
     let terminal = try XCTUnwrap(session.simulation as? HeroWelcomeSimulation)
     terminal.player.position = .init(row: 1, column: 29)
     session.advance(by: 0.05)
-    await settle { store.progression.highScoreEntries.count == 1 }
-    let entry = try XCTUnwrap(store.progression.highScoreEntries.first)
-    XCTAssertEqual(entry.id, id)
-    XCTAssertEqual(entry.elapsedTime, session.elapsedTime)
-    XCTAssertEqual(entry.rawScore, session.score)
-    XCTAssertEqual(entry.timeBonus, HighScoreScoring.timeBonus(for: session.elapsedTime))
-    guard case .results(let presented) = router.path.first else { return XCTFail("Expected Results") }
-    XCTAssertEqual(presented.leaderboardEntry, entry)
-    XCTAssertEqual(presented.leaderboardRank, 1)
+    await settle { router.activeSession == nil }
+    guard case .results(let result) = router.path.first else { return XCTFail("Expected Results") }
+    let candidate = try XCTUnwrap(result.highScoreCandidate)
+    XCTAssertEqual(candidate.timeBonus, HighScoreScoring.timeBonus(for: session.elapsedTime))
+    XCTAssertEqual(result.leaderboardRank, 1)
+    XCTAssertTrue(store.progression.highScoreEntries.isEmpty)
+    let entry = try XCTUnwrap(router.submitHighScore(sessionID: id, initials: "BRY"))
+    XCTAssertEqual(entry.totalScore, candidate.totalScore)
+    XCTAssertEqual(entry.outcome, .campaignVictory)
     router.finishGame(sessionID: id, outcome: .won)
+    XCTAssertNil(router.submitHighScore(sessionID: id, initials: "XYZ"))
     XCTAssertEqual(store.progression.highScoreEntries.count, 1)
   }
 
-  func testDirectTerminalVictoryLossAndIntermediateWinAreExcluded() async throws {
+  func testDirectVictoryUsesRawScoreAndForcedOutcomesDoNotCreateCandidates() async throws {
     let router = AppRouter(progressionStore: store)
     router.startGame(levelID: .heroWelcome)
-    let direct = try XCTUnwrap(router.activeSession)
-    let terminal = try XCTUnwrap(direct.simulation as? HeroWelcomeSimulation)
+    let session = try XCTUnwrap(router.activeSession)
+    let terminal = try XCTUnwrap(session.simulation as? HeroWelcomeSimulation)
     terminal.player.position = .init(row: 1, column: 29)
-    direct.advance(by: 0.05)
+    session.advance(by: 0.05)
     await settle { router.activeSession == nil }
+    guard case .results(let direct) = router.path.first else { return XCTFail("Expected Results") }
+    XCTAssertEqual(direct.highScoreCandidate?.outcome, .victory)
+    XCTAssertEqual(direct.highScoreCandidate?.timeBonus, 0)
+    XCTAssertEqual(direct.highScoreCandidate?.totalScore, direct.score)
     XCTAssertTrue(store.progression.highScoreEntries.isEmpty)
-    guard case .results(let directResult) = router.path.first else { return XCTFail("Expected Results") }
-    XCTAssertNil(directResult.leaderboardEntry)
-    XCTAssertNil(directResult.leaderboardRank)
-    router.startNewGame()
-    let loss = try XCTUnwrap(router.activeSession)
-    loss.lose()
-    router.finishGame(sessionID: loss.identifier, outcome: .lost)
-    XCTAssertTrue(store.progression.highScoreEntries.isEmpty)
-    router.startNewGame()
-    let intermediate = try XCTUnwrap(router.activeSession)
-    intermediate.win()
-    router.finishGame(sessionID: intermediate.identifier, outcome: .won)
+    for outcome in [GameOutcome.won, .lost] {
+      router.startNewGame()
+      let forced = try XCTUnwrap(router.activeSession)
+      outcome == .won ? forced.win() : forced.lose()
+      await settle { router.activeSession == nil }
+      guard case .results(let result) = router.path.first else { return XCTFail("Expected Results") }
+      XCTAssertNil(result.highScoreCandidate)
+    }
     XCTAssertTrue(store.progression.highScoreEntries.isEmpty)
   }
 
-  func testForcedOutcomeCannotRankEvenWithExplicitlyEligibleTestSession() async throws {
-    let router = AppRouter(progressionStore: store, forcedOutcome: .won)
-    let simulation = try HeroWelcomeSimulation()
-    let session = GameSession(simulation: simulation, isLeaderboardEligible: true)
-    router.startGame(session: session)
-    session.win() // Explicit forced outcome, independent of publisher delivery during startup.
+  func testForcedRouterOutcomeExcludedEvenWithEligibleSession() async throws {
+    let router = AppRouter(progressionStore: store, forcedOutcome: .lost)
+    router.startNewGame()
     await settle { router.activeSession == nil }
-    XCTAssertTrue(store.progression.highScoreEntries.isEmpty)
+    guard case .results(let result) = router.path.first else { return XCTFail("Expected Results") }
+    XCTAssertNil(result.highScoreCandidate)
   }
 
-  func testRetryKeepsOriginalCampaignOriginButDirectRetryStaysIneligible() throws {
+  func testIntermediateLevelAndLevelTenEndingTransitionNeverSubmitScores() async throws {
+    for (source, destination) in [(LevelID.levelOne, LevelID.levelTwo), (.levelTen, .countryRoad)] {
+      let router = AppRouter(progressionStore: store)
+      router.startGame(levelID: source)
+      let session = try XCTUnwrap(router.activeSession)
+      session.simulation.onLevelTransition?(.init(sourceLevelID: source, destinationLevelID: destination,
+        destinationEntry: .bottom,
+        carryover: .init(characterID: EntityID(), health: 3, score: 100, completedLevelIDs: [source]),
+        reason: .completedForward))
+      await settle { session.runtimeGeneration == 1 }
+      XCTAssertEqual(router.path, [.gameplay])
+      XCTAssertTrue(store.progression.highScoreEntries.isEmpty)
+      router.returnToMenu()
+      XCTAssertTrue(store.progression.highScoreEntries.isEmpty)
+    }
+  }
+
+  func testInitialLoadRetryKeepsVictoryOriginAndNeverCreatesCandidate() throws {
     for isCampaign in [true, false] {
-      let factory = FailFirstScoreRuntimeFactory()
-      let router = AppRouter(progressionStore: store, runtimeFactory: factory)
+      let router = AppRouter(progressionStore: store, runtimeFactory: FailFirstScoreRuntimeFactory())
       if isCampaign { router.startNewGame() } else { router.startGame(levelID: .levelOne) }
-      guard case .gameLoadingFailure(let failure) = router.path.first else {
-        return XCTFail("Expected initial load failure")
-      }
+      guard case .gameLoadingFailure(let failure) = router.path.first else { return XCTFail("Expected failure") }
+      XCTAssertTrue(store.progression.highScoreEntries.isEmpty)
       router.retryLoading(failure)
       XCTAssertEqual(try XCTUnwrap(router.activeSession).isLeaderboardEligible, isCampaign)
       router.returnToMenu()
+      XCTAssertTrue(store.progression.highScoreEntries.isEmpty)
     }
   }
 

@@ -5,7 +5,7 @@ struct HighScoresView: View {
 
   var body: some View {
     AppSecondaryScreen(title: "High Scores") {
-      Text("Best local campaign runs").appTextStyle(.h3)
+      Text("Best local scores").appTextStyle(.h3)
         .foregroundStyle(AppTheme.Colors.textSecondary)
       AppCard {
         Text(HighScoreScoring.explanation).appTextStyle(.caption)
@@ -17,19 +17,19 @@ struct HighScoresView: View {
           VStack(alignment: .leading, spacing: AppTheme.Spacing.md) {
             Image(systemName: "trophy.fill").appTextStyle(.h1)
               .foregroundStyle(AppTheme.Colors.accent).accessibilityHidden(true)
-            Text("No completed runs yet.").appTextStyle(.h2).accessibilityAddTraits(.isHeader)
-            Text("Finish the campaign from Play to set your first high score.")
+            Text("No scores yet.").appTextStyle(.h2).accessibilityAddTraits(.isHeader)
+            Text("Finish a game and enter your initials to set your first high score.")
               .appTextStyle(.paragraph).foregroundStyle(AppTheme.Colors.textSecondary)
           }
           .frame(maxWidth: .infinity, alignment: .leading)
         }
         .accessibilityIdentifier("highScoresEmptyState")
       } else {
-        ForEach(Array(entries.enumerated()), id: \.element.id) { index, entry in
+        ForEach(Array(HighScoreScoring.topEntries(entries).enumerated()), id: \.element.id) { index, entry in
           HighScoreRow(rank: index + 1, entry: entry)
         }
       }
-      Text("Stored on this device. Only full campaign wins started from Play count.")
+      Text("Your best \(HighScoreScoring.maximumEntries) scores are stored on this device.")
         .appTextStyle(.caption).foregroundStyle(AppTheme.Colors.textMuted)
     }
     .accessibilityIdentifier("highScoresScreen")
@@ -42,7 +42,7 @@ struct HighScoreRow: View {
   @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
   var accessibilitySummary: String {
-    "Rank \(rank). Final score \(entry.totalScore). Game score \(entry.rawScore). "
+    "Rank \(rank). \(entry.initials == "---" ? "Unknown initials" : entry.initials). \(entry.context). Final score \(entry.totalScore). Game score \(entry.rawScore). "
       + "Time bonus \(entry.timeBonus). Time \(GameDurationFormatter.spokenString(for: entry.elapsedTime))."
   }
 
@@ -71,6 +71,9 @@ struct HighScoreRow: View {
   @ViewBuilder private var heading: some View {
     Text("#\(rank)").appTextStyle(.h3)
       .foregroundStyle(rank == 1 ? AppTheme.Colors.highlight : AppTheme.Colors.accent)
+    Text(entry.initials).appTextStyle(.h1).fontDesign(.monospaced)
+      .lineLimit(1).minimumScaleFactor(0.7)
+      .foregroundStyle(AppTheme.Colors.accent)
     VStack(alignment: .leading, spacing: AppTheme.Spacing.xs) {
       Text("FINAL SCORE").appTextStyle(.caption).foregroundStyle(AppTheme.Colors.textSecondary)
       Text("\(entry.totalScore.formatted()) pts").appTextStyle(.h2).monospacedDigit()
@@ -79,6 +82,7 @@ struct HighScoreRow: View {
   }
 
   @ViewBuilder private var details: some View {
+    Text(entry.context).appTextStyle(.caption).foregroundStyle(AppTheme.Colors.textSecondary)
     HighScoreDetail(title: "Game Score", value: entry.rawScore.formatted())
     HighScoreDetail(title: "Time Bonus", value: "+\(entry.timeBonus.formatted())")
     HighScoreDetail(title: "Time", value: GameDurationFormatter.displayString(for: entry.elapsedTime),
