@@ -48,14 +48,16 @@ struct GameplayView: View {
       let compact = geometry.size.height < 700 || geometry.size.width < 360
       VStack(spacing: compact ? 5 : 8) {
         hud
-        ZStack {
-          GameSceneView(scene: scene).aspectRatio(1, contentMode: .fit)
-            .background(AppTheme.Colors.background).accessibilityHidden(true)
-            .accessibilityIdentifier("gameBoard")
-          GameplayFeedbackOverlay(
-            feedback: session.uiSnapshot.feedback,
-            reducedMotion: session.configuration.reducedMotion || systemReducedMotion)
-        }
+        GameSceneView(scene: scene).aspectRatio(1, contentMode: .fit)
+          .background(AppTheme.Colors.background).accessibilityHidden(true)
+          .accessibilityIdentifier("gameBoard")
+          .overlay {
+            ArcadeFeedbackOverlay(
+              feedback: session.uiSnapshot.feedback,
+              gridSize: session.runtime.presentation.logicalGridSize,
+              reducedMotion: session.configuration.reducedMotion || systemReducedMotion)
+              .id(session.runtimeGeneration)
+          }
         .aspectRatio(1, contentMode: .fit)
         .background(AppTheme.Colors.background)
         .overlay { Rectangle().stroke(AppTheme.Colors.divider.opacity(0.5), lineWidth: 1)
@@ -645,42 +647,6 @@ struct VirtualJoystickView: View {
     case .down: .init(width: 0, height: size / 2 - GameplayControlMetrics.markerInset(for: size))
     case .left: .init(width: -(size / 2 - GameplayControlMetrics.markerInset(for: size)), height: 0)
     case .right: .init(width: size / 2 - GameplayControlMetrics.markerInset(for: size), height: 0)
-    }
-  }
-}
-
-struct GameplayFeedbackOverlay: View {
-  let feedback: [GameplayFeedback]
-  let reducedMotion: Bool
-  var body: some View {
-    VStack(spacing: 6) {
-      ForEach(Array(feedback.enumerated()), id: \.element.id) { _, event in
-        Text(event.message)
-          .appTextStyle(.caption).fontWeight(.semibold).foregroundStyle(feedbackColor(for: event))
-          .multilineTextAlignment(.center)
-          .padding(.horizontal, 10).padding(.vertical, 6)
-          .background(AppTheme.Colors.backgroundElevated.opacity(0.96), in: Capsule())
-          .overlay { Capsule().stroke(feedbackColor(for: event).opacity(0.35), lineWidth: 1) }
-          .shadow(color: AppTheme.Colors.shadow, radius: 4, y: 2)
-          .transition(reducedMotion ? .opacity : .opacity.combined(with: .move(edge: .top)))
-          .accessibilityLabel(event.accessibilityAnnouncement)
-      }
-      Spacer()
-    }
-    .padding(.top, 12).padding(.horizontal, 8)
-    .allowsHitTesting(false).animation(
-      reducedMotion ? nil : .easeOut(duration: 0.2), value: feedback.map(\.id))
-  }
-  private func feedbackColor(for event: GameplayFeedback) -> Color {
-    switch event.kind {
-    case .coinCollected, .chestReward, .healthItemCollected, .mineDestroyed, .enemyHit:
-      return AppTheme.Colors.accent
-    case .healthAlreadyFull:
-      return AppTheme.Colors.text
-    case .healthLost:
-      return AppTheme.Colors.danger
-    case .levelCompleted, .enemyDefeated:
-      return AppTheme.Colors.success
     }
   }
 }
