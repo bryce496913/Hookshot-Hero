@@ -7,8 +7,8 @@ struct GameResult: Hashable, Sendable {
     let score: Int
     let elapsedTime: TimeInterval
     let outcome: GameOutcome
-    /// Presentation snapshot attached only after an eligible terminal result is recorded.
-    var leaderboardEntry: HighScoreEntry? = nil
+    /// Unsaved terminal score and provisional insertion rank; never stores a mutable repository.
+    var highScoreCandidate: HighScoreCandidate? = nil
     var leaderboardRank: Int? = nil
 }
 

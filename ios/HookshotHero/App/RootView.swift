@@ -39,7 +39,9 @@ struct RootView: View {
                 case .gameLoadingFailure(let failure):
                     GameLoadingFailureView(failure: failure, retry: { router.retryLoading(failure) }, returnToMenu: router.returnToMenu)
                 case .results(let result):
-                    ResultsView(result: result, returnToMenu: router.returnToMenu)
+                    ResultsView(result: result, returnToMenu: router.returnToMenu,
+                        submitScore: { router.submitHighScore(sessionID: result.sessionID, initials: $0) },
+                        savePending: router.highScoreSavePending, retrySave: router.retryHighScoreSave)
                 }
             }
         }
@@ -54,7 +56,11 @@ struct RootView: View {
         let arguments = ProcessInfo.processInfo.arguments
         guard !initializedStateFixture, arguments.contains("--ui-testing") else { return }
         initializedStateFixture = true
-        if arguments.contains("--preview-loading-failure") {
+        if arguments.contains("--score-results-fixture=qualifying") {
+            router.presentHighScoreFixture(qualifying: true)
+        } else if arguments.contains("--score-results-fixture=nonqualifying") {
+            router.presentHighScoreFixture(qualifying: false)
+        } else if arguments.contains("--preview-loading-failure") {
             // Exercise the real unsupported request/retry path; never substitute another level.
             router.startGame(levelID: LevelID(rawValue: "ui-test-unsupported-level"))
         } else if arguments.contains("--preview-session-unavailable") {
