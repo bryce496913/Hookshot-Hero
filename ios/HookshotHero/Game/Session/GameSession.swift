@@ -42,6 +42,8 @@ enum PauseReason: Equatable, Sendable { case user, applicationLifecycle }
 
 @MainActor final class GameSession: ObservableObject {
   let identifier: UUID
+  /// Origin metadata, immutable across runtime/level replacement. Direct sessions default to false.
+  let isLeaderboardEligible: Bool
   let configuration: GameConfiguration
   @Published private(set) var runtimeGeneration: Int = 0
   private(set) var runtime: GameLevelRuntime
@@ -64,9 +66,10 @@ enum PauseReason: Equatable, Sendable { case user, applicationLifecycle }
     identifier: UUID = UUID(), missionID: MissionID? = nil,
     configuration: GameConfiguration = .init(reducedMotion: false, controlHintsEnabled: true),
     simulation: any GameSimulation, runtime suppliedRuntime: GameLevelRuntime? = nil,
-    publishesDiagnosticPosition: Bool = false
+    publishesDiagnosticPosition: Bool = false, isLeaderboardEligible: Bool = false
   ) {
     self.identifier = identifier
+    self.isLeaderboardEligible = isLeaderboardEligible
     self.missionID = missionID
     self.configuration = configuration
     if let suppliedRuntime {
@@ -87,12 +90,13 @@ enum PauseReason: Equatable, Sendable { case user, applicationLifecycle }
   convenience init(
     identifier: UUID = UUID(), missionID: MissionID? = nil,
     configuration: GameConfiguration = .init(reducedMotion: false, controlHintsEnabled: true),
-    runtime: GameLevelRuntime, publishesDiagnosticPosition: Bool = false
+    runtime: GameLevelRuntime, publishesDiagnosticPosition: Bool = false,
+    isLeaderboardEligible: Bool = false
   ) {
     self.init(
       identifier: identifier, missionID: missionID, configuration: configuration,
       simulation: runtime.simulation, runtime: runtime,
-      publishesDiagnosticPosition: publishesDiagnosticPosition)
+      publishesDiagnosticPosition: publishesDiagnosticPosition, isLeaderboardEligible: isLeaderboardEligible)
   }
 
   var score: Int { simulation.finalStatus.score }
