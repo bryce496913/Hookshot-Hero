@@ -35,6 +35,7 @@ struct AppGameLoadingLogger: GameLoadingLogging {
   var isLevelSelectUnlocked: Bool {
     progressionStore.progression.completedLevelIDs.contains(.levelTen)
   }
+  var highScoreEntries: [HighScoreEntry] { progressionStore.progression.highScoreEntries }
   private var sessionObservation: AnyCancellable?
   private var completedSessionIDs: Set<UUID> = []
   private let forcedOutcome: GameOutcome?
@@ -182,6 +183,7 @@ struct AppGameLoadingLogger: GameLoadingLogging {
   }
   func showSettings() { path.append(.settings) }
   func showHelp() { path.append(.help) }
+  func showHighScores() { path.append(.highScores) }
   func dismiss() { if !path.isEmpty { path.removeLast() } }
   func applicationDidBecomeInactive() { activeSession?.applicationDidBecomeInactive() }
   func applicationDidEnterBackground() {
@@ -202,11 +204,16 @@ struct AppGameLoadingLogger: GameLoadingLogging {
     let expected: GameSessionState = outcome == .won ? .won : .lost
     guard session.state == expected else { return }
     completedSessionIDs.insert(sessionID)
-    let result = GameResult(
+    var result = GameResult(
       sessionID: sessionID, levelID: session.levelID, missionID: session.missionID,
       score: session.score, elapsedTime: session.elapsedTime, outcome: outcome)
-    progressionStore.record(result: result,
-                            leaderboardEligible: session.isLeaderboardEligible && forcedOutcome == nil)
+    let eligible = session.isLeaderboardEligible && forcedOutcome == nil
+      && outcome == .won && session.levelID == .heroWelcome
+    progressionStore.record(result: result, leaderboardEligible: eligible)
+    if eligible, let entry = HighScoreEntry.completedRun(result) {
+      result.leaderboardEntry = entry
+      result.leaderboardRank = highScoreEntries.firstIndex(where: { $0.id == entry.id }).map { $0 + 1 }
+    }
     endActiveSession(expectedID: sessionID)
     path = [.results(result)]
   }

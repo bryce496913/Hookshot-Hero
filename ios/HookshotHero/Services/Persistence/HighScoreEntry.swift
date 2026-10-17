@@ -1,7 +1,7 @@
 import Foundation
 
 /// Local completed-run data only; the UUID identifies a run, not a player or device.
-struct HighScoreEntry: Codable, Equatable, Sendable, Identifiable {
+struct HighScoreEntry: Codable, Hashable, Sendable, Identifiable {
   let id: UUID
   let rawScore: Int
   let elapsedTime: TimeInterval
@@ -23,6 +23,12 @@ enum HighScoreScoring {
   static let secondsPerBonusPoint = 2
   static let maximumEntries = 10
   static let maximumTimeBonus = parSeconds / secondsPerBonusPoint
+
+  static var explanation: String {
+    let unit = secondsPerBonusPoint == 1 ? "second" : "seconds"
+    return "Final score combines your game score with a speed bonus. Earn 1 bonus point for every "
+      + "\(secondsPerBonusPoint) \(unit) under \(GameDurationFormatter.displayString(for: Double(parSeconds)))."
+  }
 
   /// Round UP for ranking (unlike the floored visual clock), so fractions never gain bonus time.
   static func timeBonus(for elapsedTime: TimeInterval) -> Int {

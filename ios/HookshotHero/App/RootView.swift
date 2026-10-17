@@ -16,7 +16,8 @@ struct RootView: View {
                     router.startGame(levelID: levelID)
                 },
                 settings: router.showSettings,
-                help: router.showHelp
+                help: router.showHelp,
+                highScores: router.showHighScores
             )
             .navigationDestination(for: AppRoute.self) { route in
                 switch route {
@@ -33,6 +34,8 @@ struct RootView: View {
                     SettingsView(store: settingsStore, dismiss: router.dismiss)
                 case .help:
                     HelpView(dismiss: router.dismiss)
+                case .highScores:
+                    HighScoresView(entries: router.highScoreEntries)
                 case .gameLoadingFailure(let failure):
                     GameLoadingFailureView(failure: failure, retry: { router.retryLoading(failure) }, returnToMenu: router.returnToMenu)
                 case .results(let result):

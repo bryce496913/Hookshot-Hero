@@ -32,7 +32,30 @@ struct ResultsView: View {
         .frame(maxWidth: .infinity)
         .padding(.vertical, AppTheme.Spacing.md)
       }
-      if dynamicTypeSize.isAccessibilitySize {
+      if let entry = rankedEntry {
+        AppCard(style: .elevated) {
+          VStack(alignment: .leading, spacing: AppTheme.Spacing.md) {
+            HighScoreDetail(title: "Game Score", value: entry.rawScore.formatted(),
+                            identifier: "resultsScore", spokenValue: String(entry.rawScore))
+            HighScoreDetail(title: "Time Bonus", value: "+\(entry.timeBonus.formatted())",
+                            identifier: "resultsTimeBonus", spokenValue: String(entry.timeBonus))
+            AppDivider()
+            Text("FINAL SCORE").appTextStyle(.caption).foregroundStyle(AppTheme.Colors.textSecondary)
+              .accessibilityHidden(true)
+            Text(entry.totalScore.formatted()).appTextStyle(.h1).monospacedDigit()
+              .fixedSize(horizontal: false, vertical: true)
+              .accessibilityLabel("Final score").accessibilityValue(String(entry.totalScore))
+              .accessibilityIdentifier("resultsFinalScore")
+          }
+          .frame(maxWidth: .infinity, alignment: .leading)
+        }
+        timeStat
+        if let rank = result.leaderboardRank, rank > 0, rank <= HighScoreScoring.maximumEntries {
+          Text(rank == 1 ? "New High Score" : "Top \(HighScoreScoring.maximumEntries) Run")
+            .appTextStyle(.h3).foregroundStyle(AppTheme.Colors.accent)
+            .accessibilityIdentifier("resultsRankingStatus")
+        }
+      } else if dynamicTypeSize.isAccessibilitySize {
         VStack(spacing: AppTheme.Spacing.md) { stats }
       } else {
         ViewThatFits(in: .horizontal) {
@@ -51,10 +74,18 @@ struct ResultsView: View {
     }
   }
 
+  private var rankedEntry: HighScoreEntry? {
+    result.outcome == .won && result.levelID == .heroWelcome ? result.leaderboardEntry : nil
+  }
+
   @ViewBuilder private var stats: some View {
     ResultStat(title: "SCORE", value: result.score.formatted(),
                accessibilityLabel: "Final score", accessibilityValue: String(result.score),
                identifier: "resultsScore")
+    timeStat
+  }
+
+  private var timeStat: some View {
     ResultStat(title: "TIME", value: elapsed,
                accessibilityLabel: "Elapsed time",
                accessibilityValue: GameDurationFormatter.spokenString(for: result.elapsedTime),
