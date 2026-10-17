@@ -239,6 +239,30 @@ private struct HealthIcon: View {
   }
 }
 
+/// Presentation geometry shared by both thumb controls. Input thresholds/timing stay controller-owned.
+enum GameplayControlMetrics {
+  static let compactDiameter: CGFloat = 132
+  static let regularDiameter: CGFloat = 148
+  static let knobRatio: CGFloat = 0.44
+
+  static func diameter(compact: Bool) -> CGFloat {
+    compact ? compactDiameter : regularDiameter
+  }
+
+  static func knobDiameter(for diameter: CGFloat) -> CGFloat {
+    (diameter * knobRatio).rounded()
+  }
+
+  static func usableRadius(for diameter: CGFloat) -> CGFloat {
+    (diameter - knobDiameter(for: diameter)) / 2
+  }
+
+  static func markerSize(for diameter: CGFloat) -> CGFloat { (diameter * 0.09).rounded() }
+  static func markerInset(for diameter: CGFloat) -> CGFloat { diameter * 0.12 }
+  static func minimumGap(compact: Bool) -> CGFloat { compact ? 16 : 24 }
+  static func horizontalPadding(compact: Bool) -> CGFloat { compact ? 10 : 12 }
+}
+
 struct GameControlsView: View {
   let canMove: Bool
   let canGrapple: Bool
@@ -249,13 +273,13 @@ struct GameControlsView: View {
   let diagnosticPosition: GridPosition?
   private let haptics: any GameControlHaptics = UIKitGameControlHaptics()
   var body: some View {
-    HStack(alignment: .center, spacing: compact ? 12 : 24) {
+    HStack(alignment: .center, spacing: 0) {
       leadingControl
-      Spacer(minLength: compact ? 12 : 32)
+      Spacer(minLength: GameplayControlMetrics.minimumGap(compact: compact))
       trailingControl
     }
     .frame(maxWidth: .infinity)
-    .padding(.horizontal, compact ? 10 : 16)
+    .padding(.horizontal, GameplayControlMetrics.horizontalPadding(compact: compact))
     .padding(.vertical, AppTheme.Spacing.xs)
     .accessibilityElement(children: .contain)
     .accessibilityIdentifier("gameControlDock")
@@ -281,7 +305,7 @@ struct GameControlsView: View {
   private var joystickControl: some View {
     dockControl(hint: "Move", identifier: "moveControlHint") {
       VirtualJoystickView(
-        input: inputController, isEnabled: canMove, size: compact ? 116 : 124,
+        input: inputController, isEnabled: canMove, size: GameplayControlMetrics.diameter(compact: compact),
         haptics: haptics)
     }
   }
@@ -289,7 +313,7 @@ struct GameControlsView: View {
   private var grappleControl: some View {
     dockControl(hint: "Grapple", identifier: "grappleControlHint") {
       GrappleControlView(
-        input: inputController, isEnabled: canGrapple, size: compact ? 80 : 88,
+        input: inputController, isEnabled: canGrapple, size: GameplayControlMetrics.diameter(compact: compact),
         haptics: haptics)
     }
   }
@@ -304,6 +328,7 @@ struct GameControlsView: View {
           .fixedSize(horizontal: false, vertical: true).accessibilityIdentifier(identifier)
       }
     }
+    .frame(width: GameplayControlMetrics.diameter(compact: compact))
   }
 }
 
@@ -514,7 +539,7 @@ struct VirtualJoystickController {
 }
 
 struct VirtualJoystickView: View {
-  private static let knobSize: CGFloat = 54
+  private var knobSize: CGFloat { GameplayControlMetrics.knobDiameter(for: size) }
   @Environment(\.scenePhase) private var scenePhase
   @Environment(\.accessibilityReduceMotion) private var reduceMotion
   @Environment(\.appReducedMotion) private var appReducedMotion
@@ -545,7 +570,7 @@ struct VirtualJoystickView: View {
           controller.state.activeDirection == nil
             ? AppTheme.Colors.surfaceElevated : AppTheme.Colors.accent
         )
-        .frame(width: Self.knobSize, height: Self.knobSize)
+        .frame(width: knobSize, height: knobSize)
         .overlay(Circle().stroke(AppTheme.Colors.text.opacity(0.35), lineWidth: 1))
         .shadow(color: AppTheme.Colors.shadow, radius: 4, y: 2)
         .offset(x: controller.state.displacement.dx, y: controller.state.displacement.dy)
@@ -580,7 +605,7 @@ struct VirtualJoystickView: View {
   private var cardinalMarkers: some View {
     ForEach(GridDirection.allCases, id: \.rawValue) { direction in
       Image(systemName: symbol(for: direction))
-        .font(.system(size: 10, weight: .bold))
+        .font(.system(size: GameplayControlMetrics.markerSize(for: size), weight: .bold))
         .foregroundStyle(
           controller.state.activeDirection == direction
             ? AppTheme.Colors.highlight : AppTheme.Colors.textMuted
@@ -604,7 +629,7 @@ struct VirtualJoystickView: View {
   private func update(_ displacement: CGVector) {
     dispatch(
       controller.update(
-        displacement: displacement, usableRadius: (size - Self.knobSize) / 2,
+        displacement: displacement, usableRadius: GameplayControlMetrics.usableRadius(for: size),
         isEnabled: isEnabled))
   }
   private func cancel() {
@@ -616,10 +641,10 @@ struct VirtualJoystickView: View {
   private func symbol(for direction: GridDirection) -> String { "arrow.\(direction.rawValue)" }
   private func markerOffset(for direction: GridDirection) -> CGSize {
     switch direction {
-    case .up: .init(width: 0, height: -(size / 2 - 15))
-    case .down: .init(width: 0, height: size / 2 - 15)
-    case .left: .init(width: -(size / 2 - 15), height: 0)
-    case .right: .init(width: size / 2 - 15, height: 0)
+    case .up: .init(width: 0, height: -(size / 2 - GameplayControlMetrics.markerInset(for: size)))
+    case .down: .init(width: 0, height: size / 2 - GameplayControlMetrics.markerInset(for: size))
+    case .left: .init(width: -(size / 2 - GameplayControlMetrics.markerInset(for: size)), height: 0)
+    case .right: .init(width: size / 2 - GameplayControlMetrics.markerInset(for: size), height: 0)
     }
   }
 }
