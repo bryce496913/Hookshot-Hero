@@ -50,6 +50,7 @@ import Foundation
   var worldState = WorldCarryoverState()
   var onStatusChange: ((PlayerStatusSnapshot) -> Void)?
   var onUISnapshotChange: ((GameplayUISnapshot) -> Void)?
+  var onAudioEvent: ((GameAudioEvent) -> Void)?
   var onOutcome: ((GameOutcome) -> Void)?
   var onLevelTransition: ((LevelTransitionRequest) -> Void)?
   var onDialogue: ((String) -> Void)?
@@ -215,6 +216,7 @@ import Foundation
   func dispose() {
     cancelAllInput()
     onUISnapshotChange = nil
+    onAudioEvent = nil
     onOutcome = nil
     onLevelTransition = nil
     onDialogue = nil
@@ -272,6 +274,7 @@ import Foundation
     }
     player.position = next
     player.lastSafePosition = next
+    onAudioEvent?(.playerStep)
     interact(region, hooked: false)
     publishStatusIfChanged()
   }
@@ -289,6 +292,7 @@ import Foundation
     movementAccumulator = 0
     player.hookshot = .init(
       phase: .extending, origin: player.position, head: player.position, direction: player.facing)
+    onAudioEvent?(.grappleFired)
   }
   private func updateHook(_ dt: Double) {
     guard outcome == nil, player.hookshot.phase != .idle else { return }
@@ -581,6 +585,7 @@ import Foundation
   @discardableResult func emit(_ kind: GameplayFeedbackKind, at coordinate: GridPosition?) -> UUID {
     guard outcome == nil else { return UUID() }
     let id = UUID()
+    if let event = GameAudioEvent.feedback(kind) { onAudioEvent?(event) }
     feedbackEvents.append(
       .init(
         id: id, kind: kind, coordinate: coordinate, createdAt: simulationTime, duration: 2.4))

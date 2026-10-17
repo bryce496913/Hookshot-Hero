@@ -36,6 +36,31 @@ import XCTest
     defaults.set(Data("not-json".utf8), forKey: key)
     XCTAssertEqual(repository.load(), .defaults)
   }
+  func testAudioDefaultsLegacyFieldsAndIndependentPersistence() {
+    let repository = UserDefaultsSettingsRepository(defaults: defaults, key: key)
+    XCTAssertTrue(repository.load().musicEnabled)
+    XCTAssertTrue(repository.load().soundEffectsEnabled)
+    defaults.set(Data(#"{"reducedMotion":true,"controlHintsEnabled":false,"controlLayout":"leftHanded"}"#.utf8), forKey: key)
+    let legacy = repository.load()
+    XCTAssertTrue(legacy.musicEnabled)
+    XCTAssertTrue(legacy.soundEffectsEnabled)
+    XCTAssertTrue(legacy.reducedMotion)
+    XCTAssertFalse(legacy.controlHintsEnabled)
+    XCTAssertEqual(legacy.controlLayout, .leftHanded)
+    defaults.set(Data(#"{"musicEnabled":"bad","soundEffectsEnabled":false,"reducedMotion":true}"#.utf8), forKey: key)
+    XCTAssertTrue(repository.load().musicEnabled)
+    XCTAssertFalse(repository.load().soundEffectsEnabled)
+    defaults.set(Data(#"{"musicEnabled":false,"soundEffectsEnabled":"bad","controlHintsEnabled":false}"#.utf8), forKey: key)
+    XCTAssertFalse(repository.load().musicEnabled)
+    XCTAssertTrue(repository.load().soundEffectsEnabled)
+    XCTAssertFalse(repository.load().controlHintsEnabled)
+    var settings = legacy
+    settings.musicEnabled = false
+    settings.soundEffectsEnabled = false
+    repository.save(settings)
+    XCTAssertEqual(UserDefaultsSettingsRepository(defaults: defaults, key: key).load(), settings)
+  }
+
   func testVersionInformationReadsBundleValues() {
     XCTAssertEqual(
       AppVersionInformation.displayText(),

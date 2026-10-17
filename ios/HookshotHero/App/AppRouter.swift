@@ -31,6 +31,8 @@ struct AppGameLoadingLogger: GameLoadingLogging {
   @Published var path: [AppRoute] = []
   @Published private(set) var activeSession: GameSession?
   private let progressionStore: ProgressionStore
+  private let audioService: any GameAudioServicing
+  private var audioSettingsObservation: AnyCancellable?
   private var progressionObservation: AnyCancellable?
   var isLevelSelectUnlocked: Bool {
     progressionStore.progression.completedLevelIDs.contains(.levelTen)
@@ -53,9 +55,11 @@ struct AppGameLoadingLogger: GameLoadingLogging {
     simulationFactory: any GameSimulationFactory = DefaultGameSimulationFactory(),
     runtimeFactory: (any GameLevelRuntimeFactory)? = nil,
     levelSeed: UInt64? = nil, startConfiguration: GameStartConfiguration = .current,
-    logger: any GameLoadingLogging = AppGameLoadingLogger()
+    logger: any GameLoadingLogging = AppGameLoadingLogger(),
+    audioService: (any GameAudioServicing)? = nil
   ) {
     self.progressionStore = progressionStore
+    self.audioService = audioService ?? SilentGameAudioService.shared
     self.forcedOutcome = forcedOutcome
     self.runtimeFactory =
       runtimeFactory ?? DefaultGameLevelRuntimeFactory(simulationFactory: simulationFactory)
@@ -100,7 +104,8 @@ struct AppGameLoadingLogger: GameLoadingLogging {
       }
       let session = GameSession(
         configuration: gameConfiguration, runtime: runtime,
-        publishesDiagnosticPosition: levelSeed != nil, isLeaderboardEligible: leaderboardEligible)
+        publishesDiagnosticPosition: levelSeed != nil, isLeaderboardEligible: leaderboardEligible,
+        audioService: audioService)
       guard session.initializeWorld(), session.start() else {
         session.dispose()
         handle(
@@ -155,6 +160,7 @@ struct AppGameLoadingLogger: GameLoadingLogging {
     _ error: GameLoadingError, levelID: LevelID, isRetry: Bool, requestID: GameLoadingRequestID,
     transitionRequest: LevelTransitionRequest? = nil, clearActiveSession: Bool = true
   ) {
+    audioService.stopAll()
     if clearActiveSession {
       sessionObservation?.cancel()
       sessionObservation = nil
@@ -183,17 +189,29 @@ struct AppGameLoadingLogger: GameLoadingLogging {
     }
     path = [.gameplay]
   }
+  func menuDidAppear() { audioService.stopAll() }
   func showSettings() { path.append(.settings) }
   func showHelp() { path.append(.help) }
   func showHighScores() { path.append(.highScores) }
   func dismiss() { if !path.isEmpty { path.removeLast() } }
-  func applicationDidBecomeInactive() { activeSession?.applicationDidBecomeInactive() }
+  func bindAudioSettings(_ store: SettingsStore) {
+    audioSettingsObservation = store.$settings.sink { [weak self] in self?.audioService.updateSettings($0) }
+  }
+  func applicationDidBecomeInactive() {
+    audioService.setApplicationActive(false)
+    activeSession?.applicationDidBecomeInactive()
+  }
   func applicationDidEnterBackground() {
+    audioService.setApplicationActive(false)
     activeSession?.applicationDidBecomeInactive()
     progressionStore.flushPendingSave()
   }
-  func applicationDidBecomeActive() { activeSession?.applicationDidBecomeActive() }
+  func applicationDidBecomeActive() {
+    audioService.setApplicationActive(true)
+    activeSession?.applicationDidBecomeActive()
+  }
   func returnToMenu() {
+    audioService.stopAll()
     pendingStartEligibility = false
     loadingRequestID = nil
     endActiveSession(expectedID: activeSession?.identifier)

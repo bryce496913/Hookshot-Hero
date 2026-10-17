@@ -10,6 +10,7 @@ import Foundation
   var renderSnapshot: GameRenderSnapshot { get }
   var inputController: GameInputController { get }
   var onUISnapshotChange: ((GameplayUISnapshot) -> Void)? { get set }
+  var onAudioEvent: ((GameAudioEvent) -> Void)? { get set }
   var onOutcome: ((GameOutcome) -> Void)? { get set }
   var onLevelTransition: ((LevelTransitionRequest) -> Void)? { get set }
   var onDialogue: ((String) -> Void)? { get set }
@@ -18,6 +19,14 @@ import Foundation
   func setPaused(_ paused: Bool)
   func cancelAllInput()
   func dispose()
+}
+
+// Non-production simulation fixtures without audio remain source-compatible.
+extension GameSimulation {
+  var onAudioEvent: ((GameAudioEvent) -> Void)? {
+    get { nil }
+    set { }
+  }
 }
 
 enum GameLoadingError: LocalizedError, Equatable, Sendable {

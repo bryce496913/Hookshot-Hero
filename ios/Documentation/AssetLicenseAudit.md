@@ -46,3 +46,7 @@ The target build phase, `LevelOneTextureCatalog`, every `LevelAssetManifest`, an
 ## Modification and redistribution follow-up
 
 The stored sprite sheets (`lidia.png`, `barrels.png`, `bomb.png`, `chests.png`, enemy sheets, terrain/water/castle/NPC sheets) are cropped at runtime. Dungeon wall, door, and chest-face PNGs appear extracted or repacked, but their editing history is unknown. For every verified upstream match, the reviewer must record whether the checked-in bytes are unchanged, cropped, resized, extended, or repacked; preserve required attribution; bundle the authoritative license text when its terms require it; and satisfy any share-alike, source, or corresponding-source requirement. Until all rows are resolved, **DISTRIBUTION REMAINS BLOCKED**.
+
+## 2026-10-17 audio extension
+
+The application now bundles all 22 original Java WAVs. The previous no-audio scope statement applied only to the 2026-10-02 baseline. Current browser checks reached the audio source pages, but exact legacy-WAV provenance and distribution clearance remain unresolved. See [AudioLicenseAudit.md](AudioLicenseAudit.md), [AudioPortAudit.md](AudioPortAudit.md), the updated shipped-target inventory and AudioAssetHashes.tsv. No prior artwork blocker has been cleared by this extension.
