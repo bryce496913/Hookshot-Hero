@@ -214,6 +214,9 @@ final class HookshotHeroUITests: XCTestCase {
     XCTAssertTrue(joystick.waitForExistence(timeout: 5))
     XCTAssertTrue(grapple.waitForExistence(timeout: 5))
     XCTAssertGreaterThan(joystick.frame.minX, grapple.frame.minX)
+    XCTAssertEqual(joystick.frame.width, grapple.frame.width, accuracy: 1)
+    XCTAssertEqual(joystick.frame.height, grapple.frame.height, accuracy: 1)
+    XCTAssertFalse(joystick.frame.intersects(grapple.frame))
     XCTAssertEqual(joystick.label, "Movement joystick")
     XCTAssertEqual(grapple.label, "Fire grapple")
   }
@@ -397,13 +400,19 @@ final class HookshotHeroUITests: XCTestCase {
       XCTAssertTrue(element.isHittable)
     }
 
-    XCTAssertGreaterThanOrEqual(joystick.frame.width, 116)
-    XCTAssertGreaterThanOrEqual(joystick.frame.height, 116)
-    XCTAssertGreaterThanOrEqual(grapple.frame.width, 76)
-    XCTAssertGreaterThanOrEqual(grapple.frame.height, 76)
+    XCTAssertTrue(abs(joystick.frame.width - 132) < 1 || abs(joystick.frame.width - 148) < 1)
+    XCTAssertEqual(joystick.frame.width, joystick.frame.height, accuracy: 1)
+    XCTAssertEqual(grapple.frame.width, joystick.frame.width, accuracy: 1)
+    XCTAssertEqual(grapple.frame.height, joystick.frame.height, accuracy: 1)
     XCTAssertFalse(joystick.frame.intersects(grapple.frame))
     XCTAssertFalse(board.frame.intersects(dock.frame))
-    XCTAssertGreaterThan(grapple.frame.minX - joystick.frame.maxX, 44)
+    let minimumGap: CGFloat = joystick.frame.width < 140 ? 16 : 24
+    XCTAssertGreaterThanOrEqual(grapple.frame.minX - joystick.frame.maxX, minimumGap)
+    let window = app.windows.firstMatch.frame
+    XCTAssertGreaterThanOrEqual(joystick.frame.minX, window.minX)
+    XCTAssertLessThanOrEqual(grapple.frame.maxX, window.maxX)
+    XCTAssertGreaterThanOrEqual(board.frame.width, 240)
+    XCTAssertGreaterThanOrEqual(board.frame.height, 240)
     XCTAssertGreaterThanOrEqual(app.windows.firstMatch.frame.maxY - dock.frame.maxY, 20)
   }
   func testLargestDynamicTypeKeepsBothThumbControlsHittableAndSeparated() {
@@ -420,6 +429,9 @@ final class HookshotHeroUITests: XCTestCase {
     XCTAssertTrue(joystick.isHittable)
     XCTAssertTrue(grapple.isHittable)
     XCTAssertFalse(joystick.frame.intersects(grapple.frame))
+    XCTAssertGreaterThanOrEqual(joystick.frame.width, 132)
+    XCTAssertEqual(joystick.frame.width, grapple.frame.width, accuracy: 1)
+    XCTAssertEqual(joystick.frame.height, grapple.frame.height, accuracy: 1)
   }
   func testSecondGameStartsClean() {
     launch()

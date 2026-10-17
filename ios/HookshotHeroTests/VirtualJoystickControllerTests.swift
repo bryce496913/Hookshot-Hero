@@ -325,3 +325,49 @@ final class ConcurrentTouchControlTests: XCTestCase {
     XCTAssertEqual(simulation.player.hookshot.phase, .idle)
   }
 }
+
+@MainActor
+final class GameplayControlMetricsTests: XCTestCase {
+  func testBothLayoutsEnlargeControlsAndScaleKnobAndMarkers() {
+    XCTAssertEqual(GameplayControlMetrics.diameter(compact: true), 132)
+    XCTAssertEqual(GameplayControlMetrics.diameter(compact: false), 148)
+    XCTAssertGreaterThan(GameplayControlMetrics.compactDiameter, 116)
+    XCTAssertGreaterThan(GameplayControlMetrics.regularDiameter, 124)
+    XCTAssertEqual(GameplayControlMetrics.knobDiameter(for: 132), 58)
+    XCTAssertEqual(GameplayControlMetrics.knobDiameter(for: 148), 65)
+    XCTAssertEqual(GameplayControlMetrics.markerSize(for: 132), 12)
+    XCTAssertEqual(GameplayControlMetrics.markerSize(for: 148), 13)
+  }
+
+  func testEqualControlsFitNarrowAndStandardWidthsWithSeparation() {
+    for compact in [true, false] {
+      // Include the horizontal padding applied by GameplayView around the dock.
+      let viewportWidths: [CGFloat] = compact ? [320, 375] : [375, 390, 430]
+      for width in viewportWidths {
+        let outerPadding: CGFloat = compact ? 8 : 12
+        let gap = width - 2 * outerPadding
+          - 2 * GameplayControlMetrics.horizontalPadding(compact: compact)
+          - 2 * GameplayControlMetrics.diameter(compact: compact)
+        XCTAssertGreaterThanOrEqual(gap, GameplayControlMetrics.minimumGap(compact: compact))
+      }
+    }
+  }
+
+  func testScaledRadiiRetainDeadZoneAndDirectionCommandSemantics() {
+    XCTAssertEqual(VirtualJoystickController.deadZone, 0.22)
+    XCTAssertEqual(GrappleGestureController.aimThreshold, 24)
+    for compact in [true, false] {
+      let size = GameplayControlMetrics.diameter(compact: compact)
+      let radius = GameplayControlMetrics.usableRadius(for: size)
+      XCTAssertGreaterThan(radius, 0)
+      var controller = VirtualJoystickController()
+      XCTAssertTrue(controller.update(displacement: .init(dx: radius * 0.21, dy: 0),
+                                      usableRadius: radius).isEmpty)
+      XCTAssertEqual(controller.update(displacement: .init(dx: radius * 0.23, dy: 0),
+                                       usableRadius: radius), [.beginMove(.right)])
+      XCTAssertEqual(controller.update(displacement: .init(dx: radius * 0.8, dy: 0),
+                                       usableRadius: radius), [])
+      XCTAssertEqual(controller.cancel(), [.endMove(.right)])
+    }
+  }
+}
