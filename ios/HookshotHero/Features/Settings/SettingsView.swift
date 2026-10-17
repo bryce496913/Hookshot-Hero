@@ -31,6 +31,17 @@ struct SettingsView: View {
           }
         }
       }
+      AppInformationSection(title: "Audio", systemImage: "speaker.wave.2") {
+        Toggle(isOn: $store.settings.musicEnabled) {
+          AppSettingLabel(title: "Music", explanation: "Plays the original level themes during gameplay.")
+        }
+        .tint(AppTheme.Colors.accent).accessibilityIdentifier("musicToggle")
+        AppDivider()
+        Toggle(isOn: $store.settings.soundEffectsEnabled) {
+          AppSettingLabel(title: "Sound Effects", explanation: "Plays movement, combat, pickup and voice sounds.")
+        }
+        .tint(AppTheme.Colors.accent).accessibilityIdentifier("soundEffectsToggle")
+      }
       AppInformationSection(title: "Information", systemImage: "info.circle") {
         NavigationLink { SettingsHelpDestination() } label: {
           AppNavigationRow(title: "Help", systemImage: "questionmark.circle", subtitle: "Your dungeon guide")

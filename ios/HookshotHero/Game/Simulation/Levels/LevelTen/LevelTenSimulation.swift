@@ -248,7 +248,7 @@ struct GhostProjectileState: Identifiable, Equatable, Sendable {
       }.map(\.id))
     if !hits.isEmpty {
       projectiles.removeAll { hits.contains($0.id) }
-      damagePlayerFromGhost()
+      damagePlayerFromGhost(projectile: true)
     }
   }
 
@@ -293,8 +293,9 @@ struct GhostProjectileState: Identifiable, Equatable, Sendable {
           reason: .completedForward))
     }
   }
-  private func damagePlayerFromGhost() {
+  private func damagePlayerFromGhost(projectile: Bool = false) {
     guard player.damageCooldown <= 0 else { return }
+    if projectile { onAudioEvent?(.projectileImpact) }
     player.health -= 1
     player.damageCooldown = 0.75
     emit(.healthLost(amount: 1, source: .enemy(.ghostWizard)), at: player.position)

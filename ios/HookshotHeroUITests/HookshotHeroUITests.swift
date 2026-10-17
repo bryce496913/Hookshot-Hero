@@ -257,6 +257,28 @@ final class HookshotHeroUITests: XCTestCase {
     XCTAssertTrue(app.staticTexts["Hookshot Hero"].waitForExistence(timeout: 5))
     XCTAssertFalse(app.staticTexts["Native iOS development build"].exists)
   }
+  func testMusicAndSoundEffectsDefaultOnAndPersistIndependently() {
+    launch()
+    tapScrollable(app.buttons["settingsButton"])
+    let music = app.switches["musicToggle"], effects = app.switches["soundEffectsToggle"]
+    scrollTo(music)
+    XCTAssertEqual(music.value as? String, "1")
+    scrollTo(effects)
+    XCTAssertEqual(effects.value as? String, "1")
+    tapScrollable(music)
+    XCTAssertEqual(effects.value as? String, "1")
+    tapScrollable(effects)
+    tapScrollable(app.buttons["settingsDoneButton"])
+    app.terminate()
+    app.launchArguments.removeAll { $0 == "--reset-persistent-state" }
+    app.launch()
+    tapScrollable(app.buttons["settingsButton"])
+    scrollTo(music)
+    XCTAssertEqual(music.value as? String, "0")
+    scrollTo(effects)
+    XCTAssertEqual(effects.value as? String, "0")
+  }
+
   func testSettingsAreIsolated() {
     launch()
     tapScrollable(app.buttons["settingsButton"])

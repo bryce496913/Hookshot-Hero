@@ -10,11 +10,16 @@ struct HookshotHeroApp: App {
     init() {
         let environment = AppEnvironment.current()
         let progressionStore = ProgressionStore(repository: environment.progressionRepository)
-        _router = StateObject(wrappedValue: AppRouter(progressionStore: progressionStore,
-                                                       forcedOutcome: environment.forcedOutcome,
-                                                       levelSeed: environment.levelSeed,
-                                                       startConfiguration: environment.startConfiguration))
-        _settingsStore = StateObject(wrappedValue: SettingsStore(repository: environment.settingsRepository))
+        let settings = SettingsStore(repository: environment.settingsRepository)
+        let audio = GameAudioService(backend: AVGameAudioBackend(), settings: settings.settings)
+        let router = AppRouter(progressionStore: progressionStore,
+                               forcedOutcome: environment.forcedOutcome,
+                               levelSeed: environment.levelSeed,
+                               startConfiguration: environment.startConfiguration,
+                               audioService: audio)
+        router.bindAudioSettings(settings)
+        _router = StateObject(wrappedValue: router)
+        _settingsStore = StateObject(wrappedValue: settings)
     }
 
     var body: some Scene {

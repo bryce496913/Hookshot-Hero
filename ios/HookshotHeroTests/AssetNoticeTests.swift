@@ -8,6 +8,10 @@ final class AssetNoticeTests: XCTestCase {
     let notice = try String(contentsOf: noticeURL, encoding: .utf8)
     XCTAssertTrue(notice.contains("Release status: BLOCKED"))
 
+    for asset in GameAudioAsset.allCases {
+      XCTAssertTrue(notice.contains("`\(asset.rawValue)`"), "Missing audio audit record")
+    }
+
     let licenseURL = try XCTUnwrap(
       Bundle.main.url(forResource: "Hookshot-Hero-MIT", withExtension: "txt"))
     let license = try String(contentsOf: licenseURL, encoding: .utf8)

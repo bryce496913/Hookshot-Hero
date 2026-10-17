@@ -18,21 +18,35 @@ struct GameSettings: Codable, Equatable, Sendable {
     var reducedMotion: Bool
     var controlHintsEnabled: Bool
     var controlLayout: ControlLayout
+    var musicEnabled: Bool
+    var soundEffectsEnabled: Bool
 
     static let defaults = GameSettings(
         reducedMotion: false, controlHintsEnabled: true, controlLayout: .standard)
 
     init(
         reducedMotion: Bool = false, controlHintsEnabled: Bool = true,
-        controlLayout: ControlLayout = .standard
+        controlLayout: ControlLayout = .standard, musicEnabled: Bool = true, soundEffectsEnabled: Bool = true
     ) {
         self.reducedMotion = reducedMotion
         self.controlHintsEnabled = controlHintsEnabled
         self.controlLayout = controlLayout
+        self.musicEnabled = musicEnabled
+        self.soundEffectsEnabled = soundEffectsEnabled
     }
 
     init(from decoder: Decoder) throws {
         let values = try decoder.container(keyedBy: CodingKeys.self)
+        do { musicEnabled = try values.decodeIfPresent(Bool.self, forKey: .musicEnabled) ?? true }
+        catch {
+            musicEnabled = true
+            AppLog.persistence.error("Malformed music setting; default used: \(error.localizedDescription, privacy: .public)")
+        }
+        do { soundEffectsEnabled = try values.decodeIfPresent(Bool.self, forKey: .soundEffectsEnabled) ?? true }
+        catch {
+            soundEffectsEnabled = true
+            AppLog.persistence.error("Malformed effects setting; default used: \(error.localizedDescription, privacy: .public)")
+        }
         do { reducedMotion = try values.decodeIfPresent(Bool.self, forKey: .reducedMotion) ?? Self.defaults.reducedMotion }
         catch {
             reducedMotion = Self.defaults.reducedMotion

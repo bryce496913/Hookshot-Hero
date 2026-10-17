@@ -46,6 +46,7 @@ enum PauseReason: Equatable, Sendable { case user, applicationLifecycle }
   let isLeaderboardEligible: Bool
   private(set) var hasNaturalTerminalOutcome = false
   let configuration: GameConfiguration
+  private let audioService: any GameAudioServicing
   @Published private(set) var runtimeGeneration: Int = 0
   private(set) var runtime: GameLevelRuntime
   var simulation: any GameSimulation { runtime.simulation }
@@ -67,12 +68,14 @@ enum PauseReason: Equatable, Sendable { case user, applicationLifecycle }
     identifier: UUID = UUID(), missionID: MissionID? = nil,
     configuration: GameConfiguration = .init(reducedMotion: false, controlHintsEnabled: true),
     simulation: any GameSimulation, runtime suppliedRuntime: GameLevelRuntime? = nil,
-    publishesDiagnosticPosition: Bool = false, isLeaderboardEligible: Bool = false
+    publishesDiagnosticPosition: Bool = false, isLeaderboardEligible: Bool = false,
+    audioService: (any GameAudioServicing)? = nil
   ) {
     self.identifier = identifier
     self.isLeaderboardEligible = isLeaderboardEligible
     self.missionID = missionID
     self.configuration = configuration
+    self.audioService = audioService ?? SilentGameAudioService.shared
     if let suppliedRuntime {
       self.runtime = suppliedRuntime
     } else {
@@ -92,12 +95,13 @@ enum PauseReason: Equatable, Sendable { case user, applicationLifecycle }
     identifier: UUID = UUID(), missionID: MissionID? = nil,
     configuration: GameConfiguration = .init(reducedMotion: false, controlHintsEnabled: true),
     runtime: GameLevelRuntime, publishesDiagnosticPosition: Bool = false,
-    isLeaderboardEligible: Bool = false
+    isLeaderboardEligible: Bool = false, audioService: (any GameAudioServicing)? = nil
   ) {
     self.init(
       identifier: identifier, missionID: missionID, configuration: configuration,
       simulation: runtime.simulation, runtime: runtime,
-      publishesDiagnosticPosition: publishesDiagnosticPosition, isLeaderboardEligible: isLeaderboardEligible)
+      publishesDiagnosticPosition: publishesDiagnosticPosition, isLeaderboardEligible: isLeaderboardEligible,
+      audioService: audioService)
   }
 
   var score: Int { simulation.finalStatus.score }
@@ -119,6 +123,7 @@ enum PauseReason: Equatable, Sendable { case user, applicationLifecycle }
 
   @discardableResult func start() -> Bool {
     guard state == .initialized, applicationIsActive else { return false }
+    audioService.beginGameplay(levelID: levelID)
     pauseReason = nil
     state = .running
     simulation.setPaused(false)
@@ -187,6 +192,7 @@ enum PauseReason: Equatable, Sendable { case user, applicationLifecycle }
 
   func dispose() {
     guard state != .disposed else { return }
+    if isTerminal { audioService.endGameplay() } else { audioService.stopAll() }
     if !disposedSimulation {
       disposedSimulation = true
       simulation.dispose()
@@ -207,6 +213,10 @@ enum PauseReason: Equatable, Sendable { case user, applicationLifecycle }
   }
 
   private func bindSimulation() {
+    simulation.onAudioEvent = { [weak self] event in
+      guard let self, self.canSimulate else { return }
+      self.audioService.handle(event)
+    }
     simulation.onUISnapshotChange = { [weak self] _ in self?.refreshUISnapshot() }
     simulation.onOutcome = { [weak self] outcome in
       guard let self, self.state == .running else { return }
@@ -230,6 +240,7 @@ enum PauseReason: Equatable, Sendable { case user, applicationLifecycle }
     guard case .transitioning = state else { return }
     simulation.dispose()
     runtime = newRuntime
+    audioService.changeLevel(newRuntime.simulation.levelID)
     runtimeGeneration &+= 1
     pendingTransitionRequest = nil
     bindSimulation()
@@ -252,6 +263,7 @@ enum PauseReason: Equatable, Sendable { case user, applicationLifecycle }
   private func transitionToTerminal(_ outcome: GameOutcome) {
     guard state == .running else { return }
     simulation.cancelAllInput()
+    audioService.endGameplay()
     state = outcome == .won ? .won : .lost
     refreshUISnapshot()
   }

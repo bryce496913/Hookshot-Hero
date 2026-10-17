@@ -19,6 +19,7 @@ struct RootView: View {
                 help: router.showHelp,
                 highScores: router.showHighScores
             )
+            .onAppear(perform: router.menuDidAppear)
             .navigationDestination(for: AppRoute.self) { route in
                 switch route {
                 case .gameplay:
