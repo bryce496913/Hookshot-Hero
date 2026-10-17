@@ -29,6 +29,7 @@ import XCTest
     XCTAssertEqual(session.levelID, .countryRoad)
     XCTAssertTrue(router.isLevelSelectUnlocked)
     XCTAssertEqual(progression.progression.completedLevelIDs, [.levelTen])
+    XCTAssertTrue(progression.progression.highScoreEntries.isEmpty)
     XCTAssertEqual(repository.load(), .loaded(progression.progression))
     router.returnToMenu()
     XCTAssertTrue(router.path.isEmpty)

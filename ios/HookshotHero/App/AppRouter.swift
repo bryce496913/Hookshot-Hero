@@ -43,6 +43,7 @@ struct AppGameLoadingLogger: GameLoadingLogging {
   private let startConfiguration: GameStartConfiguration
   private let logger: any GameLoadingLogging
   private var gameConfiguration = GameConfiguration(reducedMotion: false, controlHintsEnabled: true)
+  private var pendingStartEligibility = false
   private var loadingRequestID: GameLoadingRequestID?
   init(
     progressionStore: ProgressionStore, forcedOutcome: GameOutcome? = nil,
@@ -67,7 +68,13 @@ struct AppGameLoadingLogger: GameLoadingLogging {
     configuration: GameConfiguration = .init(reducedMotion: false, controlHintsEnabled: true)
   ) {
     gameConfiguration = configuration
-    startGame(levelID: startConfiguration.initialLevelID)
+    var eligible = startConfiguration.initialLevelID == .levelOne && forcedOutcome == nil
+    #if DEBUG
+      // Explicit direct-level environment fixtures must never masquerade as normal Play.
+      if ProcessInfo.processInfo.environment["HOOKSHOT_START_LEVEL"] != nil { eligible = false }
+    #endif
+    startGame(levelID: startConfiguration.initialLevelID, isRetry: false,
+              requestID: .init(rawValue: UUID()), leaderboardEligible: eligible)
   }
   func startGame(levelID: LevelID) {
     startGame(levelID: levelID, isRetry: false, requestID: .init(rawValue: UUID()))
@@ -75,8 +82,10 @@ struct AppGameLoadingLogger: GameLoadingLogging {
   func setGameConfiguration(_ configuration: GameConfiguration) {
     gameConfiguration = configuration
   }
-  private func startGame(levelID: LevelID, isRetry: Bool, requestID: GameLoadingRequestID) {
+  private func startGame(levelID: LevelID, isRetry: Bool, requestID: GameLoadingRequestID,
+                         leaderboardEligible: Bool = false) {
     endActiveSession(expectedID: activeSession?.identifier)
+    pendingStartEligibility = leaderboardEligible
     loadingRequestID = requestID
     path.removeAll()
     do {
@@ -88,7 +97,7 @@ struct AppGameLoadingLogger: GameLoadingLogging {
       }
       let session = GameSession(
         configuration: gameConfiguration, runtime: runtime,
-        publishesDiagnosticPosition: levelSeed != nil)
+        publishesDiagnosticPosition: levelSeed != nil, isLeaderboardEligible: leaderboardEligible)
       guard session.initializeWorld(), session.start() else {
         session.dispose()
         handle(
@@ -114,6 +123,7 @@ struct AppGameLoadingLogger: GameLoadingLogging {
       #endif
       activeSession = session
       observe(session)
+      pendingStartEligibility = false
       loadingRequestID = nil
       path = [.gameplay]
     } catch {
@@ -134,7 +144,8 @@ struct AppGameLoadingLogger: GameLoadingLogging {
       performTransition(request, for: session, isRetry: true, requestID: retryID)
     } else {
       startGame(
-        levelID: failure.requestedLevelID, isRetry: true, requestID: .init(rawValue: UUID()))
+        levelID: failure.requestedLevelID, isRetry: true, requestID: .init(rawValue: UUID()),
+        leaderboardEligible: pendingStartEligibility)
     }
   }
   private func handle(
@@ -158,6 +169,7 @@ struct AppGameLoadingLogger: GameLoadingLogging {
     path = [.gameLoadingFailure(p)]
   }
   func startGame(session: GameSession) {
+    pendingStartEligibility = false
     endActiveSession(expectedID: activeSession?.identifier)
     loadingRequestID = nil
     activeSession = session
@@ -178,6 +190,7 @@ struct AppGameLoadingLogger: GameLoadingLogging {
   }
   func applicationDidBecomeActive() { activeSession?.applicationDidBecomeActive() }
   func returnToMenu() {
+    pendingStartEligibility = false
     loadingRequestID = nil
     endActiveSession(expectedID: activeSession?.identifier)
     path.removeAll()
@@ -192,7 +205,8 @@ struct AppGameLoadingLogger: GameLoadingLogging {
     let result = GameResult(
       sessionID: sessionID, levelID: session.levelID, missionID: session.missionID,
       score: session.score, elapsedTime: session.elapsedTime, outcome: outcome)
-    progressionStore.record(result: result)
+    progressionStore.record(result: result,
+                            leaderboardEligible: session.isLeaderboardEligible && forcedOutcome == nil)
     endActiveSession(expectedID: sessionID)
     path = [.results(result)]
   }
